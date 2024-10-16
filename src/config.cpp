@@ -535,7 +535,11 @@ void FilesystemConfiguration::read_workspaces(YAML::Node const& workspaces)
         if (!type || type.value() == ContainerType::none)
             continue;
 
-        options.workspace_configs.push_back({ num, type.value() });
+        std::string name;
+        if (!try_parse_value(workspace, "name", name, true))
+            continue;
+
+        options.workspace_configs.push_back({ num, type.value(), name });
     }
 }
 

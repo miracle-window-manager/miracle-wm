@@ -141,6 +141,7 @@ struct WorkspaceConfig
 {
     int num = -1;
     ContainerType layout = ContainerType::leaf;
+    std::string name;
 };
 
 enum class RenderFilter : int

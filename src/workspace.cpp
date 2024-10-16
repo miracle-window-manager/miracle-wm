@@ -62,6 +62,11 @@ private:
     Workspace* workspace;
 };
 
+std::string get_name(std::shared_ptr<MiracleConfig> const& config, int workspace)
+{
+    return config->get_workspace_config(workspace).name;
+}
+
 }
 
 Workspace::Workspace(
@@ -75,7 +80,7 @@ Workspace::Workspace(
     output { output },
     tools { tools },
     workspace { workspace },
-    name {},
+    name { ::get_name(config, workspace) },
     window_controller { window_controller },
     state { state },
     config { config },

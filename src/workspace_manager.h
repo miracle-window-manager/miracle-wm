@@ -30,18 +30,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 namespace miracle
 {
 
-using miral::Window;
-using miral::WindowInfo;
-using miral::WindowManagerTools;
-using miral::WindowSpecification;
-
 class Output;
 
+/// Keeps track of the available workspaces and maps them to outputs.
 class WorkspaceManager
 {
 public:
     explicit WorkspaceManager(
-        WindowManagerTools const& tools,
+        miral::WindowManagerTools const& tools,
         WorkspaceObserverRegistrar& registry,
         std::function<Output const*()> const& get_active_screen);
     virtual ~WorkspaceManager() = default;
@@ -77,7 +73,6 @@ public:
     /// for most situations.
     std::shared_ptr<Output> request_focus(int workspace);
 
-    static int constexpr NUM_WORKSPACES = 10;
     std::array<std::shared_ptr<Output>, NUM_WORKSPACES> const& get_output_to_workspace_mapping() { return output_to_workspace_mapping; }
 
 private:
@@ -87,7 +82,7 @@ private:
         std::weak_ptr<Output> output;
     };
 
-    WindowManagerTools tools_;
+    miral::WindowManagerTools tools_;
     WorkspaceObserverRegistrar& registry;
     std::function<Output const*()> get_active_screen;
     std::array<std::shared_ptr<Output>, NUM_WORKSPACES> output_to_workspace_mapping;
