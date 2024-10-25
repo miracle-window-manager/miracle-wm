@@ -22,9 +22,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "container.h"
 #include "direction.h"
 
+#include "minimal_window_manager.h"
 #include <glm/glm.hpp>
 #include <memory>
-#include <miral/minimal_window_manager.h>
 #include <miral/window_manager_tools.h>
 
 namespace miracle
@@ -54,7 +54,7 @@ public:
         std::shared_ptr<MiracleConfig> const& config,
         WindowController& window_controller,
         CompositorState const& state,
-        std::shared_ptr<miral::MinimalWindowManager> const& floating_window_manager);
+        std::shared_ptr<MinimalWindowManager> const& floating_window_manager);
 
     [[nodiscard]] int get_workspace() const;
     void set_area(mir::geometry::Rectangle const&);
@@ -95,7 +95,7 @@ private:
     WindowController& window_controller;
     CompositorState const& state;
     std::shared_ptr<MiracleConfig> config;
-    std::shared_ptr<miral::MinimalWindowManager> floating_window_manager;
+    std::shared_ptr<MinimalWindowManager> floating_window_manager;
 
     /// Retrieves the container that is currently being used for layout
     std::shared_ptr<ParentContainer> get_layout_container();

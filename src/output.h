@@ -23,9 +23,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "miral/window.h"
 #include "tiling_window_tree.h"
 
+#include "minimal_window_manager.h"
 #include "workspace.h"
 #include <memory>
-#include <miral/minimal_window_manager.h>
 #include <miral/output.h>
 #include <nlohmann/json.hpp>
 
@@ -45,7 +45,7 @@ public:
         WorkspaceManager& workspace_manager,
         geom::Rectangle const& area,
         miral::WindowManagerTools const& tools,
-        std::shared_ptr<miral::MinimalWindowManager> const& floating_window_manager,
+        std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
         CompositorState& state,
         std::shared_ptr<MiracleConfig> const& options,
         WindowController&,
@@ -105,7 +105,7 @@ private:
     miral::Output output;
     WorkspaceManager& workspace_manager;
     miral::WindowManagerTools tools;
-    std::shared_ptr<miral::MinimalWindowManager> floating_window_manager;
+    std::shared_ptr<MinimalWindowManager> floating_window_manager;
     CompositorState& state;
     geom::Rectangle area;
     std::shared_ptr<MiracleConfig> config;
