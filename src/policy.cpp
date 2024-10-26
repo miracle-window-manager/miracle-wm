@@ -53,7 +53,7 @@ Policy::Policy(
     CompositorState& compositor_state) :
     window_manager_tools { tools },
     state { compositor_state },
-    floating_window_manager(std::make_shared<miral::MinimalWindowManager>(tools, config->get_input_event_modifier())),
+    floating_window_manager(std::make_shared<MinimalWindowManager>(tools, config)),
     external_client_launcher { external_client_launcher },
     runner { runner },
     config { config },

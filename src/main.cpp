@@ -70,7 +70,7 @@ int main(int argc, char const* argv[])
     MirRunner runner { argc, argv };
     miracle::CompositorState compositor_state;
 
-    std::function<void()> shutdown_hook { [] { } };
+    std::function<void()> shutdown_hook { [] {} };
     runner.add_stop_callback([&]
     { shutdown_hook(); });
 

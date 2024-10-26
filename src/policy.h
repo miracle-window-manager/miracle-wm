@@ -24,16 +24,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "i3_command_executor.h"
 #include "ipc.h"
+#include "minimal_window_manager.h"
 #include "mode_observer.h"
 #include "output.h"
 #include "surface_tracker.h"
 #include "window_manager_tools_window_controller.h"
-
 #include "workspace_manager.h"
 
 #include <memory>
 #include <miral/internal_client.h>
-#include <miral/minimal_window_manager.h>
 #include <miral/output.h>
 #include <miral/window_management_policy.h>
 #include <miral/window_manager_tools.h>
@@ -151,7 +150,7 @@ private:
     AllocationHint pending_allocation;
     std::vector<Window> orphaned_window_list;
     miral::WindowManagerTools window_manager_tools;
-    std::shared_ptr<miral::MinimalWindowManager> floating_window_manager;
+    std::shared_ptr<MinimalWindowManager> floating_window_manager;
     AutoRestartingLauncher& external_client_launcher;
     miral::MirRunner& runner;
     std::shared_ptr<MiracleConfig> config;

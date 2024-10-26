@@ -1251,7 +1251,7 @@ FilesystemConfiguration::ConfigDetails::ConfigDetails()
          miracle_input_event_modifier_default | mir_input_event_modifier_shift,
          KEY_0     },
         { MirKeyboardAction ::mir_keyboard_action_down,
-         miracle_input_event_modifier_default,
+         miracle_input_event_modifier_default | mir_input_event_modifier_shift,
          KEY_SPACE },
         { MirKeyboardAction ::mir_keyboard_action_down,
          miracle_input_event_modifier_default | mir_input_event_modifier_shift,

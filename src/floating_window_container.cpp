@@ -33,7 +33,7 @@ using namespace miracle;
 
 FloatingWindowContainer::FloatingWindowContainer(
     miral::Window const& window,
-    std::shared_ptr<miral::MinimalWindowManager> const& wm,
+    std::shared_ptr<MinimalWindowManager> const& wm,
     WindowController& window_controller,
     Workspace* workspace,
     CompositorState const& state,

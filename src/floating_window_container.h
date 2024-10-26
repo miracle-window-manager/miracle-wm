@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MIRACLE_WM_FLOATING_WINDOW_CONTAINER_H
 
 #include "container.h"
-#include <miral/minimal_window_manager.h>
+#include "minimal_window_manager.h"
 #include <miral/window.h>
 
 namespace miracle
@@ -33,7 +33,7 @@ class FloatingWindowContainer : public Container
 public:
     FloatingWindowContainer(
         miral::Window const&,
-        std::shared_ptr<miral::MinimalWindowManager> const& wm,
+        std::shared_ptr<MinimalWindowManager> const& wm,
         WindowController& window_controller,
         Workspace* workspace,
         CompositorState const& state,
@@ -92,7 +92,7 @@ public:
 
 private:
     miral::Window window_;
-    std::shared_ptr<miral::MinimalWindowManager> wm;
+    std::shared_ptr<MinimalWindowManager> wm;
     WindowController& window_controller;
     CompositorState const& state;
     std::shared_ptr<MiracleConfig> config;
