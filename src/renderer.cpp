@@ -42,6 +42,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <mir/log.h>
 #include <mir/renderer/gl/gl_surface.h>
 #include <stdexcept>
+#include <mir/scene/surface.h>
 
 namespace mg = mir::graphics;
 namespace mgl = mir::gl;
@@ -78,7 +79,14 @@ public:
 
     [[nodiscard]] geom::Rectangle screen_position() const override
     {
-        return get_rectangle(renderable.screen_position());
+        auto surface = renderable.surface_if_any();
+        if (!surface)
+            return {};
+
+        return get_rectangle({
+            surface.value()->top_left(),
+            surface.value()->window_size()
+        });
     }
 
     [[nodiscard]] geom::RectangleD src_bounds() const override
@@ -229,7 +237,8 @@ Renderer::DrawData Renderer::get_draw_data(mir::graphics::Renderable const& rend
             auto& info = tools.info_for(window);
             auto userdata = static_pointer_cast<Container>(info.userdata());
             data.needs_outline = (userdata->get_type() == ContainerType::leaf || userdata->get_type() == ContainerType::floating_window)
-                && !info.parent();
+                && !info.parent()
+                && window.top_left() == renderable.screen_position().top_left; // HACK: This is a major hack! We only want the outline on the main layer, so we make sure that only renderables with the right top_left get an outline.
             data.workspace_transform = userdata->get_output_transform() * userdata->get_workspace_transform();
             data.is_focused = userdata->is_focused();
         }
