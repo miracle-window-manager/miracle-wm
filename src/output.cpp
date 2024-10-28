@@ -173,6 +173,10 @@ bool Output::advise_workspace_active(int key)
         return true;
     }
 
+    // Note: It is very important that [active_workspace] be modified before notifications
+    // are sent out.
+    active_workspace = key;
+
     auto from_src = get_workspace_rectangle(from->get_workspace());
     from->transfer_pinned_windows_to(to);
 
@@ -230,7 +234,6 @@ bool Output::advise_workspace_active(int key)
             workspace->trigger_rerender();
     });
 
-    active_workspace = key;
     return true;
 }
 

@@ -50,7 +50,8 @@ Policy::Policy(
     std::shared_ptr<MiracleConfig> const& config,
     SurfaceTracker& surface_tracker,
     mir::Server const& server,
-    CompositorState& compositor_state) :
+    CompositorState& compositor_state,
+    std::shared_ptr<WindowToolsAccessor> const& window_tools_accessor) :
     window_manager_tools { tools },
     state { compositor_state },
     floating_window_manager(std::make_shared<MinimalWindowManager>(tools, config)),
@@ -71,7 +72,7 @@ Policy::Policy(
     animator.start();
     workspace_observer_registrar.register_interest(ipc);
     mode_observer_registrar.register_interest(ipc);
-    WindowToolsAccessor::get_instance().set_tools(tools);
+    window_tools_accessor->set_tools(tools);
 }
 
 Policy::~Policy()
@@ -388,6 +389,9 @@ void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
         break;
     default:
     {
+        if (container->get_workspace() != state.active_output->get_active_workspace().get())
+            return;
+
         state.active = container;
         container->on_focus_gained();
         break;
@@ -542,6 +546,9 @@ void Policy::handle_modify_window(
         mir::log_error("handle_modify_window: container is not provided");
         return;
     }
+
+    if (container->get_workspace() != state.active_output->get_active_workspace().get())
+        return;
 
     container->handle_modify(modifications);
 }
