@@ -104,7 +104,7 @@ public:
 
     [[nodiscard]] float alpha() const override
     {
-        return _alpha;
+        return _alpha * renderable.alpha();
     }
 
     [[nodiscard]] glm::mat4 transformation() const override

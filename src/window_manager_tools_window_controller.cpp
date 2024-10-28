@@ -195,6 +195,9 @@ void WindowManagerToolsWindowController::on_animation(
         surface->set_transformation(result.transform.value());
     }
 
+    if (result.alpha)
+        surface->set_alpha(result.alpha.value());
+
     // NOTE: The clip area needs to reflect the current position + transform of the window.
     // Failing to set a clip area will cause overflowing windows to briefly disregard their
     // compacted size.

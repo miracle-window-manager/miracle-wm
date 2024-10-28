@@ -334,6 +334,16 @@ AnimationStepResult Animation::step()
             0, 0, 0, 1);
         return { handle, false, std::nullopt, std::nullopt, transform };
     }
+    case AnimationType::fade_in:
+    {
+        auto p = ease(definition, t);
+        return { handle, false, std::nullopt, std::nullopt, std::nullopt, p };
+    }
+    case AnimationType::fade_out:
+    {
+        auto p = 1.f - ease(definition, t);
+        return { handle, false, std::nullopt, std::nullopt, std::nullopt, p };
+    }
     case AnimationType::disabled:
     default:
         return {

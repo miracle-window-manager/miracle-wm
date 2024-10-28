@@ -77,6 +77,8 @@ enum class AnimationType
     slide,
     grow,
     shrink,
+    fade_in,
+    fade_out,
     max
 };
 
