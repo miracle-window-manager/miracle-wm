@@ -15,6 +15,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
+#include "mir_toolkit/common.h"
 #define MIR_LOG_COMPONENT "floating_container"
 
 #include "floating_window_container.h"
@@ -206,10 +207,11 @@ void FloatingWindowContainer::show()
 
 void FloatingWindowContainer::hide()
 {
+    if (is_pinned)
+        return;
+    
     restore_state_ = window_controller.info_for(window_).state();
-    miral::WindowSpecification spec;
-    spec.state() = mir_window_state_hidden;
-    window_controller.modify(window_, spec);
+    window_controller.change_state(window_, mir_window_state_hidden);
     window_controller.send_to_back(window_);
 }
 

@@ -147,7 +147,8 @@ Renderer::Renderer(
     std::unique_ptr<mir::graphics::gl::OutputSurface> output,
     std::shared_ptr<MiracleConfig> const& config,
     SurfaceTracker& surface_tracker,
-    CompositorState const& compositor_state) :
+    CompositorState const& compositor_state,
+    std::shared_ptr<WindowToolsAccessor> const& accessor) :
     output_surface { make_output_current(std::move(output)) },
     clear_color { 0.0f, 0.0f, 0.0f, 1.0f },
     program_factory { std::make_unique<ProgramFactory>() },
@@ -156,7 +157,8 @@ Renderer::Renderer(
     gl_interface { std::move(gl_interface) },
     config { config },
     surface_tracker { surface_tracker },
-    compositor_state { compositor_state }
+    compositor_state { compositor_state },
+    accessor { accessor}
 {
     // http://directx.com/2014/06/egl-understanding-eglchooseconfig-then-ignoring-it/
     eglBindAPI(EGL_OPENGL_ES_API);
@@ -233,8 +235,7 @@ Renderer::DrawData Renderer::get_draw_data(mir::graphics::Renderable const& rend
         auto window = surface_tracker.get(surface.value());
         if (window)
         {
-            auto tools = WindowToolsAccessor::get_instance().get_tools();
-            auto& info = tools.info_for(window);
+            auto const& info = accessor->get_tools().info_for(window);
             auto userdata = static_pointer_cast<Container>(info.userdata());
             data.needs_outline = (userdata->get_type() == ContainerType::leaf || userdata->get_type() == ContainerType::floating_window)
                 && !info.parent()

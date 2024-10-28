@@ -48,6 +48,7 @@ namespace miracle
 
 class Container;
 class ContainerGroupContainer;
+class WindowToolsAccessor;
 
 class Policy : public miral::WindowManagementPolicy
 {
@@ -59,7 +60,8 @@ public:
         std::shared_ptr<MiracleConfig> const&,
         SurfaceTracker&,
         mir::Server const&,
-        CompositorState&);
+        CompositorState&,
+        std::shared_ptr<WindowToolsAccessor> const&);
     ~Policy() override;
 
     // Interactions with the engine
