@@ -1,0 +1,3 @@
+option('sd-bus-provider', type: 'combo', choices: ['auto', 'libsystemd', 'libelogind', 'basu'], value: 'auto', description: 'Provider of the sd-bus library')
+option('systemd', type: 'feature', value: 'auto', description: 'Install systemd user service unit')
+option('man-pages', type: 'feature', value: 'auto', description: 'Generate and install man pages')
