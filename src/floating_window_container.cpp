@@ -18,9 +18,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "mir_toolkit/common.h"
 #define MIR_LOG_COMPONENT "floating_container"
 
-#include "floating_window_container.h"
 #include "compositor_state.h"
 #include "config.h"
+#include "floating_window_container.h"
 #include "leaf_container.h"
 #include "output.h"
 #include "workspace.h"
@@ -209,7 +209,7 @@ void FloatingWindowContainer::hide()
 {
     if (is_pinned)
         return;
-    
+
     restore_state_ = window_controller.info_for(window_).state();
     window_controller.change_state(window_, mir_window_state_hidden);
     window_controller.send_to_back(window_);

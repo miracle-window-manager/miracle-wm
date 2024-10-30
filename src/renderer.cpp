@@ -41,8 +41,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <mir/graphics/texture.h>
 #include <mir/log.h>
 #include <mir/renderer/gl/gl_surface.h>
-#include <stdexcept>
 #include <mir/scene/surface.h>
+#include <stdexcept>
 
 namespace mg = mir::graphics;
 namespace mgl = mir::gl;
@@ -83,10 +83,8 @@ public:
         if (!surface)
             return {};
 
-        return get_rectangle({
-            surface.value()->top_left(),
-            surface.value()->window_size()
-        });
+        return get_rectangle({ surface.value()->top_left(),
+            surface.value()->window_size() });
     }
 
     [[nodiscard]] geom::RectangleD src_bounds() const override
@@ -158,7 +156,7 @@ Renderer::Renderer(
     config { config },
     surface_tracker { surface_tracker },
     compositor_state { compositor_state },
-    accessor { accessor}
+    accessor { accessor }
 {
     // http://directx.com/2014/06/egl-understanding-eglchooseconfig-then-ignoring-it/
     eglBindAPI(EGL_OPENGL_ES_API);
