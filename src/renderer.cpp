@@ -41,6 +41,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <mir/graphics/texture.h>
 #include <mir/log.h>
 #include <mir/renderer/gl/gl_surface.h>
+#include <mir/scene/surface.h>
 #include <stdexcept>
 
 namespace mg = mir::graphics;
@@ -78,7 +79,12 @@ public:
 
     [[nodiscard]] geom::Rectangle screen_position() const override
     {
-        return get_rectangle(renderable.screen_position());
+        auto surface = renderable.surface_if_any();
+        if (!surface)
+            return {};
+
+        return get_rectangle({ surface.value()->top_left(),
+            surface.value()->window_size() });
     }
 
     [[nodiscard]] geom::RectangleD src_bounds() const override
@@ -139,7 +145,8 @@ Renderer::Renderer(
     std::unique_ptr<mir::graphics::gl::OutputSurface> output,
     std::shared_ptr<MiracleConfig> const& config,
     SurfaceTracker& surface_tracker,
-    CompositorState const& compositor_state) :
+    CompositorState const& compositor_state,
+    std::shared_ptr<WindowToolsAccessor> const& accessor) :
     output_surface { make_output_current(std::move(output)) },
     clear_color { 0.0f, 0.0f, 0.0f, 1.0f },
     program_factory { std::make_unique<ProgramFactory>() },
@@ -148,7 +155,8 @@ Renderer::Renderer(
     gl_interface { std::move(gl_interface) },
     config { config },
     surface_tracker { surface_tracker },
-    compositor_state { compositor_state }
+    compositor_state { compositor_state },
+    accessor { accessor }
 {
     // http://directx.com/2014/06/egl-understanding-eglchooseconfig-then-ignoring-it/
     eglBindAPI(EGL_OPENGL_ES_API);
@@ -225,11 +233,11 @@ Renderer::DrawData Renderer::get_draw_data(mir::graphics::Renderable const& rend
         auto window = surface_tracker.get(surface.value());
         if (window)
         {
-            auto tools = WindowToolsAccessor::get_instance().get_tools();
-            auto& info = tools.info_for(window);
+            auto const& info = accessor->get_tools().info_for(window);
             auto userdata = static_pointer_cast<Container>(info.userdata());
             data.needs_outline = (userdata->get_type() == ContainerType::leaf || userdata->get_type() == ContainerType::floating_window)
-                && !info.parent();
+                && !info.parent()
+                && window.top_left() == renderable.screen_position().top_left; // HACK: This is a major hack! We only want the outline on the main layer, so we make sure that only renderables with the right top_left get an outline.
             data.workspace_transform = userdata->get_output_transform() * userdata->get_workspace_transform();
             data.is_focused = userdata->is_focused();
         }

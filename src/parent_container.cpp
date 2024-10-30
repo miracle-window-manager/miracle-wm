@@ -97,7 +97,8 @@ ParentContainer::ParentContainer(
     tree { tree },
     config { config },
     parent { parent },
-    state { state }
+    state { state },
+    scheme { config->get_default_layout_scheme() }
 {
 }
 
@@ -432,14 +433,6 @@ const std::vector<std::shared_ptr<Container>>& ParentContainer::get_sub_nodes() 
     return sub_nodes;
 }
 
-void ParentContainer::set_direction(miracle::LayoutScheme new_scheme)
-{
-    scheme = new_scheme;
-    relayout();
-    constrain();
-    commit_changes();
-}
-
 void ParentContainer::swap_nodes(std::shared_ptr<Container> const& first, std::shared_ptr<Container> const& second)
 {
     auto first_index = get_index_of_node(first);
@@ -469,7 +462,7 @@ void ParentContainer::remove(const std::shared_ptr<Container>& node)
             sub_nodes.push_back(sub_node);
             sub_node->set_parent(as_parent(shared_from_this()));
         }
-        set_direction(dying_lane->get_direction());
+        set_layout(dying_lane->get_direction());
     }
 
     relayout();
@@ -611,14 +604,29 @@ bool ParentContainer::toggle_fullscreen()
 
 void ParentContainer::request_horizontal_layout()
 {
+    scheme = LayoutScheme::horizontal;
+    relayout();
 }
 
 void ParentContainer::request_vertical_layout()
 {
+    scheme = LayoutScheme::vertical;
+    relayout();
 }
 
-void ParentContainer::toggle_layout()
+void ParentContainer::toggle_layout(bool cycle_thru_all)
 {
+    if (cycle_thru_all)
+        scheme = get_next_layout(scheme);
+    else
+    {
+        if (scheme == LayoutScheme::vertical)
+            scheme == LayoutScheme::horizontal;
+        else if (scheme == LayoutScheme::horizontal)
+            scheme = LayoutScheme::vertical;
+    }
+
+    relayout();
 }
 
 void ParentContainer::set_tree(TilingWindowTree* tree_)
@@ -776,6 +784,20 @@ bool ParentContainer::toggle_stacking()
 
     relayout();
     return true;
+}
+
+bool ParentContainer::set_layout(LayoutScheme new_scheme)
+{
+    scheme = new_scheme;
+    relayout();
+    constrain();
+    commit_changes();
+    return true;
+}
+
+LayoutScheme ParentContainer::get_layout() const
+{
+    return scheme;
 }
 
 nlohmann::json ParentContainer::to_json() const

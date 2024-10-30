@@ -122,6 +122,11 @@ namespace test
             return 0;
         }
 
+        LayoutScheme get_default_layout_scheme() const override
+        {
+            return LayoutScheme::horizontal;
+        }
+
     private:
         miracle::BorderConfig border_config;
         std::array<AnimationDefinition, (int)AnimateableEvent::max> animations;

@@ -211,12 +211,12 @@ void ContainerGroupContainer::request_vertical_layout()
     }
 }
 
-void ContainerGroupContainer::toggle_layout()
+void ContainerGroupContainer::toggle_layout(bool cycle_thru_all)
 {
     for (auto const& container : containers)
     {
         if (auto c = container.lock())
-            c->toggle_layout();
+            c->toggle_layout(cycle_thru_all);
     }
 }
 

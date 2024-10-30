@@ -52,7 +52,6 @@ public:
     void graft_existing(std::shared_ptr<Container> const& node, int index);
     std::shared_ptr<ParentContainer> convert_to_parent(std::shared_ptr<Container> const& container);
     void set_logical_area(geom::Rectangle const& target_rect) override;
-    void set_direction(LayoutScheme direction);
     void swap_nodes(std::shared_ptr<Container> const& first, std::shared_ptr<Container> const& second);
     void remove(std::shared_ptr<Container> const& node);
     void commit_changes() override;
@@ -78,7 +77,7 @@ public:
     bool toggle_fullscreen() override;
     void request_horizontal_layout() override;
     void request_vertical_layout() override;
-    void toggle_layout() override;
+    void toggle_layout(bool cycle_thru_all) override;
     void set_tree(TilingWindowTree*);
     void on_focus_gained() override;
     void on_focus_lost() override;
@@ -108,6 +107,8 @@ public:
     bool is_fullscreen() const override;
     bool toggle_tabbing() override;
     bool toggle_stacking() override;
+    bool set_layout(LayoutScheme scheme) override;
+    LayoutScheme get_layout() const override;
     nlohmann::json to_json() const override;
     [[nodiscard]] LayoutScheme get_scheme() const { return scheme; }
 

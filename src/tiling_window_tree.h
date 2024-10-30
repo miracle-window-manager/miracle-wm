@@ -85,6 +85,8 @@ public:
 
     bool has_fullscreen_window() const { return is_active_window_fullscreen; }
 
+    void request_layout(Container&, LayoutScheme);
+
     /// Request a change to vertical window placement
     void request_vertical_layout(Container&);
 
@@ -98,7 +100,7 @@ public:
     void request_stacking_layout(Container&);
 
     // Request a change from the current layout scheme to another layout scheme
-    void toggle_layout(Container&);
+    void toggle_layout(Container&, bool cycle_thru_all);
 
     /// Advises us to focus the provided container.
     void advise_focus_gained(LeafContainer&);

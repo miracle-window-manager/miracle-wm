@@ -39,14 +39,9 @@ namespace window_helpers
         if (has_exclusive_rect || is_attached)
             return ContainerType::shell;
 
-        if (requested_specification.state().is_set() && requested_specification.state().value() > (int)mir_window_state_restored)
-            return ContainerType::floating_window;
-
         auto t = requested_specification.type();
         if (t == mir_window_type_normal || t == mir_window_type_freestyle)
-        {
             return ContainerType::none;
-        }
 
         return ContainerType::shell;
     }

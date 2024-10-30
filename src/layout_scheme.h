@@ -22,14 +22,15 @@ namespace miracle
 {
 enum class LayoutScheme
 {
+    stacking,
+    tabbing,
     horizontal,
     vertical,
-    tabbing,
-    stacking,
     none
 };
 
 const char* to_string(LayoutScheme);
+LayoutScheme get_next_layout(LayoutScheme);
 }
 
 #endif

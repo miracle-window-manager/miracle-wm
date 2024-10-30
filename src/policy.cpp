@@ -50,10 +50,11 @@ Policy::Policy(
     std::shared_ptr<MiracleConfig> const& config,
     SurfaceTracker& surface_tracker,
     mir::Server const& server,
-    CompositorState& compositor_state) :
+    CompositorState& compositor_state,
+    std::shared_ptr<WindowToolsAccessor> const& window_tools_accessor) :
     window_manager_tools { tools },
     state { compositor_state },
-    floating_window_manager(std::make_shared<miral::MinimalWindowManager>(tools, config->get_input_event_modifier())),
+    floating_window_manager(std::make_shared<MinimalWindowManager>(tools, config)),
     external_client_launcher { external_client_launcher },
     runner { runner },
     config { config },
@@ -71,7 +72,7 @@ Policy::Policy(
     animator.start();
     workspace_observer_registrar.register_interest(ipc);
     mode_observer_registrar.register_interest(ipc);
-    WindowToolsAccessor::get_instance().set_tools(tools);
+    window_tools_accessor->set_tools(tools);
 }
 
 Policy::~Policy()
@@ -388,6 +389,9 @@ void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
         break;
     default:
     {
+        if (container->get_workspace() != state.active_output->get_active_workspace().get())
+            return;
+
         state.active = container;
         container->on_focus_gained();
         break;
@@ -546,6 +550,9 @@ void Policy::handle_modify_window(
         return;
     }
 
+    if (container->get_workspace() != state.active_output->get_active_workspace().get())
+        return;
+
     container->handle_modify(modifications);
 }
 
@@ -670,7 +677,7 @@ bool Policy::try_request_vertical()
     return true;
 }
 
-bool Policy::try_toggle_layout()
+bool Policy::try_toggle_layout(bool cycle_thru_all)
 {
     if (state.mode == WindowManagerMode::resizing)
         return false;
@@ -678,7 +685,7 @@ bool Policy::try_toggle_layout()
     if (!state.active)
         return false;
 
-    state.active->toggle_layout();
+    state.active->toggle_layout(cycle_thru_all);
     return true;
 }
 
@@ -981,10 +988,7 @@ bool Policy::set_is_pinned(bool pinned)
 
 bool Policy::toggle_tabbing()
 {
-    if (state.mode == WindowManagerMode::resizing)
-        return false;
-
-    if (!state.active)
+    if (!can_set_layout())
         return false;
 
     return state.active->toggle_tabbing();
@@ -992,11 +996,35 @@ bool Policy::toggle_tabbing()
 
 bool Policy::toggle_stacking()
 {
+    if (!can_set_layout())
+        return false;
+
+    return state.active->toggle_stacking();
+}
+
+bool Policy::set_layout(LayoutScheme scheme)
+{
+    if (!can_set_layout())
+        return false;
+
+    return state.active->set_layout(scheme);
+}
+
+bool Policy::set_layout_default()
+{
+    if (!can_set_layout())
+        return false;
+
+    return state.active->set_layout(config->get_default_layout_scheme());
+};
+
+bool Policy::can_set_layout() const
+{
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
     if (!state.active)
         return false;
 
-    return state.active->toggle_stacking();
+    return true;
 }

@@ -42,7 +42,7 @@ Output::Output(
     WorkspaceManager& workspace_manager,
     geom::Rectangle const& area,
     miral::WindowManagerTools const& tools,
-    std::shared_ptr<miral::MinimalWindowManager> const& floating_window_manager,
+    std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
     CompositorState& state,
     std::shared_ptr<MiracleConfig> const& config,
     WindowController& node_interface,
@@ -173,6 +173,10 @@ bool Output::advise_workspace_active(int key)
         return true;
     }
 
+    // Note: It is very important that [active_workspace] be modified before notifications
+    // are sent out.
+    active_workspace = key;
+
     auto from_src = get_workspace_rectangle(from->get_workspace());
     from->transfer_pinned_windows_to(to);
 
@@ -230,7 +234,6 @@ bool Output::advise_workspace_active(int key)
             workspace->trigger_rerender();
     });
 
-    active_workspace = key;
     return true;
 }
 

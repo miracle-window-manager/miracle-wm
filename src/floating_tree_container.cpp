@@ -165,7 +165,7 @@ void FloatingTreeContainer::request_vertical_layout()
 {
 }
 
-void FloatingTreeContainer::toggle_layout()
+void FloatingTreeContainer::toggle_layout(bool)
 {
 }
 

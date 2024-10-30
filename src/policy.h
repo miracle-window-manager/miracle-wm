@@ -24,16 +24,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "i3_command_executor.h"
 #include "ipc.h"
+#include "minimal_window_manager.h"
 #include "mode_observer.h"
 #include "output.h"
 #include "surface_tracker.h"
 #include "window_manager_tools_window_controller.h"
-
 #include "workspace_manager.h"
 
 #include <memory>
 #include <miral/internal_client.h>
-#include <miral/minimal_window_manager.h>
 #include <miral/output.h>
 #include <miral/window_management_policy.h>
 #include <miral/window_manager_tools.h>
@@ -49,6 +48,7 @@ namespace miracle
 
 class Container;
 class ContainerGroupContainer;
+class WindowToolsAccessor;
 
 class Policy : public miral::WindowManagementPolicy
 {
@@ -60,7 +60,8 @@ public:
         std::shared_ptr<MiracleConfig> const&,
         SurfaceTracker&,
         mir::Server const&,
-        CompositorState&);
+        CompositorState&,
+        std::shared_ptr<WindowToolsAccessor> const&);
     ~Policy() override;
 
     // Interactions with the engine
@@ -103,7 +104,7 @@ public:
 
     bool try_request_horizontal();
     bool try_request_vertical();
-    bool try_toggle_layout();
+    bool try_toggle_layout(bool cycle_through_all);
     void try_toggle_resize_mode();
     bool try_resize(Direction direction);
     bool try_move(Direction direction);
@@ -130,6 +131,8 @@ public:
     bool set_is_pinned(bool);
     bool toggle_tabbing();
     bool toggle_stacking();
+    bool set_layout(LayoutScheme scheme);
+    bool set_layout_default();
 
     // Getters
 
@@ -140,6 +143,7 @@ public:
 
 private:
     bool can_move_container() const;
+    bool can_set_layout() const;
 
     bool is_starting_ = true;
     CompositorState& state;
@@ -148,7 +152,7 @@ private:
     AllocationHint pending_allocation;
     std::vector<Window> orphaned_window_list;
     miral::WindowManagerTools window_manager_tools;
-    std::shared_ptr<miral::MinimalWindowManager> floating_window_manager;
+    std::shared_ptr<MinimalWindowManager> floating_window_manager;
     AutoRestartingLauncher& external_client_launcher;
     miral::MirRunner& runner;
     std::shared_ptr<MiracleConfig> config;

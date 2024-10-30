@@ -66,11 +66,6 @@ miral::WindowSpecification TilingWindowTree::place_new_window(
     const miral::WindowSpecification& requested_specification,
     std::shared_ptr<ParentContainer> const& parent_)
 {
-    assert(
-        !requested_specification.state().is_set()
-        || requested_specification.state() == mir_window_state_restored
-        || requested_specification.state() == mir_window_state_unknown);
-
     auto parent = parent_ ? parent_ : root_lane;
     auto container = parent->create_space_for_window();
     auto rect = container->get_visible_area();
@@ -242,6 +237,11 @@ bool TilingWindowTree::move_container(miracle::Direction direction, Container& c
     return true;
 }
 
+void TilingWindowTree::request_layout(Container& container, miracle::LayoutScheme scheme)
+{
+    handle_layout_scheme(scheme, container);
+}
+
 void TilingWindowTree::request_vertical_layout(Container& container)
 {
     handle_layout_scheme(LayoutScheme::vertical, container);
@@ -262,18 +262,26 @@ void TilingWindowTree::request_stacking_layout(Container& container)
     handle_layout_scheme(LayoutScheme::stacking, container);
 }
 
-void TilingWindowTree::toggle_layout(Container& container)
+void TilingWindowTree::toggle_layout(Container& container, bool cycle_thru_all)
 {
     auto parent = Container::as_parent(container.get_parent().lock());
     if (!parent)
+    {
+        mir::log_error("toggle_layout: unable to get parent container");
         return;
+    }
 
-    if (parent->get_direction() == LayoutScheme::horizontal)
-        handle_layout_scheme(LayoutScheme::vertical, container);
-    else if (parent->get_direction() == LayoutScheme::vertical)
-        handle_layout_scheme(LayoutScheme::horizontal, container);
+    if (cycle_thru_all)
+        handle_layout_scheme(get_next_layout(parent->get_direction()), container);
     else
-        mir::log_error("Parent with stack layout scheme cannot be toggled");
+    {
+        if (parent->get_direction() == LayoutScheme::horizontal)
+            handle_layout_scheme(LayoutScheme::vertical, container);
+        else if (parent->get_direction() == LayoutScheme::vertical)
+            handle_layout_scheme(LayoutScheme::horizontal, container);
+        else
+            mir::log_error("Parent with stack layout scheme cannot be toggled");
+    }
 }
 
 void TilingWindowTree::handle_layout_scheme(LayoutScheme scheme, Container& container)
@@ -299,7 +307,7 @@ void TilingWindowTree::handle_layout_scheme(LayoutScheme scheme, Container& cont
         && parent->get_direction() != LayoutScheme::stacking)
         parent = parent->convert_to_parent(container.shared_from_this());
 
-    parent->set_direction(scheme);
+    parent->set_layout(scheme);
 }
 
 void TilingWindowTree::advise_focus_gained(LeafContainer& container)
@@ -466,7 +474,7 @@ TilingWindowTree::MoveResult TilingWindowTree::handle_move(Container& from, Dire
             this,
             nullptr,
             state);
-        after_root_lane->set_direction(new_layout_direction);
+        after_root_lane->set_layout(new_layout_direction);
         after_root_lane->graft_existing(root_lane, 0);
         root_lane = after_root_lane;
         recalculate_root_node_area();

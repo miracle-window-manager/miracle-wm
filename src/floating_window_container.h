@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MIRACLE_WM_FLOATING_WINDOW_CONTAINER_H
 
 #include "container.h"
-#include <miral/minimal_window_manager.h>
+#include "minimal_window_manager.h"
 #include <miral/window.h>
 
 namespace miracle
@@ -33,7 +33,7 @@ class FloatingWindowContainer : public Container
 public:
     FloatingWindowContainer(
         miral::Window const&,
-        std::shared_ptr<miral::MinimalWindowManager> const& wm,
+        std::shared_ptr<MinimalWindowManager> const& wm,
         WindowController& window_controller,
         Workspace* workspace,
         CompositorState const& state,
@@ -61,7 +61,7 @@ public:
     bool toggle_fullscreen() override;
     void request_horizontal_layout() override;
     void request_vertical_layout() override;
-    void toggle_layout() override;
+    void toggle_layout(bool) override;
     bool pinned() const override;
     bool pinned(bool) override;
     [[nodiscard]] std::optional<miral::Window> window() const override;
@@ -85,12 +85,14 @@ public:
     bool move_to(int, int) override;
     bool toggle_tabbing() override { return false; };
     bool toggle_stacking() override { return false; };
+    bool set_layout(LayoutScheme scheme) override { return false; }
+    LayoutScheme get_layout() const override { return LayoutScheme::none; }
     std::weak_ptr<ParentContainer> get_parent() const override;
     nlohmann::json to_json() const override;
 
 private:
     miral::Window window_;
-    std::shared_ptr<miral::MinimalWindowManager> wm;
+    std::shared_ptr<MinimalWindowManager> wm;
     WindowController& window_controller;
     CompositorState const& state;
     std::shared_ptr<MiracleConfig> config;

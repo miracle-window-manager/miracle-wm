@@ -76,6 +76,9 @@ void I3CommandExecutor::process(miracle::I3ScopedCommandList const& command_list
         case I3CommandType::workspace:
             process_workspace(command, command_list);
             break;
+        case I3CommandType::layout:
+            process_layout(command, command_list);
+            break;
         default:
             break;
         }
@@ -109,21 +112,23 @@ void I3CommandExecutor::process_exec(miracle::I3Command const& command, miracle:
         return;
     }
 
-    size_t arg_index = 0;
     bool no_startup_id = false;
-    if (command.arguments[arg_index] == "--no-startup-id")
-    {
+    if (!command.options.empty() && command.options[0] == "--no-startup-id")
         no_startup_id = true;
-        arg_index++;
-    }
 
-    if (arg_index >= command.arguments.size())
+    if (command.arguments.empty())
     {
         mir::log_warning("process_exec: argument does not have a command to run");
         return;
     }
 
-    StartupApp app { command.arguments[arg_index], false, no_startup_id };
+    std::string exec_cmd;
+    for (auto const& arg : command.arguments)
+    {
+        exec_cmd += arg + " ";
+    }
+
+    StartupApp app { exec_cmd, false, no_startup_id };
     launcher.launch(app);
 }
 
@@ -145,7 +150,7 @@ void I3CommandExecutor::process_split(miracle::I3Command const& command, miracle
     }
     else if (command.arguments.front() == "toggle")
     {
-        policy.try_toggle_layout();
+        policy.try_toggle_layout(false);
     }
     else
     {
@@ -600,6 +605,115 @@ void I3CommandExecutor::process_workspace(I3Command const& command, I3ScopedComm
         {
             // We have "workspace <name>"
             policy.select_workspace(*arg1, back_and_forth);
+        }
+    }
+}
+
+void I3CommandExecutor::process_layout(I3Command const& command, I3ScopedCommandList const& command_list)
+{
+    // https://i3wm.org/docs/userguide.html#manipulating_layout
+    std::string const& arg0 = command.arguments[0];
+    if (arg0 == "default")
+        policy.set_layout_default();
+    else if (arg0 == "tabbed")
+        policy.set_layout(LayoutScheme::tabbing);
+    else if (arg0 == "stacking")
+        policy.set_layout(LayoutScheme::stacking);
+    else if (arg0 == "splitv")
+        policy.set_layout(LayoutScheme::vertical);
+    else if (arg0 == "splith")
+        policy.set_layout(LayoutScheme::horizontal);
+    else if (arg0 == "toggle")
+    {
+        if (command.arguments.size() == 1)
+        {
+            mir::log_error("process_layout: expected argument after 'layout toggle ...'");
+            return;
+        }
+
+        if (command.arguments.size() == 2)
+        {
+            auto const& arg1 = command.arguments[1];
+            if (arg1 == "split")
+                policy.try_toggle_layout(false);
+            else if (arg1 == "all")
+                policy.try_toggle_layout(true);
+            else
+                mir::log_error("process_layout: expected split/all after 'layout toggle X'");
+
+            return;
+        }
+        else
+        {
+            auto const& container = policy.get_state().active;
+            if (!container)
+            {
+                mir::log_error("process_layout: container unavailable");
+                return;
+            }
+
+            auto current_type = container->get_layout();
+            size_t index = 0;
+            for (size_t i = 1; i < command.arguments.size(); i++)
+            {
+                auto const& argn = command.arguments[i];
+                if (argn == "split")
+                {
+                    if (current_type == LayoutScheme::horizontal || current_type == LayoutScheme::vertical)
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+                else if (argn == "tabbed")
+                {
+                    if (current_type == LayoutScheme::tabbing)
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+                else if (argn == "stacking")
+                {
+                    if (current_type == LayoutScheme::stacking)
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+                else if (argn == "splitv")
+                {
+                    if (current_type == LayoutScheme::vertical)
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+                else if (argn == "splith")
+                {
+                    if (current_type == LayoutScheme::horizontal)
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+            }
+
+            index++;
+            if (index == command.arguments.size())
+                index = 1;
+
+            auto const& target = command.arguments[index];
+            if (target == "split")
+                policy.try_toggle_layout(false);
+            else if (target == "tabbed")
+                policy.set_layout(LayoutScheme::tabbing);
+            else if (target == "stacking")
+                policy.set_layout(LayoutScheme::stacking);
+            else if (target == "splitv")
+                policy.set_layout(LayoutScheme::vertical);
+            else if (target == "splith")
+                policy.set_layout(LayoutScheme::horizontal);
         }
     }
 }

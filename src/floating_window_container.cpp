@@ -15,11 +15,12 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
+#include "mir_toolkit/common.h"
 #define MIR_LOG_COMPONENT "floating_container"
 
-#include "floating_window_container.h"
 #include "compositor_state.h"
 #include "config.h"
+#include "floating_window_container.h"
 #include "leaf_container.h"
 #include "output.h"
 #include "workspace.h"
@@ -33,7 +34,7 @@ using namespace miracle;
 
 FloatingWindowContainer::FloatingWindowContainer(
     miral::Window const& window,
-    std::shared_ptr<miral::MinimalWindowManager> const& wm,
+    std::shared_ptr<MinimalWindowManager> const& wm,
     WindowController& window_controller,
     Workspace* workspace,
     CompositorState const& state,
@@ -182,7 +183,7 @@ void FloatingWindowContainer::request_vertical_layout()
 {
 }
 
-void FloatingWindowContainer::toggle_layout()
+void FloatingWindowContainer::toggle_layout(bool)
 {
 }
 
@@ -206,10 +207,11 @@ void FloatingWindowContainer::show()
 
 void FloatingWindowContainer::hide()
 {
+    if (is_pinned)
+        return;
+
     restore_state_ = window_controller.info_for(window_).state();
-    miral::WindowSpecification spec;
-    spec.state() = mir_window_state_hidden;
-    window_controller.modify(window_, spec);
+    window_controller.change_state(window_, mir_window_state_hidden);
     window_controller.send_to_back(window_);
 }
 

@@ -27,7 +27,7 @@ const char* miracle::to_string(miracle::LayoutScheme scheme)
     case LayoutScheme::vertical:
         return "splitv";
     case LayoutScheme::stacking:
-        return "stacked";
+        return "stacking";
     case LayoutScheme::tabbing:
         return "tabbed";
     default:
@@ -36,4 +36,12 @@ const char* miracle::to_string(miracle::LayoutScheme scheme)
         throw std::logic_error(error);
     }
     }
+}
+
+miracle::LayoutScheme miracle::get_next_layout(miracle::LayoutScheme scheme)
+{
+    auto next = static_cast<LayoutScheme>((int)scheme + 1);
+    if (next == LayoutScheme::none)
+        next = static_cast<LayoutScheme>(0);
+    return next;
 }

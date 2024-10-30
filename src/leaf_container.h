@@ -72,7 +72,7 @@ public:
     void handle_request_resize(MirInputEvent const* input_event, MirResizeEdge edge) override;
     void request_horizontal_layout() override;
     void request_vertical_layout() override;
-    void toggle_layout() override;
+    void toggle_layout(bool cycle_thru_all) override;
     void set_tree(TilingWindowTree* tree);
 
     [[nodiscard]] TilingWindowTree* get_tree() const { return tree; }
@@ -96,6 +96,8 @@ public:
     bool move_to(int, int) override;
     bool toggle_tabbing() override;
     bool toggle_stacking() override;
+    bool set_layout(LayoutScheme) override;
+    LayoutScheme get_layout() const override;
     nlohmann::json to_json() const override;
 
 private:

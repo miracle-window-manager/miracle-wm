@@ -29,12 +29,6 @@ miral::WindowManagerTools const& WindowToolsAccessor::get_tools()
     return tools;
 }
 
-WindowToolsAccessor& WindowToolsAccessor::get_instance()
-{
-    static WindowToolsAccessor instance;
-    return instance;
-}
-
 WindowToolsAccessor::WindowToolsAccessor() :
     tools(nullptr)
 {

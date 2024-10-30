@@ -71,7 +71,7 @@ Workspace::Workspace(
     std::shared_ptr<MiracleConfig> const& config,
     WindowController& window_controller,
     CompositorState const& state,
-    std::shared_ptr<miral::MinimalWindowManager> const& floating_window_manager) :
+    std::shared_ptr<MinimalWindowManager> const& floating_window_manager) :
     output { output },
     tools { tools },
     workspace { workspace },
@@ -134,6 +134,7 @@ std::shared_ptr<Container> Workspace::create_container(
     AllocationHint const& hint)
 {
     std::shared_ptr<Container> container = nullptr;
+    miral::WindowSpecification spec;
     switch (hint.container_type)
     {
     case ContainerType::leaf:
@@ -155,7 +156,6 @@ std::shared_ptr<Container> Workspace::create_container(
         break;
     }
 
-    miral::WindowSpecification spec;
     spec.userdata() = container;
     spec.min_width() = mir::geometry::Width(0);
     spec.min_height() = mir::geometry::Height(0);

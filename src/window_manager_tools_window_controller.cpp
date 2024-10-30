@@ -48,6 +48,13 @@ void WindowManagerToolsWindowController::open(miral::Window const& window)
         return;
     }
 
+    auto const& info = info_for(window);
+    if (info.parent())
+    {
+        on_animation({ container->animation_handle(), true }, container);
+        return;
+    }
+
     animator.window_open(
         container->animation_handle(),
         [this, container = container](miracle::AnimationStepResult const& result)
@@ -69,6 +76,13 @@ void WindowManagerToolsWindowController::set_rectangle(
     if (!container)
     {
         mir::log_error("Cannot set rectangle of window that lacks container");
+        return;
+    }
+
+    auto const& info = info_for(window);
+    if (info.parent())
+    {
+        on_animation({ container->animation_handle(), true }, container);
         return;
     }
 

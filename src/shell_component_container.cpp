@@ -123,7 +123,7 @@ void ShellComponentContainer::request_vertical_layout()
 {
 }
 
-void ShellComponentContainer::toggle_layout()
+void ShellComponentContainer::toggle_layout(bool)
 {
 }
 

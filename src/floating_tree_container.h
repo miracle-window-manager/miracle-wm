@@ -60,7 +60,7 @@ public:
     bool toggle_fullscreen() override;
     void request_horizontal_layout() override;
     void request_vertical_layout() override;
-    void toggle_layout() override;
+    void toggle_layout(bool) override;
     void on_open() override;
     void on_focus_gained() override;
     void on_focus_lost() override;
@@ -86,6 +86,8 @@ public:
     bool move_to(int x, int y) override;
     bool toggle_tabbing() override { return false; };
     bool toggle_stacking() override { return false; };
+    bool set_layout(LayoutScheme) override { return false; }
+    LayoutScheme get_layout() const override { return LayoutScheme::none; }
     nlohmann::json to_json() const override { return {}; }
 
 private:
