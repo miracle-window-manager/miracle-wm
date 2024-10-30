@@ -66,11 +66,6 @@ miral::WindowSpecification TilingWindowTree::place_new_window(
     const miral::WindowSpecification& requested_specification,
     std::shared_ptr<ParentContainer> const& parent_)
 {
-    assert(
-        !requested_specification.state().is_set()
-        || requested_specification.state() == mir_window_state_restored
-        || requested_specification.state() == mir_window_state_unknown);
-
     auto parent = parent_ ? parent_ : root_lane;
     auto container = parent->create_space_for_window();
     auto rect = container->get_visible_area();

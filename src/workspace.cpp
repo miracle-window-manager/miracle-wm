@@ -134,6 +134,7 @@ std::shared_ptr<Container> Workspace::create_container(
     AllocationHint const& hint)
 {
     std::shared_ptr<Container> container = nullptr;
+    miral::WindowSpecification spec;
     switch (hint.container_type)
     {
     case ContainerType::leaf:
@@ -155,7 +156,6 @@ std::shared_ptr<Container> Workspace::create_container(
         break;
     }
 
-    miral::WindowSpecification spec;
     spec.userdata() = container;
     spec.min_width() = mir::geometry::Width(0);
     spec.min_height() = mir::geometry::Height(0);

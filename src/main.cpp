@@ -85,7 +85,8 @@ int main(int argc, char const* argv[])
     }
 
     WindowManagerOptions* options;
-    std::shared_ptr<miracle::WindowToolsAccessor> accessor = std::make_shared<miracle::WindowToolsAccessor>();;
+    std::shared_ptr<miracle::WindowToolsAccessor> accessor = std::make_shared<miracle::WindowToolsAccessor>();
+    ;
     auto window_managers = ServerMiddleman(
         [&](mir::Server& server)
     {
