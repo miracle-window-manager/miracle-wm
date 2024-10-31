@@ -859,6 +859,13 @@ void FilesystemConfiguration::read_animation_definitions(YAML::Node const& root)
 
     if (root["enable_animations"])
         try_parse_value(root, "enable_animations", options.animations_enabled);
+
+    NotifyNotification* n = notify_notification_new(
+        "Miracle configuration has successfully refreshed",
+        nullptr,
+        nullptr);
+    notify_notification_set_timeout(n, 5000);
+    notify_notification_show(n, nullptr);
 }
 
 void FilesystemConfiguration::_watch(miral::MirRunner& runner)
