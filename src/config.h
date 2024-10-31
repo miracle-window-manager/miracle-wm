@@ -150,6 +150,29 @@ enum class RenderFilter : int
     tritanopia
 };
 
+class ConfigurationInfo
+{
+public:
+    enum class Level
+    {
+        warning,
+        error
+    };
+
+    ConfigurationInfo(
+        uint32_t line,
+        uint32_t column,
+        Level level,
+        std::string const& filename,
+        std::string message);
+
+    uint32_t const line;
+    uint32_t const column;
+    Level const level;
+    std::string const filename;
+    std::string const message;
+};
+
 class MiracleConfig
 {
 public:
@@ -227,6 +250,12 @@ private:
     void _init(std::optional<StartupApp> const& systemd_app, std::optional<StartupApp> const& exec_app);
     void _reload();
     void _watch(miral::MirRunner& runner);
+    void add_error(YAML::Node const&);
+    void read_action_key(YAML::Node const&);
+    void read_default_action_overrides(YAML::Node const&);
+    void read_custom_actions(YAML::Node const&);
+    void read_inner_gaps(YAML::Node const&);
+    void read_outer_gaps(YAML::Node const&);
     void read_animation_definitions(YAML::Node const&);
 
     miral::MirRunner& runner;
@@ -241,6 +270,8 @@ private:
     std::mutex mutex;
     std::atomic<bool> has_changes = false;
     bool is_loaded_ = false;
+    std::vector<ConfigurationInfo> parse_info;
+    std::stringstream builder;
 
     static const uint miracle_input_event_modifier_default = 1 << 18;
     struct ConfigDetails
