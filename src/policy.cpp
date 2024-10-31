@@ -389,7 +389,8 @@ void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
         break;
     default:
     {
-        if (container->get_workspace() != state.active_output->get_active_workspace().get())
+        auto const* workspace = container->get_workspace();
+        if (workspace && workspace != state.active_output->get_active_workspace().get())
             return;
 
         state.active = container;
@@ -547,7 +548,8 @@ void Policy::handle_modify_window(
         return;
     }
 
-    if (container->get_workspace() != state.active_output->get_active_workspace().get())
+    auto const* workspace = container->get_workspace();
+    if (workspace && workspace != state.active_output->get_active_workspace().get())
         return;
 
     container->handle_modify(modifications);
