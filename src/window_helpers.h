@@ -43,7 +43,7 @@ namespace window_helpers
         if (t == mir_window_type_normal || t == mir_window_type_freestyle)
             return ContainerType::none;
 
-        return ContainerType::shell;
+        return ContainerType::floating_window;
     }
 
     miral::WindowSpecification copy_from(miral::WindowInfo const&);
