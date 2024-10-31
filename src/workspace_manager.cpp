@@ -248,17 +248,17 @@ std::shared_ptr<Output> WorkspaceManager::request_focus(int key)
         return nullptr;
 
     auto active_screen = get_active_screen();
+    int previous_workspace = -1;
     if (active_screen)
     {
-        int previous_workspace = active_screen->get_active_workspace_num();
+        previous_workspace = active_screen->get_active_workspace_num();
         last_selected = { previous_workspace, output_to_workspace_mapping[previous_workspace] };
     }
     output_to_workspace_mapping[key]->advise_workspace_active(key);
 
     if (active_screen != nullptr)
     {
-        auto active_workspace = active_screen->get_active_workspace_num();
-        registry.advise_focused(active_screen, active_workspace, output_to_workspace_mapping[key].get(), key);
+        registry.advise_focused(output_to_workspace_mapping[previous_workspace].get(), previous_workspace, output_to_workspace_mapping[key].get(), key);
     }
     else
         registry.advise_focused(nullptr, -1, output_to_workspace_mapping[key].get(), key);

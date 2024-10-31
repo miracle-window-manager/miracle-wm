@@ -461,8 +461,10 @@ void Policy::advise_output_create(miral::Output const& output)
         floating_window_manager, state, config, window_controller, animator);
     workspace_manager.request_first_available_workspace(output_content);
     output_list.push_back(output_content);
-    if (state.active_output == nullptr)
+    if (state.active_output == nullptr) {
         state.active_output = output_content;
+        state.active_output->set_is_active(true);
+    }
 
     // Let's rehome some orphan windows if we need to
     if (!orphaned_window_list.empty())
@@ -525,6 +527,7 @@ void Policy::advise_output_delete(miral::Output const& output)
             else
             {
                 state.active_output = output_list.front();
+                state.active_output->set_is_active(true);
                 for (auto& window : other_output->collect_all_windows())
                 {
                     state.active_output->add_immediately(window);
