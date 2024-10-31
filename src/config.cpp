@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <glib-2.0/glib.h>
 #include <libevdev-1.0/libevdev/libevdev.h>
 #include <libnotify/notify.h>
@@ -141,9 +142,30 @@ std::string create_default_configuration_path()
 {
     std::stringstream config_path_stream;
     config_path_stream << g_get_user_config_dir();
-    config_path_stream << "/miracle-wm.yaml";
+    config_path_stream << "/miracles-wm.yaml";
     return config_path_stream.str();
 }
+
+std::string configuration_info_to_string(ConfigurationInfo const& info)
+{
+    std::ostringstream out;
+    out << info.filename << ':' << info.line << ':' << info.column << ':' << ' ' << info.message;
+    return out.str();
+}
+}
+
+ConfigurationInfo::ConfigurationInfo(
+    uint32_t line,
+    uint32_t column,
+    Level level,
+    std::string const& filename,
+    std::string message) :
+    line { line },
+    column { column },
+    level { level },
+    filename { filename },
+    message { std::move(message) }
+{
 }
 
 FilesystemConfiguration::FilesystemConfiguration(miral::MirRunner& runner) :
@@ -283,331 +305,18 @@ void FilesystemConfiguration::_reload()
         return;
     }
 
+    parse_info.clear();
+    builder.clear();
+
     // Load the new configuration
     mir::log_info("Configuration is loading...");
     YAML::Node config = YAML::LoadFile(config_path);
     if (config["action_key"])
-    {
-        auto const stringified_action_key = config["action_key"].as<std::string>();
-        auto modifier = parse_modifier(stringified_action_key);
-        if (modifier == mir_input_event_modifier_none)
-            mir::log_error("action_key: invalid action key: %s", stringified_action_key.c_str());
-        else
-            options.primary_modifier = parse_modifier(stringified_action_key);
-    }
-
+        read_action_key(config["action_key"]);
     if (config["default_action_overrides"])
-    {
-        auto const default_action_overrides = config["default_action_overrides"];
-        if (!default_action_overrides.IsSequence())
-        {
-            mir::log_error("default_action_overrides: value must be an array");
-            return;
-        }
-
-        for (auto i = 0; i < default_action_overrides.size(); i++)
-        {
-            auto sub_node = default_action_overrides[i];
-            if (!sub_node["name"])
-            {
-                mir::log_error("default_action_overrides: missing name");
-                continue;
-            }
-
-            if (!sub_node["action"])
-            {
-                mir::log_error("default_action_overrides: missing action");
-                continue;
-            }
-
-            if (!sub_node["modifiers"])
-            {
-                mir::log_error("default_action_overrides: missing modifiers");
-                continue;
-            }
-
-            if (!sub_node["key"])
-            {
-                mir::log_error("default_action_overrides: missing key");
-                continue;
-            }
-
-            std::string name;
-            std::string action;
-            std::string key;
-            YAML::Node modifiers_node;
-            try
-            {
-                name = sub_node["name"].as<std::string>();
-                action = sub_node["action"].as<std::string>();
-                key = sub_node["key"].as<std::string>();
-                modifiers_node = sub_node["modifiers"];
-            }
-            catch (YAML::BadConversion const& e)
-            {
-                mir::log_error("Unable to parse default_action_override[%d]: %s", i, e.msg.c_str());
-                continue;
-            }
-
-            DefaultKeyCommand key_command;
-            if (name == "terminal")
-                key_command = DefaultKeyCommand::Terminal;
-            else if (name == "request_vertical_layout")
-                key_command = DefaultKeyCommand::RequestVertical;
-            else if (name == "request_horizontal_layout")
-                key_command = DefaultKeyCommand::RequestHorizontal;
-            else if (name == "toggle_resize")
-                key_command = DefaultKeyCommand::ToggleResize;
-            else if (name == "resize_up")
-                key_command = DefaultKeyCommand::ResizeUp;
-            else if (name == "resize_down")
-                key_command = DefaultKeyCommand::ResizeDown;
-            else if (name == "resize_left")
-                key_command = DefaultKeyCommand::ResizeLeft;
-            else if (name == "resize_right")
-                key_command = DefaultKeyCommand::ResizeRight;
-            else if (name == "move_up")
-                key_command = DefaultKeyCommand::MoveUp;
-            else if (name == "move_down")
-                key_command = DefaultKeyCommand::MoveDown;
-            else if (name == "move_left")
-                key_command = DefaultKeyCommand::MoveLeft;
-            else if (name == "move_right")
-                key_command = DefaultKeyCommand::MoveRight;
-            else if (name == "select_up")
-                key_command = DefaultKeyCommand::SelectUp;
-            else if (name == "select_down")
-                key_command = DefaultKeyCommand::SelectDown;
-            else if (name == "select_left")
-                key_command = DefaultKeyCommand::SelectLeft;
-            else if (name == "select_right")
-                key_command = DefaultKeyCommand::SelectRight;
-            else if (name == "quit_active_window")
-                key_command = DefaultKeyCommand::QuitActiveWindow;
-            else if (name == "quit_compositor")
-                key_command = DefaultKeyCommand::QuitCompositor;
-            else if (name == "fullscreen")
-                key_command = DefaultKeyCommand::Fullscreen;
-            else if (name == "select_workspace_1")
-                key_command = DefaultKeyCommand::SelectWorkspace1;
-            else if (name == "select_workspace_2")
-                key_command = DefaultKeyCommand::SelectWorkspace2;
-            else if (name == "select_workspace_3")
-                key_command = DefaultKeyCommand::SelectWorkspace3;
-            else if (name == "select_workspace_4")
-                key_command = DefaultKeyCommand::SelectWorkspace4;
-            else if (name == "select_workspace_5")
-                key_command = DefaultKeyCommand::SelectWorkspace5;
-            else if (name == "select_workspace_6")
-                key_command = DefaultKeyCommand::SelectWorkspace6;
-            else if (name == "select_workspace_7")
-                key_command = DefaultKeyCommand::SelectWorkspace7;
-            else if (name == "select_workspace_8")
-                key_command = DefaultKeyCommand::SelectWorkspace8;
-            else if (name == "select_workspace_9")
-                key_command = DefaultKeyCommand::SelectWorkspace9;
-            else if (name == "select_workspace_0")
-                key_command = DefaultKeyCommand::SelectWorkspace0;
-            else if (name == "move_to_workspace_1")
-                key_command = DefaultKeyCommand::MoveToWorkspace1;
-            else if (name == "move_to_workspace_2")
-                key_command = DefaultKeyCommand::MoveToWorkspace2;
-            else if (name == "move_to_workspace_3")
-                key_command = DefaultKeyCommand::MoveToWorkspace3;
-            else if (name == "move_to_workspace_4")
-                key_command = DefaultKeyCommand::MoveToWorkspace4;
-            else if (name == "move_to_workspace_5")
-                key_command = DefaultKeyCommand::MoveToWorkspace5;
-            else if (name == "move_to_workspace_6")
-                key_command = DefaultKeyCommand::MoveToWorkspace6;
-            else if (name == "move_to_workspace_7")
-                key_command = DefaultKeyCommand::MoveToWorkspace7;
-            else if (name == "move_to_workspace_8")
-                key_command = DefaultKeyCommand::MoveToWorkspace8;
-            else if (name == "move_to_workspace_9")
-                key_command = DefaultKeyCommand::MoveToWorkspace9;
-            else if (name == "move_to_workspace_0")
-                key_command = DefaultKeyCommand::MoveToWorkspace0;
-            else if (name == "toggle_floating")
-                key_command = DefaultKeyCommand::ToggleFloating;
-            else if (name == "toggle_pinned_to_workspace")
-                key_command = DefaultKeyCommand::TogglePinnedToWorkspace;
-            else if (name == "toggle_tabbing")
-                key_command = DefaultKeyCommand::ToggleTabbing;
-            else if (name == "toggle_stacking")
-                key_command = DefaultKeyCommand::ToggleStacking;
-            else
-            {
-                mir::log_error("default_action_overrides: Unknown key command override: %s", name.c_str());
-                continue;
-            }
-
-            MirKeyboardAction keyboard_action;
-            if (action == "up")
-                keyboard_action = MirKeyboardAction::mir_keyboard_action_up;
-            else if (action == "down")
-                keyboard_action = MirKeyboardAction::mir_keyboard_action_down;
-            else if (action == "repeat")
-                keyboard_action = MirKeyboardAction::mir_keyboard_action_repeat;
-            else if (action == "modifiers")
-                keyboard_action = MirKeyboardAction::mir_keyboard_action_modifiers;
-            else
-            {
-                mir::log_error("default_action_overrides: Unknown keyboard action: %s", action.c_str());
-                continue;
-            }
-
-            auto code = libevdev_event_code_from_name(EV_KEY, key.c_str()); // https://stackoverflow.com/questions/32059363/is-there-a-way-to-get-the-evdev-keycode-from-a-string
-            if (code < 0)
-            {
-                mir::log_error("default_action_overrides: Unknown keyboard code in configuration: %s. See the linux kernel for allowed codes: https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h", key.c_str());
-                continue;
-            }
-
-            if (!modifiers_node.IsSequence())
-            {
-                mir::log_error("default_action_overrides: Provided modifiers is not an array");
-                continue;
-            }
-
-            uint modifiers = 0;
-            bool is_invalid = false;
-            for (auto j = 0; j < modifiers_node.size(); j++)
-            {
-                try
-                {
-                    auto modifier = modifiers_node[j].as<std::string>();
-                    modifiers = modifiers | parse_modifier(modifier);
-                }
-                catch (YAML::BadConversion const& e)
-                {
-                    mir::log_error("Unable to parse modifier for default_action_overrides[%d]: %s", i, e.msg.c_str());
-                    is_invalid = true;
-                    break;
-                }
-            }
-
-            if (is_invalid)
-                continue;
-
-            options.key_commands[key_command].push_back({ keyboard_action,
-                modifiers,
-                code });
-        }
-    }
-
-    // Custom actions
+        read_default_action_overrides(config["default_action_overrides"]);
     if (config["custom_actions"])
-    {
-        auto const custom_actions = config["custom_actions"];
-        if (!custom_actions.IsSequence())
-        {
-            mir::log_error("custom_actions: value must be an array");
-            return;
-        }
-
-        for (auto i = 0; i < custom_actions.size(); i++)
-        {
-            auto sub_node = custom_actions[i];
-            if (!sub_node["command"])
-            {
-                mir::log_error("custom_actions: missing command");
-                continue;
-            }
-
-            if (!sub_node["action"])
-            {
-                mir::log_error("custom_actions: missing action");
-                continue;
-            }
-
-            if (!sub_node["modifiers"])
-            {
-                mir::log_error("custom_actions: missing modifiers");
-                continue;
-            }
-
-            if (!sub_node["key"])
-            {
-                mir::log_error("custom_actions: missing key");
-                continue;
-            }
-
-            std::string command;
-            std::string action;
-            std::string key;
-            YAML::Node modifiers_node;
-            try
-            {
-                command = wrap_command(sub_node["command"].as<std::string>());
-                action = sub_node["action"].as<std::string>();
-                key = sub_node["key"].as<std::string>();
-                modifiers_node = sub_node["modifiers"];
-            }
-            catch (YAML::BadConversion const& e)
-            {
-                mir::log_error("Unable to parse custom_actions[%d]: %s", i, e.msg.c_str());
-                continue;
-            }
-
-            // TODO: Copy & paste here
-            MirKeyboardAction keyboard_action;
-            if (action == "up")
-                keyboard_action = MirKeyboardAction::mir_keyboard_action_up;
-            else if (action == "down")
-                keyboard_action = MirKeyboardAction::mir_keyboard_action_down;
-            else if (action == "repeat")
-                keyboard_action = MirKeyboardAction::mir_keyboard_action_repeat;
-            else if (action == "modifiers")
-                keyboard_action = MirKeyboardAction::mir_keyboard_action_modifiers;
-            else
-            {
-                mir::log_error("custom_actions: Unknown keyboard action: %s", action.c_str());
-                continue;
-            }
-
-            auto code = libevdev_event_code_from_name(EV_KEY,
-                key.c_str()); // https://stackoverflow.com/questions/32059363/is-there-a-way-to-get-the-evdev-keycode-from-a-string
-            if (code < 0)
-            {
-                mir::log_error(
-                    "custom_actions: Unknown keyboard code in configuration: %s. See the linux kernel for allowed codes: https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h",
-                    key.c_str());
-                continue;
-            }
-
-            if (!modifiers_node.IsSequence())
-            {
-                mir::log_error("custom_actions: Provided modifiers is not an array");
-                continue;
-            }
-
-            uint modifiers = 0;
-            bool is_invalid = false;
-            for (auto j = 0; j < modifiers_node.size(); j++)
-            {
-                try
-                {
-                    auto modifier = modifiers_node[j].as<std::string>();
-                    modifiers = modifiers | parse_modifier(modifier);
-                }
-                catch (YAML::BadConversion const& e)
-                {
-                    mir::log_error("Unable to parse modifier for custom_actions[%d]: %s", i, e.msg.c_str());
-                    is_invalid = true;
-                    break;
-                }
-            }
-
-            if (is_invalid)
-                continue;
-
-            options.custom_key_commands.push_back({ keyboard_action,
-                modifiers,
-                code,
-                command });
-        }
-    }
+        read_custom_actions(config["custom_actions"]);
 
     // Gap sizes
     if (config["inner_gaps"])
@@ -806,6 +515,382 @@ void FilesystemConfiguration::_reload()
     }
 
     read_animation_definitions(config);
+
+    NotifyNotification* n = notify_notification_new(
+        "Miracle configuration has successfully refreshed",
+        nullptr,
+        nullptr);
+    notify_notification_set_timeout(n, 5000);
+    notify_notification_show(n, nullptr);
+
+    for (auto const& i : parse_info)
+    {
+        mir::log_error(configuration_info_to_string(i));
+    }
+}
+
+/// Helper method for quickly creating and reporting an error
+void FilesystemConfiguration::add_error(YAML::Node const& node)
+{
+    parse_info.emplace_back(
+        node.Mark().line,
+        node.Mark().column,
+        ConfigurationInfo::Level::error,
+        config_path,
+        builder.str()
+    );
+    builder.clear();
+}
+
+void FilesystemConfiguration::read_action_key(YAML::Node const& node)
+{
+    auto const stringified_action_key = node.as<std::string>();
+    auto modifier = parse_modifier(stringified_action_key);
+    if (modifier == mir_input_event_modifier_none)
+    {
+        builder << "Invalid action key: " << stringified_action_key;
+        add_error(node);
+    }
+    else
+        options.primary_modifier = parse_modifier(stringified_action_key);
+}
+
+void FilesystemConfiguration::read_custom_actions(YAML::Node const& custom_actions)
+{
+    if (!custom_actions.IsSequence())
+    {
+        mir::log_error("custom_actions: value must be an array");
+        return;
+    }
+
+    for (auto i = 0; i < custom_actions.size(); i++)
+    {
+        auto sub_node = custom_actions[i];
+        if (!sub_node["command"])
+        {
+            mir::log_error("custom_actions: missing command");
+            continue;
+        }
+
+        if (!sub_node["action"])
+        {
+            mir::log_error("custom_actions: missing action");
+            continue;
+        }
+
+        if (!sub_node["modifiers"])
+        {
+            mir::log_error("custom_actions: missing modifiers");
+            continue;
+        }
+
+        if (!sub_node["key"])
+        {
+            mir::log_error("custom_actions: missing key");
+            continue;
+        }
+
+        std::string command;
+        std::string action;
+        std::string key;
+        YAML::Node modifiers_node;
+        try
+        {
+            command = wrap_command(sub_node["command"].as<std::string>());
+            action = sub_node["action"].as<std::string>();
+            key = sub_node["key"].as<std::string>();
+            modifiers_node = sub_node["modifiers"];
+        }
+        catch (YAML::BadConversion const& e)
+        {
+            mir::log_error("Unable to parse custom_actions[%d]: %s", i, e.msg.c_str());
+            continue;
+        }
+
+        // TODO: Copy & paste here
+        MirKeyboardAction keyboard_action;
+        if (action == "up")
+            keyboard_action = MirKeyboardAction::mir_keyboard_action_up;
+        else if (action == "down")
+            keyboard_action = MirKeyboardAction::mir_keyboard_action_down;
+        else if (action == "repeat")
+            keyboard_action = MirKeyboardAction::mir_keyboard_action_repeat;
+        else if (action == "modifiers")
+            keyboard_action = MirKeyboardAction::mir_keyboard_action_modifiers;
+        else
+        {
+            mir::log_error("custom_actions: Unknown keyboard action: %s", action.c_str());
+            continue;
+        }
+
+        auto code = libevdev_event_code_from_name(EV_KEY,
+            key.c_str()); // https://stackoverflow.com/questions/32059363/is-there-a-way-to-get-the-evdev-keycode-from-a-string
+        if (code < 0)
+        {
+            mir::log_error(
+                "custom_actions: Unknown keyboard code in configuration: %s. See the linux kernel for allowed codes: https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h",
+                key.c_str());
+            continue;
+        }
+
+        if (!modifiers_node.IsSequence())
+        {
+            mir::log_error("custom_actions: Provided modifiers is not an array");
+            continue;
+        }
+
+        uint modifiers = 0;
+        bool is_invalid = false;
+        for (auto j = 0; j < modifiers_node.size(); j++)
+        {
+            try
+            {
+                auto modifier = modifiers_node[j].as<std::string>();
+                modifiers = modifiers | parse_modifier(modifier);
+            }
+            catch (YAML::BadConversion const& e)
+            {
+                mir::log_error("Unable to parse modifier for custom_actions[%d]: %s", i, e.msg.c_str());
+                is_invalid = true;
+                break;
+            }
+        }
+
+        if (is_invalid)
+            continue;
+
+        options.custom_key_commands.push_back({ keyboard_action,
+            modifiers,
+            code,
+            command });
+    }
+}
+
+void FilesystemConfiguration::read_default_action_overrides(YAML::Node const& default_action_overrides)
+{
+    if (!default_action_overrides.IsSequence())
+    {
+        builder << "Default action overrides must be an array";
+        add_error(default_action_overrides);
+        return;
+    }
+
+    for (auto i = 0; i < default_action_overrides.size(); i++)
+    {
+        auto sub_node = default_action_overrides[i];
+        if (!sub_node["name"])
+        {
+            builder << "Default action override must define a 'name' member";
+            add_error(sub_node);
+            continue;
+        }
+
+        if (!sub_node["action"])
+        {
+            builder << "Default action override must define an 'action' member";
+            add_error(sub_node);
+            continue;
+        }
+
+        if (!sub_node["modifiers"])
+        {
+            builder << "Default action override must define a 'modifier' member";
+            add_error(sub_node);
+            continue;
+        }
+
+        if (!sub_node["key"])
+        {
+            builder << "Default action override must define a 'key' member";
+            add_error(sub_node);
+            continue;
+        }
+
+        std::string name;
+        std::string action;
+        std::string key;
+        YAML::Node modifiers_node;
+        try
+        {
+            name = sub_node["name"].as<std::string>();
+        }
+        catch (YAML::BadConversion const& e)
+        {
+            builder << "'name' member must be of type string";
+            add_error(sub_node["name"]);
+            continue;
+        }
+
+        try
+        {
+            action = sub_node["action"].as<std::string>();
+        }
+        catch (YAML::BadConversion const& e)
+        {
+            builder << "'action' member must be of type string";
+            add_error(sub_node["action"]);
+            continue;
+        }
+
+        try
+        {
+            key = sub_node["key"].as<std::string>();
+        }
+        catch (YAML::BadConversion const& e)
+        {
+            builder << "'key' member must be of type string";
+            add_error(sub_node["key"]);
+            continue;
+        }
+
+        modifiers_node = sub_node["modifiers"];
+
+        DefaultKeyCommand key_command;
+        if (name == "terminal")
+            key_command = DefaultKeyCommand::Terminal;
+        else if (name == "request_vertical_layout")
+            key_command = DefaultKeyCommand::RequestVertical;
+        else if (name == "request_horizontal_layout")
+            key_command = DefaultKeyCommand::RequestHorizontal;
+        else if (name == "toggle_resize")
+            key_command = DefaultKeyCommand::ToggleResize;
+        else if (name == "resize_up")
+            key_command = DefaultKeyCommand::ResizeUp;
+        else if (name == "resize_down")
+            key_command = DefaultKeyCommand::ResizeDown;
+        else if (name == "resize_left")
+            key_command = DefaultKeyCommand::ResizeLeft;
+        else if (name == "resize_right")
+            key_command = DefaultKeyCommand::ResizeRight;
+        else if (name == "move_up")
+            key_command = DefaultKeyCommand::MoveUp;
+        else if (name == "move_down")
+            key_command = DefaultKeyCommand::MoveDown;
+        else if (name == "move_left")
+            key_command = DefaultKeyCommand::MoveLeft;
+        else if (name == "move_right")
+            key_command = DefaultKeyCommand::MoveRight;
+        else if (name == "select_up")
+            key_command = DefaultKeyCommand::SelectUp;
+        else if (name == "select_down")
+            key_command = DefaultKeyCommand::SelectDown;
+        else if (name == "select_left")
+            key_command = DefaultKeyCommand::SelectLeft;
+        else if (name == "select_right")
+            key_command = DefaultKeyCommand::SelectRight;
+        else if (name == "quit_active_window")
+            key_command = DefaultKeyCommand::QuitActiveWindow;
+        else if (name == "quit_compositor")
+            key_command = DefaultKeyCommand::QuitCompositor;
+        else if (name == "fullscreen")
+            key_command = DefaultKeyCommand::Fullscreen;
+        else if (name == "select_workspace_1")
+            key_command = DefaultKeyCommand::SelectWorkspace1;
+        else if (name == "select_workspace_2")
+            key_command = DefaultKeyCommand::SelectWorkspace2;
+        else if (name == "select_workspace_3")
+            key_command = DefaultKeyCommand::SelectWorkspace3;
+        else if (name == "select_workspace_4")
+            key_command = DefaultKeyCommand::SelectWorkspace4;
+        else if (name == "select_workspace_5")
+            key_command = DefaultKeyCommand::SelectWorkspace5;
+        else if (name == "select_workspace_6")
+            key_command = DefaultKeyCommand::SelectWorkspace6;
+        else if (name == "select_workspace_7")
+            key_command = DefaultKeyCommand::SelectWorkspace7;
+        else if (name == "select_workspace_8")
+            key_command = DefaultKeyCommand::SelectWorkspace8;
+        else if (name == "select_workspace_9")
+            key_command = DefaultKeyCommand::SelectWorkspace9;
+        else if (name == "select_workspace_0")
+            key_command = DefaultKeyCommand::SelectWorkspace0;
+        else if (name == "move_to_workspace_1")
+            key_command = DefaultKeyCommand::MoveToWorkspace1;
+        else if (name == "move_to_workspace_2")
+            key_command = DefaultKeyCommand::MoveToWorkspace2;
+        else if (name == "move_to_workspace_3")
+            key_command = DefaultKeyCommand::MoveToWorkspace3;
+        else if (name == "move_to_workspace_4")
+            key_command = DefaultKeyCommand::MoveToWorkspace4;
+        else if (name == "move_to_workspace_5")
+            key_command = DefaultKeyCommand::MoveToWorkspace5;
+        else if (name == "move_to_workspace_6")
+            key_command = DefaultKeyCommand::MoveToWorkspace6;
+        else if (name == "move_to_workspace_7")
+            key_command = DefaultKeyCommand::MoveToWorkspace7;
+        else if (name == "move_to_workspace_8")
+            key_command = DefaultKeyCommand::MoveToWorkspace8;
+        else if (name == "move_to_workspace_9")
+            key_command = DefaultKeyCommand::MoveToWorkspace9;
+        else if (name == "move_to_workspace_0")
+            key_command = DefaultKeyCommand::MoveToWorkspace0;
+        else if (name == "toggle_floating")
+            key_command = DefaultKeyCommand::ToggleFloating;
+        else if (name == "toggle_pinned_to_workspace")
+            key_command = DefaultKeyCommand::TogglePinnedToWorkspace;
+        else if (name == "toggle_tabbing")
+            key_command = DefaultKeyCommand::ToggleTabbing;
+        else if (name == "toggle_stacking")
+            key_command = DefaultKeyCommand::ToggleStacking;
+        else
+        {
+            builder << "Unknown key command override: " << sub_node["name"];
+            add_error(sub_node["name"]);
+            continue;
+        }
+
+        MirKeyboardAction keyboard_action;
+        if (action == "up")
+            keyboard_action = MirKeyboardAction::mir_keyboard_action_up;
+        else if (action == "down")
+            keyboard_action = MirKeyboardAction::mir_keyboard_action_down;
+        else if (action == "repeat")
+            keyboard_action = MirKeyboardAction::mir_keyboard_action_repeat;
+        else if (action == "modifiers")
+            keyboard_action = MirKeyboardAction::mir_keyboard_action_modifiers;
+        else
+        {
+            mir::log_error("default_action_overrides: Unknown keyboard action: %s", action.c_str());
+            continue;
+        }
+
+        auto code = libevdev_event_code_from_name(EV_KEY, key.c_str()); // https://stackoverflow.com/questions/32059363/is-there-a-way-to-get-the-evdev-keycode-from-a-string
+        if (code < 0)
+        {
+            mir::log_error("default_action_overrides: Unknown keyboard code in configuration: %s. See the linux kernel for allowed codes: https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h", key.c_str());
+            continue;
+        }
+
+        if (!modifiers_node.IsSequence())
+        {
+            mir::log_error("default_action_overrides: Provided modifiers is not an array");
+            continue;
+        }
+
+        uint modifiers = 0;
+        bool is_invalid = false;
+        for (auto j = 0; j < modifiers_node.size(); j++)
+        {
+            try
+            {
+                auto modifier = modifiers_node[j].as<std::string>();
+                modifiers = modifiers | parse_modifier(modifier);
+            }
+            catch (YAML::BadConversion const& e)
+            {
+                mir::log_error("Unable to parse modifier for default_action_overrides[%d]: %s", i, e.msg.c_str());
+                is_invalid = true;
+                break;
+            }
+        }
+
+        if (is_invalid)
+            continue;
+
+        options.key_commands[key_command].push_back({ keyboard_action,
+            modifiers,
+            code });
+    }
 }
 
 void FilesystemConfiguration::read_animation_definitions(YAML::Node const& root)
@@ -859,13 +944,6 @@ void FilesystemConfiguration::read_animation_definitions(YAML::Node const& root)
 
     if (root["enable_animations"])
         try_parse_value(root, "enable_animations", options.animations_enabled);
-
-    NotifyNotification* n = notify_notification_new(
-        "Miracle configuration has successfully refreshed",
-        nullptr,
-        nullptr);
-    notify_notification_set_timeout(n, 5000);
-    notify_notification_show(n, nullptr);
 }
 
 void FilesystemConfiguration::_watch(miral::MirRunner& runner)
