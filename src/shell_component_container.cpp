@@ -52,6 +52,7 @@ mir::geometry::Rectangle ShellComponentContainer::get_logical_area() const
 
 void ShellComponentContainer::set_logical_area(mir::geometry::Rectangle const& rectangle)
 {
+    window_controller.set_rectangle(window_, get_visible_area(), rectangle);
 }
 
 mir::geometry::Rectangle ShellComponentContainer::get_visible_area() const
@@ -158,11 +159,12 @@ Output* ShellComponentContainer::get_output() const
 
 glm::mat4 ShellComponentContainer::get_transform() const
 {
-    return glm::mat4(1.f);
+    return transform_;
 }
 
 void ShellComponentContainer::set_transform(glm::mat4 transform)
 {
+    transform_ = transform;
 }
 
 glm::mat4 ShellComponentContainer::get_workspace_transform() const
@@ -177,16 +179,17 @@ glm::mat4 ShellComponentContainer::get_output_transform() const
 
 uint32_t ShellComponentContainer::animation_handle() const
 {
-    return 0;
+    return handle_;
 }
 
-void ShellComponentContainer::animation_handle(uint32_t uint_32)
+void ShellComponentContainer::animation_handle(uint32_t handle)
 {
+    handle_ = handle;
 }
 
 bool ShellComponentContainer::is_focused() const
 {
-    return false;
+    return true;
 }
 
 ContainerType ShellComponentContainer::get_type() const
@@ -196,6 +199,7 @@ ContainerType ShellComponentContainer::get_type() const
 
 void ShellComponentContainer::on_open()
 {
+    window_controller.open(window_);
 }
 
 std::optional<miral::Window> ShellComponentContainer::window() const
@@ -215,7 +219,7 @@ bool ShellComponentContainer::pinned(bool)
 
 bool ShellComponentContainer::pinned() const
 {
-    return true;
+    return false;
 }
 
 bool ShellComponentContainer::move(Direction direction)
@@ -230,7 +234,10 @@ bool ShellComponentContainer::move_by(Direction direction, int pixels)
 
 bool ShellComponentContainer::move_to(int x, int y)
 {
-    return false;
+    miral::WindowSpecification spec;
+    spec.top_left() = { x, y };
+    window_controller.modify(window_, spec);
+    return true;
 }
 
 bool ShellComponentContainer::is_fullscreen() const

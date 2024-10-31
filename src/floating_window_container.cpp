@@ -189,7 +189,7 @@ void FloatingWindowContainer::toggle_layout(bool)
 
 void FloatingWindowContainer::show()
 {
-    if (is_pinned)
+    if (pinned())
     {
         window_controller.raise(window_);
         return;
@@ -207,7 +207,7 @@ void FloatingWindowContainer::show()
 
 void FloatingWindowContainer::hide()
 {
-    if (is_pinned)
+    if (pinned())
         return;
 
     restore_state_ = window_controller.info_for(window_).state();
@@ -267,7 +267,7 @@ ContainerType FloatingWindowContainer::get_type() const
 
 glm::mat4 FloatingWindowContainer::get_workspace_transform() const
 {
-    if (is_pinned)
+    if (pinned())
         return glm::mat4(1.f);
 
     auto output = get_output();
@@ -279,7 +279,7 @@ glm::mat4 FloatingWindowContainer::get_workspace_transform() const
 
 glm::mat4 FloatingWindowContainer::get_output_transform() const
 {
-    if (is_pinned)
+    if (pinned())
         return glm::mat4(1.f);
 
     return get_output()->get_transform();
@@ -402,7 +402,7 @@ nlohmann::json FloatingWindowContainer::to_json() const
         { "fullscreen_mode",      is_fullscreen() ? 1 : 0                                                                                                                                                                                                                   }, // TODO: Support value 2
         { "pid",                  app->process_id()                                                                                                                                                                                                                         },
         { "app_id",               win_info.application_id()                                                                                                                                                                                                                 },
-        { "visible",              is_pinned || visible                                                                                                                                                                                                                      },
+        { "visible",              pinned() || visible                                                                                                                                                                                                                       },
         { "shell",                "miracle-wm"                                                                                                                                                                                                                              }, // TODO
         { "inhibit_idle",         false                                                                                                                                                                                                                                     },
         { "idle_inhibitors",      {
