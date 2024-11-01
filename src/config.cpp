@@ -94,22 +94,27 @@ std::string wrap_command(std::string const& command)
 }
 
 template <typename T>
-bool try_parse_value(YAML::Node const& root, const char* key, T& value)
+bool try_parse_value(YAML::Node const& node, T& value)
 {
-    if (!root[key])
-        return false;
-
-    auto const& node = root[key];
     try
     {
         value = node.as<T>();
     }
     catch (YAML::BadConversion const& e)
     {
-        mir::log_error("(L%d) Unable to parse '%s: %s", node.Mark().line, key, e.msg.c_str());
+        mir::log_error("(L%d) Unable to parse '%s", node.Mark().line, e.msg.c_str());
         return false;
     }
     return true;
+}
+
+template <typename T>
+bool try_parse_value(YAML::Node const& root, const char* key, T& value)
+{
+    if (!root[key])
+        return false;
+
+    return try_parse_value(root[key], value);
 }
 
 template <typename T>
@@ -324,118 +329,18 @@ void FilesystemConfiguration::_reload()
         read_startup_apps(config["startup_apps"]);
     if (config["terminal"])
         read_terminal(config["terminal"]);
-
-    if (options.terminal && !program_exists(options.terminal.value()))
-    {
-        options.desired_terminal = options.terminal.value();
-        options.terminal.reset();
-    }
-
-    // Resizing
     if (config["resize_jump"])
-    {
-        try
-        {
-            options.resize_jump = config["resize_jump"].as<int>();
-        }
-        catch (YAML::BadConversion const& e)
-        {
-            mir::log_error("Unable to parse resize_jump: %s", e.msg.c_str());
-        }
-    }
-
-    // Environment variables
+        read_resize_jump(config["resize_jump"]);
     if (config["environment_variables"])
-    {
-        if (!config["environment_variables"].IsSequence())
-        {
-            mir::log_error("environment_variables is not an array");
-        }
-        else
-        {
-            for (auto const& node : config["environment_variables"])
-            {
-                if (!node["key"])
-                {
-                    mir::log_error("environment_variables: item is missing a 'key'");
-                    continue;
-                }
-
-                if (!node["value"])
-                {
-                    mir::log_error("environment_variables: item is missing a 'value'");
-                    continue;
-                }
-
-                try
-                {
-                    auto key = node["key"].as<std::string>();
-                    auto value = node["value"].as<std::string>();
-                    options.environment_variables.push_back({ key, value });
-                }
-                catch (YAML::BadConversion const& e)
-                {
-                    mir::log_error("Unable to parse environment_variable_entry: %s", e.msg.c_str());
-                }
-            }
-        }
-    }
-
+        read_environment_variables(config["environment_variables"]);
     if (config["border"])
-    {
-        try
-        {
-            auto border = config["border"];
-            auto size = border["size"].as<int>();
-            auto color = parse_color(border["color"]);
-            auto focus_color = parse_color(border["focus_color"]);
-            options.border_config = { size, focus_color, color };
-        }
-        catch (YAML::BadConversion const& e)
-        {
-            mir::log_error("Unable to parse border: %s", e.msg.c_str());
-        }
-    }
-
+        read_border(config["border"]);
     if (config["workspaces"])
-    {
-        try
-        {
-            auto const& workspaces = config["workspaces"];
-            if (!workspaces.IsSequence())
-            {
-                mir::log_error("workspaces: expected sequence: L%d:%d", workspaces.Mark().line, workspaces.Mark().column);
-            }
-            else
-            {
-                for (auto const& workspace : workspaces)
-                {
-                    auto num = workspace["number"].as<int>();
-                    auto type = container_type_from_string(workspace["layout"].as<std::string>());
-                    if (type != ContainerType::leaf && type != ContainerType::floating_window)
-                    {
-                        mir::log_error("layout should be 'tiled' or 'floating': L%d:%d", workspace["layout"].Mark().line, workspace["layout"].Mark().column);
-                        continue;
-                    }
-
-                    options.workspace_configs.push_back({ num, type });
-                }
-            }
-        }
-        catch (YAML::BadConversion const& e)
-        {
-            mir::log_error("workspaces: unable to parse: %s, L%d:%d", e.msg.c_str(), e.mark.line, e.mark.column);
-        }
-    }
-
-    read_animation_definitions(config);
-
-    NotifyNotification* n = notify_notification_new(
-        "Miracle configuration has successfully refreshed",
-        nullptr,
-        nullptr);
-    notify_notification_set_timeout(n, 5000);
-    notify_notification_show(n, nullptr);
+        read_workspaces(config["workspaces"]);
+    if (config["animations"])
+        read_animation_definitions(config["animations"]);
+    if (config["enable_animations"])
+        read_enable_animations(config["enable_animations"]);
 
     for (auto const& i : parse_info)
     {
@@ -580,7 +485,6 @@ void FilesystemConfiguration::read_custom_actions(YAML::Node const& custom_actio
     }
 }
 
-<<<<<<< HEAD
 void FilesystemConfiguration::read_inner_gaps(YAML::Node const& node)
 {
     int new_inner_gaps_x = options.inner_gaps_x;
@@ -670,10 +574,107 @@ void FilesystemConfiguration::read_terminal(YAML::Node const& node)
     {
         mir::log_error("Unable to parse terminal: %s", e.msg.c_str());
     }
+
+    if (options.terminal && !program_exists(options.terminal.value()))
+    {
+        options.desired_terminal = options.terminal.value();
+        options.terminal.reset();
+    }
 }
 
-=======
->>>>>>> f9e5f59e749c44ee42b8d3a4feb9980adc60df20
+void FilesystemConfiguration::read_resize_jump(YAML::Node const& node)
+{
+    try
+    {
+        options.resize_jump = node.as<int>();
+    }
+    catch (YAML::BadConversion const& e)
+    {
+        mir::log_error("Unable to parse resize_jump: %s", e.msg.c_str());
+    }
+}
+
+void FilesystemConfiguration::read_environment_variables(YAML::Node const& env)
+{
+    if (!env.IsSequence())
+    {
+        mir::log_error("environment_variables is not an array");
+    }
+    else
+    {
+        for (auto const& node : env)
+        {
+            if (!node["key"])
+            {
+                mir::log_error("environment_variables: item is missing a 'key'");
+                continue;
+            }
+
+            if (!node["value"])
+            {
+                mir::log_error("environment_variables: item is missing a 'value'");
+                continue;
+            }
+
+            try
+            {
+                auto key = node["key"].as<std::string>();
+                auto value = node["value"].as<std::string>();
+                options.environment_variables.push_back({ key, value });
+            }
+            catch (YAML::BadConversion const& e)
+            {
+                mir::log_error("Unable to parse environment_variable_entry: %s", e.msg.c_str());
+            }
+        }
+    }
+}
+
+void FilesystemConfiguration::read_border(YAML::Node const& border)
+{
+    try
+    {
+        auto size = border["size"].as<int>();
+        auto color = parse_color(border["color"]);
+        auto focus_color = parse_color(border["focus_color"]);
+        options.border_config = { size, focus_color, color };
+    }
+    catch (YAML::BadConversion const& e)
+    {
+        mir::log_error("Unable to parse border: %s", e.msg.c_str());
+    }
+}
+
+void FilesystemConfiguration::read_workspaces(YAML::Node const& workspaces)
+{
+    try
+    {
+        if (!workspaces.IsSequence())
+        {
+            mir::log_error("workspaces: expected sequence: L%d:%d", workspaces.Mark().line, workspaces.Mark().column);
+        }
+        else
+        {
+            for (auto const& workspace : workspaces)
+            {
+                auto num = workspace["number"].as<int>();
+                auto type = container_type_from_string(workspace["layout"].as<std::string>());
+                if (type != ContainerType::leaf && type != ContainerType::floating_window)
+                {
+                    mir::log_error("layout should be 'tiled' or 'floating': L%d:%d", workspace["layout"].Mark().line, workspace["layout"].Mark().column);
+                    continue;
+                }
+
+                options.workspace_configs.push_back({ num, type });
+            }
+        }
+    }
+    catch (YAML::BadConversion const& e)
+    {
+        mir::log_error("workspaces: unable to parse: %s, L%d:%d", e.msg.c_str(), e.mark.line, e.mark.column);
+    }
+}
+
 void FilesystemConfiguration::read_default_action_overrides(YAML::Node const& default_action_overrides)
 {
     if (!default_action_overrides.IsSequence())
@@ -901,57 +902,55 @@ void FilesystemConfiguration::read_default_action_overrides(YAML::Node const& de
     }
 }
 
-void FilesystemConfiguration::read_animation_definitions(YAML::Node const& root)
+void FilesystemConfiguration::read_animation_definitions(YAML::Node const& animations_node)
 {
-    if (root["animations"])
+    if (!animations_node.IsSequence())
     {
-        auto animations_node = root["animations"];
-        if (!animations_node.IsSequence())
-        {
-            mir::log_error("Unable to parse animations_node: animations_node is not an array");
-            return;
-        }
-
-        for (auto const& node : animations_node)
-        {
-            auto const& event = try_parse_enum<AnimateableEvent>(
-                node,
-                "event",
-                from_string_animateable_event,
-                AnimateableEvent::max);
-            if (event == AnimateableEvent::max)
-                continue;
-
-            auto const& type = try_parse_enum<AnimationType>(
-                node,
-                "type",
-                from_string_animation_type,
-                AnimationType::max);
-            if (type == AnimationType::max)
-                continue;
-
-            auto const& function = try_parse_enum<EaseFunction>(
-                node,
-                "function",
-                from_string_ease_function,
-                EaseFunction::max);
-            if (function == EaseFunction::max)
-                continue;
-
-            options.animation_defintions[(int)event].type = type;
-            options.animation_defintions[(int)event].function = function;
-            try_parse_value(node, "duration", options.animation_defintions[(int)event].duration_seconds);
-            try_parse_value(node, "c1", options.animation_defintions[(int)event].c1);
-            try_parse_value(node, "c2", options.animation_defintions[(int)event].c2);
-            try_parse_value(node, "c3", options.animation_defintions[(int)event].c3);
-            try_parse_value(node, "c4", options.animation_defintions[(int)event].c4);
-            try_parse_value(node, "n1", options.animation_defintions[(int)event].n1);
-            try_parse_value(node, "d1", options.animation_defintions[(int)event].d1);
-        }
+        mir::log_error("Unable to parse animations_node: animations_node is not an array");
+        return;
     }
 
-    if (root["enable_animations"])
-        try_parse_value(root, "enable_animations", options.animations_enabled);
+    for (auto const& node : animations_node)
+    {
+        auto const& event = try_parse_enum<AnimateableEvent>(
+            node,
+            "event",
+            from_string_animateable_event,
+            AnimateableEvent::max);
+        if (event == AnimateableEvent::max)
+            continue;
+
+        auto const& type = try_parse_enum<AnimationType>(
+            node,
+            "type",
+            from_string_animation_type,
+            AnimationType::max);
+        if (type == AnimationType::max)
+            continue;
+
+        auto const& function = try_parse_enum<EaseFunction>(
+            node,
+            "function",
+            from_string_ease_function,
+            EaseFunction::max);
+        if (function == EaseFunction::max)
+            continue;
+
+        options.animation_defintions[(int)event].type = type;
+        options.animation_defintions[(int)event].function = function;
+        try_parse_value(node, "duration", options.animation_defintions[(int)event].duration_seconds);
+        try_parse_value(node, "c1", options.animation_defintions[(int)event].c1);
+        try_parse_value(node, "c2", options.animation_defintions[(int)event].c2);
+        try_parse_value(node, "c3", options.animation_defintions[(int)event].c3);
+        try_parse_value(node, "c4", options.animation_defintions[(int)event].c4);
+        try_parse_value(node, "n1", options.animation_defintions[(int)event].n1);
+        try_parse_value(node, "d1", options.animation_defintions[(int)event].d1);
+    }
+}
+
+void FilesystemConfiguration::read_enable_animations(YAML::Node const& node)
+{
+    try_parse_value(node, options.animations_enabled);
 }
 
 void FilesystemConfiguration::_watch(miral::MirRunner& runner)

@@ -279,7 +279,12 @@ private:
     void read_outer_gaps(YAML::Node const&);
     void read_startup_apps(YAML::Node const&);
     void read_terminal(YAML::Node const&);
+    void read_resize_jump(YAML::Node const&);
+    void read_environment_variables(YAML::Node const&);
+    void read_border(YAML::Node const&);
+    void read_workspaces(YAML::Node const&);
     void read_animation_definitions(YAML::Node const&);
+    void read_enable_animations(YAML::Node const&);
 
     miral::MirRunner& runner;
     int next_listener_handle = 0;
