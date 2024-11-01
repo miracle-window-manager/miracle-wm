@@ -581,6 +581,7 @@ void FilesystemConfiguration::read_custom_actions(YAML::Node const& custom_actio
     }
 }
 
+<<<<<<< HEAD
 void FilesystemConfiguration::read_inner_gaps(YAML::Node const& node)
 {
     int new_inner_gaps_x = options.inner_gaps_x;
@@ -672,6 +673,8 @@ void FilesystemConfiguration::read_terminal(YAML::Node const& node)
     }
 }
 
+=======
+>>>>>>> f9e5f59e749c44ee42b8d3a4feb9980adc60df20
 void FilesystemConfiguration::read_default_action_overrides(YAML::Node const& default_action_overrides)
 {
     if (!default_action_overrides.IsSequence())
