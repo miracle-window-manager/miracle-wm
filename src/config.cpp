@@ -317,99 +317,14 @@ void FilesystemConfiguration::_reload()
         read_default_action_overrides(config["default_action_overrides"]);
     if (config["custom_actions"])
         read_custom_actions(config["custom_actions"]);
-
-    // Gap sizes
     if (config["inner_gaps"])
-    {
-        int new_inner_gaps_x = options.inner_gaps_x;
-        int new_inner_gaps_y = options.inner_gaps_y;
-        try
-        {
-            if (config["inner_gaps"]["x"])
-                new_inner_gaps_x = config["inner_gaps"]["x"].as<int>();
-            if (config["inner_gaps"]["y"])
-                new_inner_gaps_y = config["inner_gaps"]["y"].as<int>();
-
-            options.inner_gaps_x = new_inner_gaps_x;
-            options.inner_gaps_y = new_inner_gaps_y;
-        }
-        catch (YAML::BadConversion const& e)
-        {
-            mir::log_error("Unable to parse inner_gaps: %s", e.msg.c_str());
-        }
-    }
+        read_inner_gaps(config["inner_gaps"]);
     if (config["outer_gaps"])
-    {
-        try
-        {
-            int new_outer_gaps_x = options.outer_gaps_x;
-            int new_outer_gaps_y = options.outer_gaps_y;
-            if (config["outer_gaps"]["x"])
-                new_outer_gaps_x = config["outer_gaps"]["x"].as<int>();
-            if (config["outer_gaps"]["y"])
-                new_outer_gaps_y = config["outer_gaps"]["y"].as<int>();
-
-            options.outer_gaps_x = new_outer_gaps_x;
-            options.outer_gaps_y = new_outer_gaps_y;
-        }
-        catch (YAML::BadConversion const& e)
-        {
-            mir::log_error("Unable to parse outer_gaps: %s", e.msg.c_str());
-        }
-    }
-
-    // Startup Apps
+        read_outer_gaps(config["outer_gaps"]);
     if (config["startup_apps"])
-    {
-        if (!config["startup_apps"].IsSequence())
-        {
-            mir::log_error("startup_apps is not an array");
-        }
-        else
-        {
-            for (auto const& node : config["startup_apps"])
-            {
-                if (!node["command"])
-                {
-                    mir::log_error("startup_apps: app lacks a command");
-                    continue;
-                }
-
-                try
-                {
-                    auto command = wrap_command(node["command"].as<std::string>());
-                    bool restart_on_death = false;
-                    if (node["restart_on_death"])
-                        restart_on_death = node["restart_on_death"].as<bool>();
-
-                    bool in_systemd_scope = false;
-                    if (node["in_systemd_scope"])
-                        in_systemd_scope = node["in_systemd_scope"].as<bool>();
-
-                    options.startup_apps.push_back({ .command = std::move(command),
-                        .restart_on_death = restart_on_death,
-                        .in_systemd_scope = in_systemd_scope });
-                }
-                catch (YAML::BadConversion const& e)
-                {
-                    mir::log_error("Unable to parse startup_apps: %s", e.msg.c_str());
-                }
-            }
-        }
-    }
-
-    // Terminal
+        read_startup_apps(config["startup_apps"]);
     if (config["terminal"])
-    {
-        try
-        {
-            options.terminal = wrap_command(config["terminal"].as<std::string>());
-        }
-        catch (YAML::BadConversion const& e)
-        {
-            mir::log_error("Unable to parse terminal: %s", e.msg.c_str());
-        }
-    }
+        read_terminal(config["terminal"]);
 
     if (options.terminal && !program_exists(options.terminal.value()))
     {
@@ -663,6 +578,97 @@ void FilesystemConfiguration::read_custom_actions(YAML::Node const& custom_actio
             modifiers,
             code,
             command });
+    }
+}
+
+void FilesystemConfiguration::read_inner_gaps(YAML::Node const& node)
+{
+    int new_inner_gaps_x = options.inner_gaps_x;
+    int new_inner_gaps_y = options.inner_gaps_y;
+    try
+    {
+        if (node["x"])
+            new_inner_gaps_x = node["x"].as<int>();
+        if (node["y"])
+            new_inner_gaps_y = node["y"].as<int>();
+
+        options.inner_gaps_x = new_inner_gaps_x;
+        options.inner_gaps_y = new_inner_gaps_y;
+    }
+    catch (YAML::BadConversion const& e)
+    {
+        mir::log_error("Unable to parse inner_gaps: %s", e.msg.c_str());
+    }
+}
+
+void FilesystemConfiguration::read_outer_gaps(YAML::Node const& node)
+{
+    try
+    {
+        int new_outer_gaps_x = options.outer_gaps_x;
+        int new_outer_gaps_y = options.outer_gaps_y;
+        if (node["x"])
+            new_outer_gaps_x = node["x"].as<int>();
+        if (node["y"])
+            new_outer_gaps_y = node["y"].as<int>();
+
+        options.outer_gaps_x = new_outer_gaps_x;
+        options.outer_gaps_y = new_outer_gaps_y;
+    }
+    catch (YAML::BadConversion const& e)
+    {
+        mir::log_error("Unable to parse outer_gaps: %s", e.msg.c_str());
+    }
+}
+
+void FilesystemConfiguration::read_startup_apps(YAML::Node const& startup_apps)
+{
+    if (!startup_apps.IsSequence())
+    {
+        mir::log_error("startup_apps is not an array");
+    }
+    else
+    {
+        for (auto const& node : startup_apps)
+        {
+            if (!node["command"])
+            {
+                mir::log_error("startup_apps: app lacks a command");
+                continue;
+            }
+
+            try
+            {
+                auto command = wrap_command(node["command"].as<std::string>());
+                bool restart_on_death = false;
+                if (node["restart_on_death"])
+                    restart_on_death = node["restart_on_death"].as<bool>();
+
+                bool in_systemd_scope = false;
+                if (node["in_systemd_scope"])
+                    in_systemd_scope = node["in_systemd_scope"].as<bool>();
+
+                options.startup_apps.push_back({ .command = std::move(command),
+                    .restart_on_death = restart_on_death,
+                    .in_systemd_scope = in_systemd_scope });
+            }
+            catch (YAML::BadConversion const& e)
+            {
+                mir::log_error("Unable to parse startup_apps: %s", e.msg.c_str());
+            }
+        }
+    }
+}
+
+void FilesystemConfiguration::read_terminal(YAML::Node const& node)
+{
+    try
+    {
+        options.terminal = wrap_command(node.as<std::string>());
+    }
+    catch (YAML::BadConversion const& e)
+    {
+        mir::log_error("Unable to parse terminal: %s", e.msg.c_str());
     }
 }
 

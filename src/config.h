@@ -239,6 +239,27 @@ public:
     [[nodiscard]] uint get_primary_modifier() const override;
 
 private:
+    struct ConfigDetails
+    {
+        ConfigDetails();
+        uint primary_modifier = mir_input_event_modifier_meta;
+        std::vector<CustomKeyCommand> custom_key_commands;
+        KeyCommandList key_commands[DefaultKeyCommand::MAX];
+        int inner_gaps_x = 10;
+        int inner_gaps_y = 10;
+        int outer_gaps_x = 10;
+        int outer_gaps_y = 10;
+        std::vector<StartupApp> startup_apps;
+        std::optional<std::string> terminal = "miracle-wm-sensible-terminal";
+        std::string desired_terminal;
+        int resize_jump = 50;
+        std::vector<EnvironmentVariable> environment_variables;
+        BorderConfig border_config;
+        bool animations_enabled = true;
+        std::array<AnimationDefinition, (int)AnimateableEvent::max> animation_defintions;
+        std::vector<WorkspaceConfig> workspace_configs;
+    };
+
     struct ChangeListener
     {
         std::function<void(miracle::MiracleConfig&)> listener;
@@ -256,6 +277,8 @@ private:
     void read_custom_actions(YAML::Node const&);
     void read_inner_gaps(YAML::Node const&);
     void read_outer_gaps(YAML::Node const&);
+    void read_startup_apps(YAML::Node const&);
+    void read_terminal(YAML::Node const&);
     void read_animation_definitions(YAML::Node const&);
 
     miral::MirRunner& runner;
@@ -274,27 +297,6 @@ private:
     std::stringstream builder;
 
     static const uint miracle_input_event_modifier_default = 1 << 18;
-    struct ConfigDetails
-    {
-        ConfigDetails();
-        uint primary_modifier = mir_input_event_modifier_meta;
-        std::vector<CustomKeyCommand> custom_key_commands;
-        KeyCommandList key_commands[DefaultKeyCommand::MAX];
-        int inner_gaps_x = 10;
-        int inner_gaps_y = 10;
-        int outer_gaps_x = 10;
-        int outer_gaps_y = 10;
-        std::vector<StartupApp> startup_apps;
-        std::optional<std::string> terminal = "miracle-wm-sensible-terminal";
-        std::string desired_terminal = "";
-        int resize_jump = 50;
-        std::vector<EnvironmentVariable> environment_variables;
-        BorderConfig border_config;
-        bool animations_enabled = true;
-        std::array<AnimationDefinition, (int)AnimateableEvent::max> animation_defintions;
-        std::vector<WorkspaceConfig> workspace_configs;
-    };
-
     ConfigDetails options;
 };
 }
