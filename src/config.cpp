@@ -27,7 +27,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <sstream>
 #include <glib-2.0/glib.h>
 #include <libevdev-1.0/libevdev/libevdev.h>
-#include <libnotify/notify.h>
 #include <mir/log.h>
 #include <mir/options/option.h>
 #include <mir/server.h>
@@ -1170,16 +1169,8 @@ void FilesystemConfiguration::unregister_listener(int handle)
 std::optional<std::string> const& FilesystemConfiguration::get_terminal_command() const
 {
     if (!options.terminal)
-    {
-        auto error_string = "Terminal program does not exist " + options.desired_terminal;
-        mir::log_error("%s", error_string.c_str());
-        NotifyNotification* n = notify_notification_new(
-            "Terminal program does not exist",
-            error_string.c_str(),
-            nullptr);
-        notify_notification_set_timeout(n, 5000);
-        notify_notification_show(n, nullptr);
-    }
+        mir::log_error("Terminal program does not exist %s", options.desired_terminal.c_str());
+
     return options.terminal;
 }
 
