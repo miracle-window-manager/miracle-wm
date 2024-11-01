@@ -32,7 +32,6 @@ pkg_check_modules(GLIB REQUIRED IMPORTED_TARGET glib-2.0)
 pkg_check_modules(YAML REQUIRED IMPORTED_TARGET yaml-cpp)
 pkg_check_modules(LIBEVDEV REQUIRED IMPORTED_TARGET libevdev)
 find_package(nlohmann_json 3.2.0 REQUIRED)
-pkg_check_modules(LIBNOTIFY REQUIRED IMPORTED_TARGET libnotify)
 pkg_check_modules(EGL REQUIRED IMPORTED_TARGET egl)
 pkg_check_modules(GLESv2 REQUIRED IMPORTED_TARGET glesv2)
 
@@ -105,7 +104,6 @@ target_link_libraries(miracle-wm-implementation
     PkgConfig::YAML
     PkgConfig::GLIB
     PkgConfig::LIBEVDEV
-    PkgConfig::LIBNOTIFY
     nlohmann_json::nlohmann_json
     PkgConfig::EGL
     PkgConfig::GLESv2
