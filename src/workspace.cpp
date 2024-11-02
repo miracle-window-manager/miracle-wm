@@ -474,7 +474,7 @@ nlohmann::json Workspace::to_json() const
         { "type",                 "workspace"                                                     },
         { "name",                 std::to_string(workspace)                                       },
         { "visible",              output->is_active() && is_focused                               },
-        { "focused",              output->is_active() && is_focused         },
+        { "focused",              output->is_active() && is_focused                               },
         { "urgent",               false                                                           },
         { "output",               output->get_output().name()                                     },
         { "border",               "none"                                                          },

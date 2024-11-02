@@ -102,100 +102,100 @@ bool Policy::handle_keyboard_event(MirKeyboardEvent const* event)
 
         switch (key_command)
         {
-        case Terminal:
+        case DefaultKeyCommand::Terminal:
         {
             auto terminal_command = config->get_terminal_command();
             if (terminal_command)
                 external_client_launcher.launch({ terminal_command.value() });
             return true;
         }
-        case RequestVertical:
+        case DefaultKeyCommand::RequestVertical:
             return try_request_vertical();
-        case RequestHorizontal:
+        case DefaultKeyCommand::RequestHorizontal:
             return try_request_horizontal();
-        case ToggleResize:
+        case DefaultKeyCommand::ToggleResize:
             try_toggle_resize_mode();
             return true;
-        case ResizeUp:
+        case DefaultKeyCommand::ResizeUp:
             return try_resize(Direction::up);
-        case ResizeDown:
+        case DefaultKeyCommand::ResizeDown:
             return try_resize(Direction::down);
-        case ResizeLeft:
+        case DefaultKeyCommand::ResizeLeft:
             return try_resize(Direction::left);
-        case ResizeRight:
+        case DefaultKeyCommand::ResizeRight:
             return try_resize(Direction::right);
-        case MoveUp:
+        case DefaultKeyCommand::MoveUp:
             return try_move(Direction::up);
-        case MoveDown:
+        case DefaultKeyCommand::MoveDown:
             return try_move(Direction::down);
-        case MoveLeft:
+        case DefaultKeyCommand::MoveLeft:
             return try_move(Direction::left);
-        case MoveRight:
+        case DefaultKeyCommand::MoveRight:
             return try_move(Direction::right);
-        case SelectUp:
+        case DefaultKeyCommand::SelectUp:
             return try_select(Direction::up);
-        case SelectDown:
+        case DefaultKeyCommand::SelectDown:
             return try_select(Direction::down);
-        case SelectLeft:
+        case DefaultKeyCommand::SelectLeft:
             return try_select(Direction::left);
-        case SelectRight:
+        case DefaultKeyCommand::SelectRight:
             return try_select(Direction::right);
-        case QuitActiveWindow:
+        case DefaultKeyCommand::QuitActiveWindow:
             return try_close_window();
-        case QuitCompositor:
+        case DefaultKeyCommand::QuitCompositor:
             return quit();
-        case Fullscreen:
+        case DefaultKeyCommand::Fullscreen:
             return try_toggle_fullscreen();
-        case SelectWorkspace1:
+        case DefaultKeyCommand::SelectWorkspace1:
             return select_workspace(1);
-        case SelectWorkspace2:
+        case DefaultKeyCommand::SelectWorkspace2:
             return select_workspace(2);
-        case SelectWorkspace3:
+        case DefaultKeyCommand::SelectWorkspace3:
             return select_workspace(3);
-        case SelectWorkspace4:
+        case DefaultKeyCommand::SelectWorkspace4:
             return select_workspace(4);
-        case SelectWorkspace5:
+        case DefaultKeyCommand::SelectWorkspace5:
             return select_workspace(5);
-        case SelectWorkspace6:
+        case DefaultKeyCommand::SelectWorkspace6:
             return select_workspace(6);
-        case SelectWorkspace7:
+        case DefaultKeyCommand::SelectWorkspace7:
             return select_workspace(7);
-        case SelectWorkspace8:
+        case DefaultKeyCommand::SelectWorkspace8:
             return select_workspace(8);
-        case SelectWorkspace9:
+        case DefaultKeyCommand::SelectWorkspace9:
             return select_workspace(9);
-        case SelectWorkspace0:
+        case DefaultKeyCommand::SelectWorkspace0:
             return select_workspace(0);
-        case MoveToWorkspace1:
+        case DefaultKeyCommand::MoveToWorkspace1:
             return move_active_to_workspace(1);
-        case MoveToWorkspace2:
+        case DefaultKeyCommand::MoveToWorkspace2:
             return move_active_to_workspace(2);
-        case MoveToWorkspace3:
+        case DefaultKeyCommand::MoveToWorkspace3:
             return move_active_to_workspace(3);
-        case MoveToWorkspace4:
+        case DefaultKeyCommand::MoveToWorkspace4:
             return move_active_to_workspace(4);
-        case MoveToWorkspace5:
+        case DefaultKeyCommand::MoveToWorkspace5:
             return move_active_to_workspace(5);
-        case MoveToWorkspace6:
+        case DefaultKeyCommand::MoveToWorkspace6:
             return move_active_to_workspace(6);
-        case MoveToWorkspace7:
+        case DefaultKeyCommand::MoveToWorkspace7:
             return move_active_to_workspace(7);
-        case MoveToWorkspace8:
+        case DefaultKeyCommand::MoveToWorkspace8:
             return move_active_to_workspace(8);
-        case MoveToWorkspace9:
+        case DefaultKeyCommand::MoveToWorkspace9:
             return move_active_to_workspace(9);
-        case MoveToWorkspace0:
+        case DefaultKeyCommand::MoveToWorkspace0:
             return move_active_to_workspace(0);
-        case ToggleFloating:
+        case DefaultKeyCommand::ToggleFloating:
             return toggle_floating();
-        case TogglePinnedToWorkspace:
+        case DefaultKeyCommand::TogglePinnedToWorkspace:
             return toggle_pinned_to_workspace();
-        case ToggleTabbing:
+        case DefaultKeyCommand::ToggleTabbing:
             return toggle_tabbing();
-        case ToggleStacking:
+        case DefaultKeyCommand::ToggleStacking:
             return toggle_stacking();
         default:
-            std::cerr << "Unknown key_command: " << key_command << std::endl;
+            std::cerr << "Unknown key_command: " << static_cast<int>(key_command) << std::endl;
             break;
         }
         return false;
@@ -461,7 +461,8 @@ void Policy::advise_output_create(miral::Output const& output)
         floating_window_manager, state, config, window_controller, animator);
     workspace_manager.request_first_available_workspace(output_content);
     output_list.push_back(output_content);
-    if (state.active_output == nullptr) {
+    if (state.active_output == nullptr)
+    {
         state.active_output = output_content;
         state.active_output->set_is_active(true);
     }

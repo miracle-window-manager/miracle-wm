@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "animation_defintion.h"
 #include "container.h"
+#include "yaml-cpp/yaml.h"
 
 #include <atomic>
 #include <functional>
@@ -51,7 +52,7 @@ class FdHandle;
 namespace miracle
 {
 
-enum DefaultKeyCommand
+enum class DefaultKeyCommand
 {
     Terminal = 0,
     RequestVertical,
@@ -191,7 +192,7 @@ public:
     [[nodiscard]] virtual int get_resize_jump() const = 0;
     [[nodiscard]] virtual std::vector<EnvironmentVariable> const& get_env_variables() const = 0;
     [[nodiscard]] virtual BorderConfig const& get_border_config() const = 0;
-    [[nodiscard]] virtual std::array<AnimationDefinition, (int)AnimateableEvent::max> const& get_animation_definitions() const = 0;
+    [[nodiscard]] virtual std::array<AnimationDefinition, static_cast<int>(AnimateableEvent::max)> const& get_animation_definitions() const = 0;
     [[nodiscard]] virtual bool are_animations_enabled() const = 0;
     [[nodiscard]] virtual WorkspaceConfig get_workspace_config(int key) const = 0;
     [[nodiscard]] virtual LayoutScheme get_default_layout_scheme() const = 0;
@@ -202,7 +203,7 @@ public:
     virtual int register_listener(std::function<void(miracle::MiracleConfig&)> const&, int priority) = 0;
     virtual void unregister_listener(int handle) = 0;
     virtual void try_process_change() = 0;
-    virtual uint get_primary_modifier() const = 0;
+    [[nodiscard]] virtual uint get_primary_modifier() const = 0;
 };
 
 class FilesystemConfiguration : public MiracleConfig
@@ -210,9 +211,9 @@ class FilesystemConfiguration : public MiracleConfig
 public:
     explicit FilesystemConfiguration(miral::MirRunner&);
     FilesystemConfiguration(miral::MirRunner&, std::string const&, bool load_immediately = false);
-    ~FilesystemConfiguration() = default;
-    FilesystemConfiguration(FilesystemConfiguration const&) = default;
-    auto operator=(FilesystemConfiguration const&) -> FilesystemConfiguration& = default;
+    ~FilesystemConfiguration() override = default;
+    FilesystemConfiguration(FilesystemConfiguration const&) = delete;
+    auto operator=(FilesystemConfiguration const&) -> FilesystemConfiguration& = delete;
 
     void load(mir::Server& server) override;
     [[nodiscard]] std::string const& get_filename() const override;
@@ -228,7 +229,7 @@ public:
     [[nodiscard]] int get_resize_jump() const override;
     [[nodiscard]] std::vector<EnvironmentVariable> const& get_env_variables() const override;
     [[nodiscard]] BorderConfig const& get_border_config() const override;
-    [[nodiscard]] std::array<AnimationDefinition, (int)AnimateableEvent::max> const& get_animation_definitions() const override;
+    [[nodiscard]] std::array<AnimationDefinition, static_cast<int>(AnimateableEvent::max)> const& get_animation_definitions() const override;
     [[nodiscard]] bool are_animations_enabled() const override;
     [[nodiscard]] WorkspaceConfig get_workspace_config(int key) const override;
     [[nodiscard]] LayoutScheme get_default_layout_scheme() const override;
@@ -244,14 +245,13 @@ private:
         ConfigDetails();
         uint primary_modifier = mir_input_event_modifier_meta;
         std::vector<CustomKeyCommand> custom_key_commands;
-        KeyCommandList key_commands[DefaultKeyCommand::MAX];
+        KeyCommandList key_commands[(int)DefaultKeyCommand::MAX];
         int inner_gaps_x = 10;
         int inner_gaps_y = 10;
         int outer_gaps_x = 10;
         int outer_gaps_y = 10;
         std::vector<StartupApp> startup_apps;
         std::optional<std::string> terminal = "miracle-wm-sensible-terminal";
-        std::string desired_terminal;
         int resize_jump = 50;
         std::vector<EnvironmentVariable> environment_variables;
         BorderConfig border_config;
@@ -267,7 +267,7 @@ private:
         int handle;
     };
 
-    static uint parse_modifier(std::string const& stringified_action_key);
+    static std::optional<uint> parse_modifier(std::string const& stringified_action_key);
     void _init(std::optional<StartupApp> const& systemd_app, std::optional<StartupApp> const& exec_app);
     void _reload();
     void _watch(miral::MirRunner& runner);
@@ -286,6 +286,69 @@ private:
     void read_animation_definitions(YAML::Node const&);
     void read_enable_animations(YAML::Node const&);
 
+    template <typename T>
+    bool try_parse_value(YAML::Node const& node, T& value)
+    {
+        try
+        {
+            value = node.as<T>();
+        }
+        catch (YAML::BadConversion const& e)
+        {
+            builder << "Unable to parse value to correct type";
+            add_error(node);
+            return false;
+        }
+        return true;
+    }
+
+    template <typename T>
+    bool try_parse_value(YAML::Node const& root, const char* key, T& value, bool optional = false)
+    {
+        if (!root[key])
+        {
+            if (!optional)
+            {
+                builder << "Node is missing key: " << key;
+                add_error(root);
+            }
+            return false;
+        }
+
+        return try_parse_value(root[key], value);
+    }
+
+    template <typename T>
+    T try_parse_functor(YAML::Node const& node, std::function<T(std::string const&)> const& parse)
+    {
+        try
+        {
+            return parse(node.as<std::string>());
+        }
+        catch (YAML::BadConversion const& e)
+        {
+            builder << "Unable to parse enum value";
+            add_error(node);
+            return std::nullopt;
+        }
+    }
+
+    template <typename T>
+    T try_parse_functor(YAML::Node const& root, const char* key, std::function<T(std::string const&)> const& parse)
+    {
+        if (!root[key])
+        {
+            builder << "Missing key in value: " << key;
+            add_error(root);
+            return std::nullopt;
+        }
+
+        return try_parse_functor(root[key], parse);
+    }
+
+    bool try_parse_color(YAML::Node const& node, glm::vec4&);
+    bool try_parse_color(YAML::Node const& root, const char* key, glm::vec4&);
+
     miral::MirRunner& runner;
     int next_listener_handle = 0;
     std::vector<ChangeListener> on_change_listeners;
@@ -301,7 +364,6 @@ private:
     std::vector<ConfigurationInfo> parse_info;
     std::stringstream builder;
 
-    static const uint miracle_input_event_modifier_default = 1 << 18;
     ConfigDetails options;
 };
 }

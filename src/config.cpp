@@ -15,22 +15,21 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#include <glm/fwd.hpp>
 #define MIR_LOG_COMPONENT "config"
 
 #include "config.h"
 #include "yaml-cpp/node/node.h"
-#include "yaml-cpp/yaml.h"
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <sstream>
 #include <glib-2.0/glib.h>
+#include <glm/fwd.hpp>
 #include <libevdev-1.0/libevdev/libevdev.h>
 #include <mir/log.h>
 #include <mir/options/option.h>
 #include <mir/server.h>
 #include <miral/runner.h>
+#include <sstream>
 #include <sys/inotify.h>
 
 using namespace miracle;
@@ -38,108 +37,13 @@ using namespace miracle;
 namespace
 {
 const char* MIRACLE_DEFAULT_CONFIG_DIR = "/usr/share/miracle-wm/default-config";
+constexpr uint miracle_input_event_modifier_default = 1 << 18;
 
 int program_exists(std::string const& name)
 {
     std::stringstream out;
     out << "command -v " << name << " > /dev/null 2>&1";
     return !system(out.str().c_str());
-}
-
-glm::vec4 parse_color(YAML::Node const& node)
-{
-    const float MAX_COLOR_VALUE = 255;
-    float r, g, b, a;
-    if (node.IsMap())
-    {
-        // Parse as (r, g, b, a) object
-        if (!node["r"])
-        {
-        }
-        r = node["r"].as<float>() / MAX_COLOR_VALUE;
-        g = node["g"].as<float>() / MAX_COLOR_VALUE;
-        b = node["b"].as<float>() / MAX_COLOR_VALUE;
-        a = node["a"].as<float>() / MAX_COLOR_VALUE;
-    }
-    else if (node.IsSequence())
-    {
-        // Parse as [r, g, b, a] array
-        r = node[0].as<float>() / MAX_COLOR_VALUE;
-        g = node[1].as<float>() / MAX_COLOR_VALUE;
-        b = node[2].as<float>() / MAX_COLOR_VALUE;
-        a = node[3].as<float>() / MAX_COLOR_VALUE;
-    }
-    else
-    {
-        // Parse as hex color
-        auto value = node.as<std::string>();
-        unsigned int i = std::stoul(value, nullptr, 16);
-        r = static_cast<float>(((i >> 24) & 0xFF)) / MAX_COLOR_VALUE;
-        g = static_cast<float>(((i >> 16) & 0xFF)) / MAX_COLOR_VALUE;
-        b = static_cast<float>(((i >> 8) & 0xFF)) / MAX_COLOR_VALUE;
-        a = static_cast<float>((i & 0xFF)) / MAX_COLOR_VALUE;
-    }
-
-    r = std::clamp(r, 0.f, 1.f);
-    g = std::clamp(g, 0.f, 1.f);
-    b = std::clamp(b, 0.f, 1.f);
-    a = std::clamp(a, 0.f, 1.f);
-
-    return { r, g, b, a };
-}
-
-std::string wrap_command(std::string const& command)
-{
-    return command;
-}
-
-template <typename T>
-bool try_parse_value(YAML::Node const& node, T& value)
-{
-    try
-    {
-        value = node.as<T>();
-    }
-    catch (YAML::BadConversion const& e)
-    {
-        mir::log_error("(L%d) Unable to parse '%s", node.Mark().line, e.msg.c_str());
-        return false;
-    }
-    return true;
-}
-
-template <typename T>
-bool try_parse_value(YAML::Node const& root, const char* key, T& value)
-{
-    if (!root[key])
-        return false;
-
-    return try_parse_value(root[key], value);
-}
-
-template <typename T>
-T try_parse_enum(YAML::Node const& root, const char* key, std::function<T(std::string const&)> const& parse, T invalid)
-{
-    T result = invalid;
-    if (!root[key])
-        return invalid;
-
-    auto const& node = root[key];
-    try
-    {
-        result = parse(node.as<std::string>());
-        if (result == invalid)
-        {
-            mir::log_error("(L%d) '%s' is invalid", node.Mark().line, key);
-            return invalid;
-        }
-    }
-    catch (YAML::BadConversion const& e)
-    {
-        mir::log_error("(L%d) Unable to parse '%s: %s", node.Mark().line, key, e.msg.c_str());
-        return invalid;
-    }
-    return result;
 }
 
 std::string create_default_configuration_path()
@@ -156,6 +60,21 @@ std::string configuration_info_to_string(ConfigurationInfo const& info)
     out << info.filename << ':' << info.line << ':' << info.column << ':' << ' ' << info.message;
     return out.str();
 }
+
+std::optional<MirKeyboardAction> from_string_keyboard_action(std::string const& action)
+{
+    if (action == "up")
+        return MirKeyboardAction::mir_keyboard_action_up;
+    else if (action == "down")
+        return MirKeyboardAction::mir_keyboard_action_down;
+    else if (action == "repeat")
+        return MirKeyboardAction::mir_keyboard_action_repeat;
+    else if (action == "modifiers")
+        return MirKeyboardAction::mir_keyboard_action_modifiers;
+    else
+        return std::nullopt;
+}
+
 }
 
 ConfigurationInfo::ConfigurationInfo(
@@ -356,120 +275,69 @@ void FilesystemConfiguration::add_error(YAML::Node const& node)
         node.Mark().column,
         ConfigurationInfo::Level::error,
         config_path,
-        builder.str()
-    );
+        builder.str());
     builder.clear();
 }
 
 void FilesystemConfiguration::read_action_key(YAML::Node const& node)
 {
-    auto const stringified_action_key = node.as<std::string>();
-    auto modifier = parse_modifier(stringified_action_key);
-    if (modifier == mir_input_event_modifier_none)
-    {
-        builder << "Invalid action key: " << stringified_action_key;
-        add_error(node);
-    }
-    else
-        options.primary_modifier = parse_modifier(stringified_action_key);
+    if (auto modifier = try_parse_functor<std::optional<uint>>(node, parse_modifier))
+        options.primary_modifier = modifier.value();
 }
 
 void FilesystemConfiguration::read_custom_actions(YAML::Node const& custom_actions)
 {
     if (!custom_actions.IsSequence())
     {
-        mir::log_error("custom_actions: value must be an array");
+        builder << "Custom actions must be an array";
+        add_error(custom_actions);
         return;
     }
 
-    for (auto i = 0; i < custom_actions.size(); i++)
+    for (auto const& sub_node : custom_actions)
     {
-        auto sub_node = custom_actions[i];
-        if (!sub_node["command"])
-        {
-            mir::log_error("custom_actions: missing command");
-            continue;
-        }
-
-        if (!sub_node["action"])
-        {
-            mir::log_error("custom_actions: missing action");
-            continue;
-        }
-
-        if (!sub_node["modifiers"])
-        {
-            mir::log_error("custom_actions: missing modifiers");
-            continue;
-        }
-
-        if (!sub_node["key"])
-        {
-            mir::log_error("custom_actions: missing key");
-            continue;
-        }
-
         std::string command;
-        std::string action;
         std::string key;
-        YAML::Node modifiers_node;
-        try
-        {
-            command = wrap_command(sub_node["command"].as<std::string>());
-            action = sub_node["action"].as<std::string>();
-            key = sub_node["key"].as<std::string>();
-            modifiers_node = sub_node["modifiers"];
-        }
-        catch (YAML::BadConversion const& e)
-        {
-            mir::log_error("Unable to parse custom_actions[%d]: %s", i, e.msg.c_str());
+        if (!try_parse_value(sub_node, "command", command))
             continue;
-        }
-
-        // TODO: Copy & paste here
-        MirKeyboardAction keyboard_action;
-        if (action == "up")
-            keyboard_action = MirKeyboardAction::mir_keyboard_action_up;
-        else if (action == "down")
-            keyboard_action = MirKeyboardAction::mir_keyboard_action_down;
-        else if (action == "repeat")
-            keyboard_action = MirKeyboardAction::mir_keyboard_action_repeat;
-        else if (action == "modifiers")
-            keyboard_action = MirKeyboardAction::mir_keyboard_action_modifiers;
-        else
-        {
-            mir::log_error("custom_actions: Unknown keyboard action: %s", action.c_str());
+        auto keyboard_action = try_parse_functor<std::optional<MirKeyboardAction>>(sub_node, "action", from_string_keyboard_action);
+        if (!keyboard_action)
             continue;
-        }
+        if (!try_parse_value(sub_node, "key", key))
+            continue;
 
-        auto code = libevdev_event_code_from_name(EV_KEY,
+        auto const code = libevdev_event_code_from_name(EV_KEY,
             key.c_str()); // https://stackoverflow.com/questions/32059363/is-there-a-way-to-get-the-evdev-keycode-from-a-string
         if (code < 0)
         {
-            mir::log_error(
-                "custom_actions: Unknown keyboard code in configuration: %s. See the linux kernel for allowed codes: https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h",
-                key.c_str());
+            builder << "Unknown keyboard code in configuration: " << key.c_str() << ". See the linux kernel for allowed codes: https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h";
+            add_error(sub_node["key"]);
+            continue;
+        }
+
+        YAML::Node modifiers_node = sub_node["modifiers"];
+        if (!modifiers_node)
+        {
+            builder << "Missing 'modifiers' in item";
+            add_error(sub_node);
             continue;
         }
 
         if (!modifiers_node.IsSequence())
         {
-            mir::log_error("custom_actions: Provided modifiers is not an array");
+            builder << "Modifiers list must be an array";
+            add_error(modifiers_node);
             continue;
         }
 
         uint modifiers = 0;
         bool is_invalid = false;
-        for (auto j = 0; j < modifiers_node.size(); j++)
+        for (auto const& modifier_item : modifiers_node)
         {
-            try
+            if (auto const modifier = try_parse_functor<std::optional<uint>>(modifier_item, parse_modifier))
+                modifiers = modifiers | modifier.value();
+            else
             {
-                auto modifier = modifiers_node[j].as<std::string>();
-                modifiers = modifiers | parse_modifier(modifier);
-            }
-            catch (YAML::BadConversion const& e)
-            {
-                mir::log_error("Unable to parse modifier for custom_actions[%d]: %s", i, e.msg.c_str());
                 is_invalid = true;
                 break;
             }
@@ -478,7 +346,7 @@ void FilesystemConfiguration::read_custom_actions(YAML::Node const& custom_actio
         if (is_invalid)
             continue;
 
-        options.custom_key_commands.push_back({ keyboard_action,
+        options.custom_key_commands.push_back({ keyboard_action.value(),
             modifiers,
             code,
             command });
@@ -487,191 +355,200 @@ void FilesystemConfiguration::read_custom_actions(YAML::Node const& custom_actio
 
 void FilesystemConfiguration::read_inner_gaps(YAML::Node const& node)
 {
-    int new_inner_gaps_x = options.inner_gaps_x;
-    int new_inner_gaps_y = options.inner_gaps_y;
-    try
-    {
-        if (node["x"])
-            new_inner_gaps_x = node["x"].as<int>();
-        if (node["y"])
-            new_inner_gaps_y = node["y"].as<int>();
-
-        options.inner_gaps_x = new_inner_gaps_x;
-        options.inner_gaps_y = new_inner_gaps_y;
-    }
-    catch (YAML::BadConversion const& e)
-    {
-        mir::log_error("Unable to parse inner_gaps: %s", e.msg.c_str());
-    }
+    if (!try_parse_value(node, "x", options.inner_gaps_x))
+        return;
+    if (!try_parse_value(node, "y", options.inner_gaps_y))
+        return;
 }
 
 void FilesystemConfiguration::read_outer_gaps(YAML::Node const& node)
 {
-    try
-    {
-        int new_outer_gaps_x = options.outer_gaps_x;
-        int new_outer_gaps_y = options.outer_gaps_y;
-        if (node["x"])
-            new_outer_gaps_x = node["x"].as<int>();
-        if (node["y"])
-            new_outer_gaps_y = node["y"].as<int>();
-
-        options.outer_gaps_x = new_outer_gaps_x;
-        options.outer_gaps_y = new_outer_gaps_y;
-    }
-    catch (YAML::BadConversion const& e)
-    {
-        mir::log_error("Unable to parse outer_gaps: %s", e.msg.c_str());
-    }
+    if (!try_parse_value(node, "x", options.outer_gaps_x))
+        return;
+    if (!try_parse_value(node, "y", options.outer_gaps_y))
+        return;
 }
 
 void FilesystemConfiguration::read_startup_apps(YAML::Node const& startup_apps)
 {
     if (!startup_apps.IsSequence())
     {
-        mir::log_error("startup_apps is not an array");
+        builder << "Expected startup applications to be an array";
+        add_error(startup_apps);
+        return;
     }
-    else
+
+    for (auto const& node : startup_apps)
     {
-        for (auto const& node : startup_apps)
+        std::string command;
+        if (!try_parse_value(node, "command", command))
+            continue;
+
+        bool restart_on_death = false;
+        if (node["restart_on_death"])
         {
-            if (!node["command"])
-            {
-                mir::log_error("startup_apps: app lacks a command");
+            if (!try_parse_value(node, "restart_on_death", restart_on_death))
                 continue;
-            }
-
-            try
-            {
-                auto command = wrap_command(node["command"].as<std::string>());
-                bool restart_on_death = false;
-                if (node["restart_on_death"])
-                    restart_on_death = node["restart_on_death"].as<bool>();
-
-                bool in_systemd_scope = false;
-                if (node["in_systemd_scope"])
-                    in_systemd_scope = node["in_systemd_scope"].as<bool>();
-
-                options.startup_apps.push_back({ .command = std::move(command),
-                    .restart_on_death = restart_on_death,
-                    .in_systemd_scope = in_systemd_scope });
-            }
-            catch (YAML::BadConversion const& e)
-            {
-                mir::log_error("Unable to parse startup_apps: %s", e.msg.c_str());
-            }
         }
+
+        bool in_systemd_scope = false;
+        if (node["in_systemd_scope"])
+        {
+            if (!try_parse_value(node, "in_systemd_scope", in_systemd_scope))
+                continue;
+        }
+
+        options.startup_apps.push_back({ .command = std::move(command),
+            .restart_on_death = restart_on_death,
+            .in_systemd_scope = in_systemd_scope });
     }
 }
 
 void FilesystemConfiguration::read_terminal(YAML::Node const& node)
 {
-    try
-    {
-        options.terminal = wrap_command(node.as<std::string>());
-    }
-    catch (YAML::BadConversion const& e)
-    {
-        mir::log_error("Unable to parse terminal: %s", e.msg.c_str());
-    }
+    std::string desired_terminal;
+    if (!try_parse_value(node, desired_terminal))
+        return;
 
-    if (options.terminal && !program_exists(options.terminal.value()))
-    {
-        options.desired_terminal = options.terminal.value();
-        options.terminal.reset();
-    }
+    if (!desired_terminal.empty() && program_exists(desired_terminal))
+        options.terminal = desired_terminal;
 }
 
 void FilesystemConfiguration::read_resize_jump(YAML::Node const& node)
 {
-    try
-    {
-        options.resize_jump = node.as<int>();
-    }
-    catch (YAML::BadConversion const& e)
-    {
-        mir::log_error("Unable to parse resize_jump: %s", e.msg.c_str());
-    }
+    try_parse_value(node, options.resize_jump);
 }
 
 void FilesystemConfiguration::read_environment_variables(YAML::Node const& env)
 {
     if (!env.IsSequence())
     {
-        mir::log_error("environment_variables is not an array");
+        builder << "Expected environment variables to be an array";
+        add_error(env);
+        return;
+    }
+
+    for (auto const& node : env)
+    {
+        std::string key, value;
+        if (!try_parse_value(node, "key", key))
+            continue;
+        if (!try_parse_value(node, "value", value))
+            continue;
+        options.environment_variables.push_back({ key, value });
+    }
+}
+
+bool FilesystemConfiguration::try_parse_color(YAML::Node const& node, glm::vec4& color)
+{
+    constexpr float MAX_COLOR_VALUE = 255;
+    float r, g, b, a;
+    if (node.IsMap())
+    {
+        if (!try_parse_value(node, "r", r))
+            return false;
+
+        if (!try_parse_value(node, "g", g))
+            return false;
+
+        if (!try_parse_value(node, "b", b))
+            return false;
+
+        if (!try_parse_value(node, "a", a))
+            return false;
+
+        r = r / MAX_COLOR_VALUE;
+        g = g / MAX_COLOR_VALUE;
+        b = b / MAX_COLOR_VALUE;
+        a = a / MAX_COLOR_VALUE;
+    }
+    else if (node.IsSequence())
+    {
+        if (node.size() != 4)
+        {
+            builder << "Expected color values to be an array of size 4";
+            add_error(node);
+            return false;
+        }
+
+        // Parse as [r, g, b, a] array
+        r = node[0].as<float>() / MAX_COLOR_VALUE;
+        g = node[1].as<float>() / MAX_COLOR_VALUE;
+        b = node[2].as<float>() / MAX_COLOR_VALUE;
+        a = node[3].as<float>() / MAX_COLOR_VALUE;
     }
     else
     {
-        for (auto const& node : env)
-        {
-            if (!node["key"])
-            {
-                mir::log_error("environment_variables: item is missing a 'key'");
-                continue;
-            }
+        // Parse as hex color
+        std::string value;
+        if (!try_parse_value(node, value))
+            return false;
 
-            if (!node["value"])
-            {
-                mir::log_error("environment_variables: item is missing a 'value'");
-                continue;
-            }
-
-            try
-            {
-                auto key = node["key"].as<std::string>();
-                auto value = node["value"].as<std::string>();
-                options.environment_variables.push_back({ key, value });
-            }
-            catch (YAML::BadConversion const& e)
-            {
-                mir::log_error("Unable to parse environment_variable_entry: %s", e.msg.c_str());
-            }
-        }
+        unsigned int const i = std::stoul(value, nullptr, 16);
+        r = static_cast<float>(((i >> 24) & 0xFF)) / MAX_COLOR_VALUE;
+        g = static_cast<float>(((i >> 16) & 0xFF)) / MAX_COLOR_VALUE;
+        b = static_cast<float>(((i >> 8) & 0xFF)) / MAX_COLOR_VALUE;
+        a = static_cast<float>((i & 0xFF)) / MAX_COLOR_VALUE;
     }
+
+    r = std::clamp(r, 0.f, 1.f);
+    g = std::clamp(g, 0.f, 1.f);
+    b = std::clamp(b, 0.f, 1.f);
+    a = std::clamp(a, 0.f, 1.f);
+
+    color = { r, g, b, a };
+    return true;
+}
+
+bool FilesystemConfiguration::try_parse_color(YAML::Node const& root, const char* key, glm::vec4& color)
+{
+    if (!root[key])
+    {
+        builder << "Node is missing key: " << key;
+        add_error(root);
+        return false;
+    }
+
+    return try_parse_color(root[key], color);
 }
 
 void FilesystemConfiguration::read_border(YAML::Node const& border)
 {
-    try
-    {
-        auto size = border["size"].as<int>();
-        auto color = parse_color(border["color"]);
-        auto focus_color = parse_color(border["focus_color"]);
-        options.border_config = { size, focus_color, color };
-    }
-    catch (YAML::BadConversion const& e)
-    {
-        mir::log_error("Unable to parse border: %s", e.msg.c_str());
-    }
+    int size;
+    if (!try_parse_value(border, "size", size))
+        return;
+
+    glm::vec4 color;
+    if (!try_parse_color(border, "color", color))
+        return;
+
+    glm::vec4 focus_color;
+    if (!try_parse_color(border, "focus_color", focus_color))
+        return;
+
+    options.border_config = { size, focus_color, color };
 }
 
 void FilesystemConfiguration::read_workspaces(YAML::Node const& workspaces)
 {
-    try
+    if (!workspaces.IsSequence())
     {
-        if (!workspaces.IsSequence())
-        {
-            mir::log_error("workspaces: expected sequence: L%d:%d", workspaces.Mark().line, workspaces.Mark().column);
-        }
-        else
-        {
-            for (auto const& workspace : workspaces)
-            {
-                auto num = workspace["number"].as<int>();
-                auto type = container_type_from_string(workspace["layout"].as<std::string>());
-                if (type != ContainerType::leaf && type != ContainerType::floating_window)
-                {
-                    mir::log_error("layout should be 'tiled' or 'floating': L%d:%d", workspace["layout"].Mark().line, workspace["layout"].Mark().column);
-                    continue;
-                }
-
-                options.workspace_configs.push_back({ num, type });
-            }
-        }
+        builder << "Expected workspaces to be a sequence";
+        add_error(workspaces);
+        return;
     }
-    catch (YAML::BadConversion const& e)
+
+    for (auto const& workspace : workspaces)
     {
-        mir::log_error("workspaces: unable to parse: %s, L%d:%d", e.msg.c_str(), e.mark.line, e.mark.column);
+        int num;
+        if (!try_parse_value(workspace, "number", num))
+            continue;
+
+        auto type = try_parse_functor<std::optional<ContainerType>>(workspace, "layout", container_type_from_string);
+        if (!type || type.value() == ContainerType::none)
+            continue;
+
+        options.workspace_configs.push_back({ num, type.value() });
     }
 }
 
@@ -684,75 +561,21 @@ void FilesystemConfiguration::read_default_action_overrides(YAML::Node const& de
         return;
     }
 
-    for (auto i = 0; i < default_action_overrides.size(); i++)
+    for (auto const& sub_node : default_action_overrides)
     {
-        auto sub_node = default_action_overrides[i];
-        if (!sub_node["name"])
-        {
-            builder << "Default action override must define a 'name' member";
-            add_error(sub_node);
-            continue;
-        }
-
-        if (!sub_node["action"])
-        {
-            builder << "Default action override must define an 'action' member";
-            add_error(sub_node);
-            continue;
-        }
-
-        if (!sub_node["modifiers"])
-        {
-            builder << "Default action override must define a 'modifier' member";
-            add_error(sub_node);
-            continue;
-        }
-
-        if (!sub_node["key"])
-        {
-            builder << "Default action override must define a 'key' member";
-            add_error(sub_node);
-            continue;
-        }
-
         std::string name;
+        if (!try_parse_value(sub_node, "name", name))
+            continue;
+
         std::string action;
+        if (!try_parse_value(sub_node, "action", action))
+            continue;
+
         std::string key;
-        YAML::Node modifiers_node;
-        try
-        {
-            name = sub_node["name"].as<std::string>();
-        }
-        catch (YAML::BadConversion const& e)
-        {
-            builder << "'name' member must be of type string";
-            add_error(sub_node["name"]);
-            continue;
-        }
+        if (!try_parse_value(sub_node, "key", key))
+            return;
 
-        try
-        {
-            action = sub_node["action"].as<std::string>();
-        }
-        catch (YAML::BadConversion const& e)
-        {
-            builder << "'action' member must be of type string";
-            add_error(sub_node["action"]);
-            continue;
-        }
-
-        try
-        {
-            key = sub_node["key"].as<std::string>();
-        }
-        catch (YAML::BadConversion const& e)
-        {
-            builder << "'key' member must be of type string";
-            add_error(sub_node["key"]);
-            continue;
-        }
-
-        modifiers_node = sub_node["modifiers"];
+        auto const& modifiers_node = sub_node["modifiers"];
 
         DefaultKeyCommand key_command;
         if (name == "terminal")
@@ -863,7 +686,7 @@ void FilesystemConfiguration::read_default_action_overrides(YAML::Node const& de
             continue;
         }
 
-        auto code = libevdev_event_code_from_name(EV_KEY, key.c_str()); // https://stackoverflow.com/questions/32059363/is-there-a-way-to-get-the-evdev-keycode-from-a-string
+        auto const code = libevdev_event_code_from_name(EV_KEY, key.c_str()); // https://stackoverflow.com/questions/32059363/is-there-a-way-to-get-the-evdev-keycode-from-a-string
         if (code < 0)
         {
             mir::log_error("default_action_overrides: Unknown keyboard code in configuration: %s. See the linux kernel for allowed codes: https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h", key.c_str());
@@ -878,16 +701,12 @@ void FilesystemConfiguration::read_default_action_overrides(YAML::Node const& de
 
         uint modifiers = 0;
         bool is_invalid = false;
-        for (auto j = 0; j < modifiers_node.size(); j++)
+        for (auto const& modifier_item : modifiers_node)
         {
-            try
+            if (auto const modifier = try_parse_functor<std::optional<uint>>(modifier_item, parse_modifier))
+                modifiers = modifiers | modifier.value();
+            else
             {
-                auto modifier = modifiers_node[j].as<std::string>();
-                modifiers = modifiers | parse_modifier(modifier);
-            }
-            catch (YAML::BadConversion const& e)
-            {
-                mir::log_error("Unable to parse modifier for default_action_overrides[%d]: %s", i, e.msg.c_str());
                 is_invalid = true;
                 break;
             }
@@ -896,7 +715,7 @@ void FilesystemConfiguration::read_default_action_overrides(YAML::Node const& de
         if (is_invalid)
             continue;
 
-        options.key_commands[key_command].push_back({ keyboard_action,
+        options.key_commands[static_cast<int>(key_command)].push_back({ keyboard_action,
             modifiers,
             code });
     }
@@ -912,39 +731,37 @@ void FilesystemConfiguration::read_animation_definitions(YAML::Node const& anima
 
     for (auto const& node : animations_node)
     {
-        auto const& event = try_parse_enum<AnimateableEvent>(
+        auto const& event = try_parse_functor<std::optional<AnimateableEvent>>(
             node,
             "event",
-            from_string_animateable_event,
-            AnimateableEvent::max);
-        if (event == AnimateableEvent::max)
+            from_string_animateable_event);
+        if (!event)
             continue;
 
-        auto const& type = try_parse_enum<AnimationType>(
+        auto const& type = try_parse_functor<std::optional<AnimationType>>(
             node,
             "type",
-            from_string_animation_type,
-            AnimationType::max);
+            from_string_animation_type);
         if (type == AnimationType::max)
             continue;
 
-        auto const& function = try_parse_enum<EaseFunction>(
+        auto const& function = try_parse_functor<std::optional<EaseFunction>>(
             node,
             "function",
-            from_string_ease_function,
-            EaseFunction::max);
+            from_string_ease_function);
         if (function == EaseFunction::max)
             continue;
 
-        options.animation_defintions[(int)event].type = type;
-        options.animation_defintions[(int)event].function = function;
-        try_parse_value(node, "duration", options.animation_defintions[(int)event].duration_seconds);
-        try_parse_value(node, "c1", options.animation_defintions[(int)event].c1);
-        try_parse_value(node, "c2", options.animation_defintions[(int)event].c2);
-        try_parse_value(node, "c3", options.animation_defintions[(int)event].c3);
-        try_parse_value(node, "c4", options.animation_defintions[(int)event].c4);
-        try_parse_value(node, "n1", options.animation_defintions[(int)event].n1);
-        try_parse_value(node, "d1", options.animation_defintions[(int)event].d1);
+        int const event_as_int = static_cast<int>(event.value());
+        options.animation_defintions[event_as_int].type = type.value();
+        options.animation_defintions[event_as_int].function = function.value();
+        try_parse_value(node, "duration", options.animation_defintions[event_as_int].duration_seconds, true);
+        try_parse_value(node, "c1", options.animation_defintions[event_as_int].c1, true);
+        try_parse_value(node, "c2", options.animation_defintions[event_as_int].c2, true);
+        try_parse_value(node, "c3", options.animation_defintions[event_as_int].c3, true);
+        try_parse_value(node, "c4", options.animation_defintions[event_as_int].c4, true);
+        try_parse_value(node, "n1", options.animation_defintions[event_as_int].n1, true);
+        try_parse_value(node, "d1", options.animation_defintions[event_as_int].d1, true);
     }
 }
 
@@ -1003,7 +820,7 @@ uint FilesystemConfiguration::get_primary_modifier() const
     return options.primary_modifier;
 }
 
-uint FilesystemConfiguration::parse_modifier(std::string const& stringified_action_key)
+std::optional<uint> FilesystemConfiguration::parse_modifier(std::string const& stringified_action_key)
 {
     if (stringified_action_key == "alt")
         return mir_input_event_modifier_alt;
@@ -1042,8 +859,7 @@ uint FilesystemConfiguration::parse_modifier(std::string const& stringified_acti
     else if (stringified_action_key == "primary")
         return miracle_input_event_modifier_default;
     else
-        mir::log_error("Unable to process action_key: %s", stringified_action_key.c_str());
-    return mir_input_event_modifier_none;
+        return std::nullopt;
 }
 
 std::string const& FilesystemConfiguration::get_filename() const
@@ -1053,7 +869,7 @@ std::string const& FilesystemConfiguration::get_filename() const
 
 MirInputEventModifier FilesystemConfiguration::get_input_event_modifier() const
 {
-    return (MirInputEventModifier)options.primary_modifier;
+    return static_cast<MirInputEventModifier>(options.primary_modifier);
 }
 
 CustomKeyCommand const*
@@ -1081,7 +897,7 @@ FilesystemConfiguration::matches_custom_key_command(MirKeyboardAction action, in
 
 bool FilesystemConfiguration::matches_key_command(MirKeyboardAction action, int scan_code, unsigned int modifiers, std::function<bool(DefaultKeyCommand)> const& f) const
 {
-    for (int i = 0; i < DefaultKeyCommand::MAX; i++)
+    for (int i = 0; i < static_cast<int>(DefaultKeyCommand::MAX); i++)
     {
         for (auto command : options.key_commands[i])
         {
@@ -1097,7 +913,7 @@ bool FilesystemConfiguration::matches_key_command(MirKeyboardAction action, int 
 
             if (scan_code == command.key)
             {
-                if (f((DefaultKeyCommand)i))
+                if (f(static_cast<DefaultKeyCommand>(i)))
                     return true;
             }
         }
@@ -1167,9 +983,6 @@ void FilesystemConfiguration::unregister_listener(int handle)
 
 std::optional<std::string> const& FilesystemConfiguration::get_terminal_command() const
 {
-    if (!options.terminal)
-        mir::log_error("Terminal program does not exist %s", options.desired_terminal.c_str());
-
     return options.terminal;
 }
 
@@ -1188,7 +1001,7 @@ BorderConfig const& FilesystemConfiguration::get_border_config() const
     return options.border_config;
 }
 
-std::array<AnimationDefinition, (int)AnimateableEvent::max> const& FilesystemConfiguration::get_animation_definitions() const
+std::array<AnimationDefinition, static_cast<int>(AnimateableEvent::max)> const& FilesystemConfiguration::get_animation_definitions() const
 {
     return options.animation_defintions;
 }
@@ -1216,7 +1029,7 @@ LayoutScheme FilesystemConfiguration::get_default_layout_scheme() const
 
 FilesystemConfiguration::ConfigDetails::ConfigDetails()
 {
-    const KeyCommand default_key_commands[DefaultKeyCommand::MAX] = {
+    const KeyCommand default_key_commands[(int)DefaultKeyCommand::MAX] = {
         { MirKeyboardAction::mir_keyboard_action_down,
          miracle_input_event_modifier_default,
          KEY_ENTER },
@@ -1347,7 +1160,7 @@ FilesystemConfiguration::ConfigDetails::ConfigDetails()
          miracle_input_event_modifier_default,
          KEY_S     }
     };
-    for (int i = 0; i < DefaultKeyCommand::MAX; i++)
+    for (int i = 0; i < (int)DefaultKeyCommand::MAX; i++)
     {
         if (key_commands[i].empty())
             key_commands[i].push_back(default_key_commands[i]);
