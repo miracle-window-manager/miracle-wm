@@ -174,10 +174,10 @@ public:
     std::string const message;
 };
 
-class MiracleConfig
+class Config
 {
 public:
-    virtual ~MiracleConfig() = default;
+    virtual ~Config() = default;
     virtual void load(mir::Server& server) = 0;
     [[nodiscard]] virtual std::string const& get_filename() const = 0;
     [[nodiscard]] virtual MirInputEventModifier get_input_event_modifier() const = 0;
@@ -197,16 +197,16 @@ public:
     [[nodiscard]] virtual WorkspaceConfig get_workspace_config(int key) const = 0;
     [[nodiscard]] virtual LayoutScheme get_default_layout_scheme() const = 0;
 
-    virtual int register_listener(std::function<void(miracle::MiracleConfig&)> const&) = 0;
+    virtual int register_listener(std::function<void(miracle::Config&)> const&) = 0;
     /// Register a listener on configuration change. A lower "priority" number signifies that the
     /// listener should be triggered earlier. A higher priority means later
-    virtual int register_listener(std::function<void(miracle::MiracleConfig&)> const&, int priority) = 0;
+    virtual int register_listener(std::function<void(miracle::Config&)> const&, int priority) = 0;
     virtual void unregister_listener(int handle) = 0;
     virtual void try_process_change() = 0;
     [[nodiscard]] virtual uint get_primary_modifier() const = 0;
 };
 
-class FilesystemConfiguration : public MiracleConfig
+class FilesystemConfiguration : public Config
 {
 public:
     explicit FilesystemConfiguration(miral::MirRunner&);
@@ -233,8 +233,8 @@ public:
     [[nodiscard]] bool are_animations_enabled() const override;
     [[nodiscard]] WorkspaceConfig get_workspace_config(int key) const override;
     [[nodiscard]] LayoutScheme get_default_layout_scheme() const override;
-    int register_listener(std::function<void(miracle::MiracleConfig&)> const&) override;
-    int register_listener(std::function<void(miracle::MiracleConfig&)> const&, int priority) override;
+    int register_listener(std::function<void(miracle::Config&)> const&) override;
+    int register_listener(std::function<void(miracle::Config&)> const&, int priority) override;
     void unregister_listener(int handle) override;
     void try_process_change() override;
     [[nodiscard]] uint get_primary_modifier() const override;
@@ -245,7 +245,7 @@ private:
         ConfigDetails();
         uint primary_modifier = mir_input_event_modifier_meta;
         std::vector<CustomKeyCommand> custom_key_commands;
-        KeyCommandList key_commands[(int)DefaultKeyCommand::MAX];
+        KeyCommandList key_commands[static_cast<int>(DefaultKeyCommand::MAX)];
         int inner_gaps_x = 10;
         int inner_gaps_y = 10;
         int outer_gaps_x = 10;
@@ -256,18 +256,17 @@ private:
         std::vector<EnvironmentVariable> environment_variables;
         BorderConfig border_config;
         bool animations_enabled = true;
-        std::array<AnimationDefinition, (int)AnimateableEvent::max> animation_defintions;
+        std::array<AnimationDefinition, static_cast<int>(AnimateableEvent::max)> animation_definitions;
         std::vector<WorkspaceConfig> workspace_configs;
     };
 
     struct ChangeListener
     {
-        std::function<void(miracle::MiracleConfig&)> listener;
+        std::function<void(miracle::Config&)> listener;
         int priority;
         int handle;
     };
 
-    static std::optional<uint> parse_modifier(std::string const& stringified_action_key);
     void _init(std::optional<StartupApp> const& systemd_app, std::optional<StartupApp> const& exec_app);
     void _reload();
     void _watch(miral::MirRunner& runner);
@@ -285,6 +284,8 @@ private:
     void read_workspaces(YAML::Node const&);
     void read_animation_definitions(YAML::Node const&);
     void read_enable_animations(YAML::Node const&);
+
+    static std::optional<uint> try_parse_modifier(std::string const& stringified_action_key);
 
     template <typename T>
     bool try_parse_value(YAML::Node const& node, T& value)

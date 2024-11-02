@@ -24,7 +24,7 @@ namespace miracle
 {
 namespace test
 {
-    class StubConfiguration : public miracle::MiracleConfig
+    class StubConfiguration : public miracle::Config
     {
     public:
         void load(mir::Server& server) override { }
@@ -100,14 +100,14 @@ namespace test
             return WorkspaceConfig(key);
         }
 
-        int register_listener(std::function<void(miracle::MiracleConfig&)> const&) override
+        int register_listener(std::function<void(miracle::Config&)> const&) override
         {
             return -1;
         }
 
         /// Register a listener on configuration change. A lower "priority" number signifies that the
         /// listener should be triggered earlier. A higher priority means later
-        int register_listener(std::function<void(miracle::MiracleConfig&)> const&, int priority) override
+        int register_listener(std::function<void(miracle::Config&)> const&, int priority) override
         {
             return -1;
         }

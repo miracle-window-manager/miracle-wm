@@ -68,7 +68,7 @@ Workspace::Workspace(
     miracle::Output* output,
     miral::WindowManagerTools const& tools,
     int workspace,
-    std::shared_ptr<MiracleConfig> const& config,
+    std::shared_ptr<Config> const& config,
     WindowController& window_controller,
     CompositorState const& state,
     std::shared_ptr<MinimalWindowManager> const& floating_window_manager) :

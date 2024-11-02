@@ -57,7 +57,7 @@ public:
         miral::WindowManagerTools const&,
         AutoRestartingLauncher&,
         miral::MirRunner&,
-        std::shared_ptr<MiracleConfig> const&,
+        std::shared_ptr<Config> const&,
         SurfaceTracker&,
         mir::Server const&,
         CompositorState&,
@@ -155,7 +155,7 @@ private:
     std::shared_ptr<MinimalWindowManager> floating_window_manager;
     AutoRestartingLauncher& external_client_launcher;
     miral::MirRunner& runner;
-    std::shared_ptr<MiracleConfig> config;
+    std::shared_ptr<Config> config;
     WorkspaceObserverRegistrar workspace_observer_registrar;
     ModeObserverRegistrar mode_observer_registrar;
     WorkspaceManager workspace_manager;

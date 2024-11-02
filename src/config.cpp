@@ -281,7 +281,7 @@ void FilesystemConfiguration::add_error(YAML::Node const& node)
 
 void FilesystemConfiguration::read_action_key(YAML::Node const& node)
 {
-    if (auto modifier = try_parse_functor<std::optional<uint>>(node, parse_modifier))
+    if (auto modifier = try_parse_functor<std::optional<uint>>(node, try_parse_modifier))
         options.primary_modifier = modifier.value();
 }
 
@@ -334,7 +334,7 @@ void FilesystemConfiguration::read_custom_actions(YAML::Node const& custom_actio
         bool is_invalid = false;
         for (auto const& modifier_item : modifiers_node)
         {
-            if (auto const modifier = try_parse_functor<std::optional<uint>>(modifier_item, parse_modifier))
+            if (auto const modifier = try_parse_functor<std::optional<uint>>(modifier_item, try_parse_modifier))
                 modifiers = modifiers | modifier.value();
             else
             {
@@ -703,7 +703,7 @@ void FilesystemConfiguration::read_default_action_overrides(YAML::Node const& de
         bool is_invalid = false;
         for (auto const& modifier_item : modifiers_node)
         {
-            if (auto const modifier = try_parse_functor<std::optional<uint>>(modifier_item, parse_modifier))
+            if (auto const modifier = try_parse_functor<std::optional<uint>>(modifier_item, try_parse_modifier))
                 modifiers = modifiers | modifier.value();
             else
             {
@@ -753,15 +753,15 @@ void FilesystemConfiguration::read_animation_definitions(YAML::Node const& anima
             continue;
 
         int const event_as_int = static_cast<int>(event.value());
-        options.animation_defintions[event_as_int].type = type.value();
-        options.animation_defintions[event_as_int].function = function.value();
-        try_parse_value(node, "duration", options.animation_defintions[event_as_int].duration_seconds, true);
-        try_parse_value(node, "c1", options.animation_defintions[event_as_int].c1, true);
-        try_parse_value(node, "c2", options.animation_defintions[event_as_int].c2, true);
-        try_parse_value(node, "c3", options.animation_defintions[event_as_int].c3, true);
-        try_parse_value(node, "c4", options.animation_defintions[event_as_int].c4, true);
-        try_parse_value(node, "n1", options.animation_defintions[event_as_int].n1, true);
-        try_parse_value(node, "d1", options.animation_defintions[event_as_int].d1, true);
+        options.animation_definitions[event_as_int].type = type.value();
+        options.animation_definitions[event_as_int].function = function.value();
+        try_parse_value(node, "duration", options.animation_definitions[event_as_int].duration_seconds, true);
+        try_parse_value(node, "c1", options.animation_definitions[event_as_int].c1, true);
+        try_parse_value(node, "c2", options.animation_definitions[event_as_int].c2, true);
+        try_parse_value(node, "c3", options.animation_definitions[event_as_int].c3, true);
+        try_parse_value(node, "c4", options.animation_definitions[event_as_int].c4, true);
+        try_parse_value(node, "n1", options.animation_definitions[event_as_int].n1, true);
+        try_parse_value(node, "d1", options.animation_definitions[event_as_int].d1, true);
     }
 }
 
@@ -820,7 +820,7 @@ uint FilesystemConfiguration::get_primary_modifier() const
     return options.primary_modifier;
 }
 
-std::optional<uint> FilesystemConfiguration::parse_modifier(std::string const& stringified_action_key)
+std::optional<uint> FilesystemConfiguration::try_parse_modifier(std::string const& stringified_action_key)
 {
     if (stringified_action_key == "alt")
         return mir_input_event_modifier_alt;
@@ -947,12 +947,12 @@ const std::vector<StartupApp>& FilesystemConfiguration::get_startup_apps() const
     return options.startup_apps;
 }
 
-int FilesystemConfiguration::register_listener(std::function<void(miracle::MiracleConfig&)> const& func)
+int FilesystemConfiguration::register_listener(std::function<void(miracle::Config&)> const& func)
 {
     return register_listener(func, 5);
 }
 
-int FilesystemConfiguration::register_listener(std::function<void(miracle::MiracleConfig&)> const& func, int priority)
+int FilesystemConfiguration::register_listener(std::function<void(miracle::Config&)> const& func, int priority)
 {
     int handle = next_listener_handle++;
 
@@ -1003,7 +1003,7 @@ BorderConfig const& FilesystemConfiguration::get_border_config() const
 
 std::array<AnimationDefinition, static_cast<int>(AnimateableEvent::max)> const& FilesystemConfiguration::get_animation_definitions() const
 {
-    return options.animation_defintions;
+    return options.animation_definitions;
 }
 
 bool FilesystemConfiguration::are_animations_enabled() const
@@ -1029,7 +1029,7 @@ LayoutScheme FilesystemConfiguration::get_default_layout_scheme() const
 
 FilesystemConfiguration::ConfigDetails::ConfigDetails()
 {
-    const KeyCommand default_key_commands[(int)DefaultKeyCommand::MAX] = {
+    const KeyCommand default_key_commands[static_cast<int>(DefaultKeyCommand::MAX)] = {
         { MirKeyboardAction::mir_keyboard_action_down,
          miracle_input_event_modifier_default,
          KEY_ENTER },
@@ -1160,13 +1160,13 @@ FilesystemConfiguration::ConfigDetails::ConfigDetails()
          miracle_input_event_modifier_default,
          KEY_S     }
     };
-    for (int i = 0; i < (int)DefaultKeyCommand::MAX; i++)
+    for (int i = 0; i < static_cast<int>(DefaultKeyCommand::MAX); i++)
     {
         if (key_commands[i].empty())
             key_commands[i].push_back(default_key_commands[i]);
     }
 
-    std::array<AnimationDefinition, (int)AnimateableEvent::max> parsed({
+    std::array<AnimationDefinition, static_cast<int>(AnimateableEvent::max)> parsed({
         {
          AnimationType::grow,
          EaseFunction::ease_in_out_back,
@@ -1186,5 +1186,5 @@ FilesystemConfiguration::ConfigDetails::ConfigDetails()
          EaseFunction::ease_out_sine,
          0.175f }
     });
-    animation_defintions = parsed;
+    animation_definitions = parsed;
 }

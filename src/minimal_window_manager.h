@@ -24,7 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace miracle
 {
-class MiracleConfig;
+class Config;
 }
 
 namespace miracle
@@ -34,7 +34,7 @@ namespace miracle
 class MinimalWindowManager : public miral::WindowManagementPolicy
 {
 public:
-    MinimalWindowManager(miral::WindowManagerTools const& tools, std::shared_ptr<MiracleConfig> const& config);
+    MinimalWindowManager(miral::WindowManagerTools const& tools, std::shared_ptr<Config> const& config);
     ~MinimalWindowManager();
 
     /// Honours the requested specification

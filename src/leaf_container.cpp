@@ -34,7 +34,7 @@ using namespace miracle;
 LeafContainer::LeafContainer(
     WindowController& node_interface,
     geom::Rectangle area,
-    std::shared_ptr<MiracleConfig> const& config,
+    std::shared_ptr<Config> const& config,
     TilingWindowTree* tree,
     std::shared_ptr<ParentContainer> const& parent,
     CompositorState const& state) :

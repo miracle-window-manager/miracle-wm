@@ -47,7 +47,7 @@ Policy::Policy(
     miral::WindowManagerTools const& tools,
     AutoRestartingLauncher& external_client_launcher,
     miral::MirRunner& runner,
-    std::shared_ptr<MiracleConfig> const& config,
+    std::shared_ptr<Config> const& config,
     SurfaceTracker& surface_tracker,
     mir::Server const& server,
     CompositorState& compositor_state,

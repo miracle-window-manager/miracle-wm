@@ -30,7 +30,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 namespace miracle
 {
 class Output;
-class MiracleConfig;
+class Config;
 class TilingWindowTree;
 class WindowController;
 class CompositorState;
@@ -51,7 +51,7 @@ public:
         Output* output,
         miral::WindowManagerTools const& tools,
         int workspace,
-        std::shared_ptr<MiracleConfig> const& config,
+        std::shared_ptr<Config> const& config,
         WindowController& window_controller,
         CompositorState const& state,
         std::shared_ptr<MinimalWindowManager> const& floating_window_manager);
@@ -94,7 +94,7 @@ private:
     std::vector<std::shared_ptr<FloatingTreeContainer>> floating_trees;
     WindowController& window_controller;
     CompositorState const& state;
-    std::shared_ptr<MiracleConfig> config;
+    std::shared_ptr<Config> config;
     std::shared_ptr<MinimalWindowManager> floating_window_manager;
 
     /// Retrieves the container that is currently being used for layout

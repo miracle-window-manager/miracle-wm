@@ -142,7 +142,7 @@ private:
 Renderer::Renderer(
     std::shared_ptr<mir::graphics::GLRenderingProvider> gl_interface,
     std::unique_ptr<mir::graphics::gl::OutputSurface> output,
-    std::shared_ptr<MiracleConfig> const& config,
+    std::shared_ptr<Config> const& config,
     SurfaceTracker& surface_tracker,
     CompositorState const& compositor_state,
     std::shared_ptr<WindowToolsAccessor> const& accessor) :

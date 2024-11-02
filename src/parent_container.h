@@ -29,7 +29,7 @@ namespace miracle
 {
 
 class LeafContainer;
-class MiracleConfig;
+class Config;
 class TilingWindowTree;
 class CompositorState;
 
@@ -40,7 +40,7 @@ class ParentContainer : public Container
 public:
     ParentContainer(WindowController&,
         geom::Rectangle,
-        std::shared_ptr<MiracleConfig> const&,
+        std::shared_ptr<Config> const&,
         TilingWindowTree* tree,
         std::shared_ptr<ParentContainer> const& parent,
         CompositorState const& state);
@@ -116,7 +116,7 @@ private:
     WindowController& node_interface;
     geom::Rectangle logical_area;
     TilingWindowTree* tree;
-    std::shared_ptr<MiracleConfig> config;
+    std::shared_ptr<Config> config;
     std::weak_ptr<ParentContainer> parent;
     CompositorState const& state;
 

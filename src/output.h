@@ -32,7 +32,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 namespace miracle
 {
 class WorkspaceManager;
-class MiracleConfig;
+class Config;
 class WindowManagerToolsWindowController;
 class CompositorState;
 class Animator;
@@ -47,7 +47,7 @@ public:
         miral::WindowManagerTools const& tools,
         std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
         CompositorState& state,
-        std::shared_ptr<MiracleConfig> const& options,
+        std::shared_ptr<Config> const& options,
         WindowController&,
         Animator&);
     ~Output() = default;
@@ -108,7 +108,7 @@ private:
     std::shared_ptr<MinimalWindowManager> floating_window_manager;
     CompositorState& state;
     geom::Rectangle area;
-    std::shared_ptr<MiracleConfig> config;
+    std::shared_ptr<Config> config;
     WindowController& window_controller;
     Animator& animator;
     int active_workspace = -1;

@@ -38,7 +38,7 @@ FloatingWindowContainer::FloatingWindowContainer(
     WindowController& window_controller,
     Workspace* workspace,
     CompositorState const& state,
-    std::shared_ptr<MiracleConfig> const& config) :
+    std::shared_ptr<Config> const& config) :
     window_ { window },
     wm { wm },
     window_controller { window_controller },
