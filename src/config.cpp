@@ -57,8 +57,9 @@ std::string create_default_configuration_path()
 std::string configuration_info_to_string(ConfigurationInfo const& info)
 {
     std::ostringstream out;
-    out << info.filename << ':' << info.line << ':' << info.column << ':' << ' ' << info.message;
-    return out.str();
+    out << info.filename << ':' << (info.line + 1) << ':' << info.column << ':' << ' ' << info.message;
+    std::string r = out.str();
+    return r;
 }
 
 std::optional<MirKeyboardAction> from_string_keyboard_action(std::string const& action)
@@ -265,6 +266,8 @@ void FilesystemConfiguration::_reload()
     {
         mir::log_error(configuration_info_to_string(i));
     }
+
+    parse_info.clear();
 }
 
 /// Helper method for quickly creating and reporting an error
@@ -276,7 +279,7 @@ void FilesystemConfiguration::add_error(YAML::Node const& node)
         ConfigurationInfo::Level::error,
         config_path,
         builder.str());
-    builder.clear();
+    builder = std::stringstream();
 }
 
 void FilesystemConfiguration::read_action_key(YAML::Node const& node)
@@ -410,8 +413,14 @@ void FilesystemConfiguration::read_terminal(YAML::Node const& node)
     if (!try_parse_value(node, desired_terminal))
         return;
 
-    if (!desired_terminal.empty() && program_exists(desired_terminal))
-        options.terminal = desired_terminal;
+    if (!program_exists(desired_terminal))
+    {
+        builder << "Cannot find requested terminal program: " << desired_terminal;
+        add_error(node);
+        return;
+    }
+
+    options.terminal = desired_terminal;
 }
 
 void FilesystemConfiguration::read_resize_jump(YAML::Node const& node)
@@ -671,31 +680,22 @@ void FilesystemConfiguration::read_default_action_overrides(YAML::Node const& de
             continue;
         }
 
-        MirKeyboardAction keyboard_action;
-        if (action == "up")
-            keyboard_action = MirKeyboardAction::mir_keyboard_action_up;
-        else if (action == "down")
-            keyboard_action = MirKeyboardAction::mir_keyboard_action_down;
-        else if (action == "repeat")
-            keyboard_action = MirKeyboardAction::mir_keyboard_action_repeat;
-        else if (action == "modifiers")
-            keyboard_action = MirKeyboardAction::mir_keyboard_action_modifiers;
-        else
-        {
-            mir::log_error("default_action_overrides: Unknown keyboard action: %s", action.c_str());
+        auto keyboard_action = try_parse_functor<std::optional<MirKeyboardAction>>(sub_node, "action", from_string_keyboard_action);
+        if (!keyboard_action)
             continue;
-        }
 
         auto const code = libevdev_event_code_from_name(EV_KEY, key.c_str()); // https://stackoverflow.com/questions/32059363/is-there-a-way-to-get-the-evdev-keycode-from-a-string
         if (code < 0)
         {
-            mir::log_error("default_action_overrides: Unknown keyboard code in configuration: %s. See the linux kernel for allowed codes: https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h", key.c_str());
+            builder << "Unknown keyboard code in configuration: " << key.c_str() << ". See the linux kernel for allowed codes: https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h";
+            add_error(sub_node["key"]);
             continue;
         }
 
         if (!modifiers_node.IsSequence())
         {
-            mir::log_error("default_action_overrides: Provided modifiers is not an array");
+            builder << "Modifiers list must be an array";
+            add_error(modifiers_node);
             continue;
         }
 
@@ -715,7 +715,7 @@ void FilesystemConfiguration::read_default_action_overrides(YAML::Node const& de
         if (is_invalid)
             continue;
 
-        options.key_commands[static_cast<int>(key_command)].push_back({ keyboard_action,
+        options.key_commands[static_cast<int>(key_command)].push_back({ keyboard_action.value(),
             modifiers,
             code });
     }
@@ -725,7 +725,8 @@ void FilesystemConfiguration::read_animation_definitions(YAML::Node const& anima
 {
     if (!animations_node.IsSequence())
     {
-        mir::log_error("Unable to parse animations_node: animations_node is not an array");
+        builder << "Animation definitions must be a sequence";
+        add_error(animations_node);
         return;
     }
 
