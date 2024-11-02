@@ -19,8 +19,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MIRACLEWM_CONFIG_H
 
 #include "animation_defintion.h"
+#include "config_error_handler.h"
 #include "container.h"
-#include "yaml-cpp/yaml.h"
 
 #include <atomic>
 #include <functional>
@@ -33,6 +33,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <optional>
 #include <string>
 #include <vector>
+#include <yaml-cpp/yaml.h>
 
 namespace mir
 {
@@ -149,29 +150,6 @@ enum class RenderFilter : int
     protanopia,
     deuteranopia,
     tritanopia
-};
-
-class ConfigurationInfo
-{
-public:
-    enum class Level
-    {
-        warning,
-        error
-    };
-
-    ConfigurationInfo(
-        uint32_t line,
-        uint32_t column,
-        Level level,
-        std::string const& filename,
-        std::string message);
-
-    uint32_t const line;
-    uint32_t const column;
-    Level const level;
-    std::string const filename;
-    std::string const message;
 };
 
 class Config
@@ -370,10 +348,9 @@ private:
     std::mutex mutex;
     std::atomic<bool> has_changes = false;
     bool is_loaded_ = false;
-    std::vector<ConfigurationInfo> parse_info;
     std::stringstream builder;
-
     ConfigDetails options;
+    ConfigErrorHandler error_handler;
 };
 }
 

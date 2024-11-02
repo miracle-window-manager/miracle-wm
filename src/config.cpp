@@ -54,14 +54,6 @@ std::string create_default_configuration_path()
     return config_path_stream.str();
 }
 
-std::string configuration_info_to_string(ConfigurationInfo const& info)
-{
-    std::ostringstream out;
-    out << info.filename << ':' << (info.line + 1) << ':' << info.column << ':' << ' ' << info.message;
-    std::string r = out.str();
-    return r;
-}
-
 std::optional<MirKeyboardAction> from_string_keyboard_action(std::string const& action)
 {
     if (action == "up")
@@ -76,20 +68,6 @@ std::optional<MirKeyboardAction> from_string_keyboard_action(std::string const& 
         return std::nullopt;
 }
 
-}
-
-ConfigurationInfo::ConfigurationInfo(
-    uint32_t line,
-    uint32_t column,
-    Level level,
-    std::string const& filename,
-    std::string message) :
-    line { line },
-    column { column },
-    level { level },
-    filename { filename },
-    message { std::move(message) }
-{
 }
 
 FilesystemConfiguration::FilesystemConfiguration(miral::MirRunner& runner) :
@@ -229,9 +207,6 @@ void FilesystemConfiguration::_reload()
         return;
     }
 
-    parse_info.clear();
-    builder.clear();
-
     // Load the new configuration
     mir::log_info("Configuration is loading...");
     YAML::Node config = YAML::LoadFile(config_path);
@@ -262,23 +237,17 @@ void FilesystemConfiguration::_reload()
     if (config["enable_animations"])
         read_enable_animations(config["enable_animations"]);
 
-    for (auto const& i : parse_info)
-    {
-        mir::log_error(configuration_info_to_string(i));
-    }
-
-    parse_info.clear();
+    error_handler.on_complete();
 }
 
 /// Helper method for quickly creating and reporting an error
 void FilesystemConfiguration::add_error(YAML::Node const& node)
 {
-    parse_info.emplace_back(
-        node.Mark().line,
+    error_handler.add_error({ node.Mark().line,
         node.Mark().column,
         ConfigurationInfo::Level::error,
         config_path,
-        builder.str());
+        builder.str() });
     builder = std::stringstream();
 }
 
