@@ -320,11 +320,19 @@ private:
     }
 
     template <typename T>
-    T try_parse_functor(YAML::Node const& node, std::function<T(std::string const&)> const& parse)
+    T try_parse_string_to_optional_value(YAML::Node const& node, std::function<T(std::string const&)> const& parse)
     {
         try
         {
-            return parse(node.as<std::string>());
+            auto const& v = node.as<std::string>();
+            T retval = parse(v);
+            if (retval == std::nullopt)
+            {
+                builder << "Invalid option: " << v;
+                add_error(node);
+            }
+
+            return retval;
         }
         catch (YAML::BadConversion const& e)
         {
@@ -335,7 +343,7 @@ private:
     }
 
     template <typename T>
-    T try_parse_functor(YAML::Node const& root, const char* key, std::function<T(std::string const&)> const& parse)
+    T try_parse_string_to_optional_value(YAML::Node const& root, const char* key, std::function<T(std::string const&)> const& parse)
     {
         if (!root[key])
         {
@@ -344,7 +352,7 @@ private:
             return std::nullopt;
         }
 
-        return try_parse_functor(root[key], parse);
+        return try_parse_string_to_optional_value(root[key], parse);
     }
 
     bool try_parse_color(YAML::Node const& node, glm::vec4&);

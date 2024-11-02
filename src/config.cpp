@@ -284,7 +284,7 @@ void FilesystemConfiguration::add_error(YAML::Node const& node)
 
 void FilesystemConfiguration::read_action_key(YAML::Node const& node)
 {
-    if (auto modifier = try_parse_functor<std::optional<uint>>(node, try_parse_modifier))
+    if (auto modifier = try_parse_string_to_optional_value<std::optional<uint>>(node, try_parse_modifier))
         options.primary_modifier = modifier.value();
 }
 
@@ -303,7 +303,7 @@ void FilesystemConfiguration::read_custom_actions(YAML::Node const& custom_actio
         std::string key;
         if (!try_parse_value(sub_node, "command", command))
             continue;
-        auto keyboard_action = try_parse_functor<std::optional<MirKeyboardAction>>(sub_node, "action", from_string_keyboard_action);
+        auto keyboard_action = try_parse_string_to_optional_value<std::optional<MirKeyboardAction>>(sub_node, "action", from_string_keyboard_action);
         if (!keyboard_action)
             continue;
         if (!try_parse_value(sub_node, "key", key))
@@ -337,7 +337,7 @@ void FilesystemConfiguration::read_custom_actions(YAML::Node const& custom_actio
         bool is_invalid = false;
         for (auto const& modifier_item : modifiers_node)
         {
-            if (auto const modifier = try_parse_functor<std::optional<uint>>(modifier_item, try_parse_modifier))
+            if (auto const modifier = try_parse_string_to_optional_value<std::optional<uint>>(modifier_item, try_parse_modifier))
                 modifiers = modifiers | modifier.value();
             else
             {
@@ -493,11 +493,20 @@ bool FilesystemConfiguration::try_parse_color(YAML::Node const& node, glm::vec4&
         if (!try_parse_value(node, value))
             return false;
 
-        unsigned int const i = std::stoul(value, nullptr, 16);
-        r = static_cast<float>(((i >> 24) & 0xFF)) / MAX_COLOR_VALUE;
-        g = static_cast<float>(((i >> 16) & 0xFF)) / MAX_COLOR_VALUE;
-        b = static_cast<float>(((i >> 8) & 0xFF)) / MAX_COLOR_VALUE;
-        a = static_cast<float>((i & 0xFF)) / MAX_COLOR_VALUE;
+        try
+        {
+            unsigned int const i = std::stoul(value, nullptr, 16);
+            r = static_cast<float>(((i >> 24) & 0xFF)) / MAX_COLOR_VALUE;
+            g = static_cast<float>(((i >> 16) & 0xFF)) / MAX_COLOR_VALUE;
+            b = static_cast<float>(((i >> 8) & 0xFF)) / MAX_COLOR_VALUE;
+            a = static_cast<float>((i & 0xFF)) / MAX_COLOR_VALUE;
+        }
+        catch (std::invalid_argument const&)
+        {
+            builder << "Invalid argument for hex value";
+            add_error(node);
+            return false;
+        }
     }
 
     r = std::clamp(r, 0.f, 1.f);
@@ -553,7 +562,7 @@ void FilesystemConfiguration::read_workspaces(YAML::Node const& workspaces)
         if (!try_parse_value(workspace, "number", num))
             continue;
 
-        auto type = try_parse_functor<std::optional<ContainerType>>(workspace, "layout", container_type_from_string);
+        auto type = try_parse_string_to_optional_value<std::optional<ContainerType>>(workspace, "layout", container_type_from_string);
         if (!type || type.value() == ContainerType::none)
             continue;
 
@@ -680,7 +689,7 @@ void FilesystemConfiguration::read_default_action_overrides(YAML::Node const& de
             continue;
         }
 
-        auto keyboard_action = try_parse_functor<std::optional<MirKeyboardAction>>(sub_node, "action", from_string_keyboard_action);
+        auto keyboard_action = try_parse_string_to_optional_value<std::optional<MirKeyboardAction>>(sub_node, "action", from_string_keyboard_action);
         if (!keyboard_action)
             continue;
 
@@ -703,7 +712,7 @@ void FilesystemConfiguration::read_default_action_overrides(YAML::Node const& de
         bool is_invalid = false;
         for (auto const& modifier_item : modifiers_node)
         {
-            if (auto const modifier = try_parse_functor<std::optional<uint>>(modifier_item, try_parse_modifier))
+            if (auto const modifier = try_parse_string_to_optional_value<std::optional<uint>>(modifier_item, try_parse_modifier))
                 modifiers = modifiers | modifier.value();
             else
             {
@@ -732,21 +741,21 @@ void FilesystemConfiguration::read_animation_definitions(YAML::Node const& anima
 
     for (auto const& node : animations_node)
     {
-        auto const& event = try_parse_functor<std::optional<AnimateableEvent>>(
+        auto const& event = try_parse_string_to_optional_value<std::optional<AnimateableEvent>>(
             node,
             "event",
             from_string_animateable_event);
         if (!event)
             continue;
 
-        auto const& type = try_parse_functor<std::optional<AnimationType>>(
+        auto const& type = try_parse_string_to_optional_value<std::optional<AnimationType>>(
             node,
             "type",
             from_string_animation_type);
         if (type == AnimationType::max)
             continue;
 
-        auto const& function = try_parse_functor<std::optional<EaseFunction>>(
+        auto const& function = try_parse_string_to_optional_value<std::optional<EaseFunction>>(
             node,
             "function",
             from_string_ease_function);
