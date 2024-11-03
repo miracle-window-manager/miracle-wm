@@ -60,20 +60,17 @@ Output::Output(
 {
 }
 
-std::shared_ptr<Workspace> const& Output::get_active_workspace() const
+std::shared_ptr<Workspace> Output::active() const
 {
-    for (auto& info : workspaces)
-    {
-        if (info->get_workspace() == active_workspace)
-            return info;
-    }
+    if (active_workspace.expired())
+        return nullptr;
 
-    throw std::runtime_error("get_active_workspace: unable to find the active workspace. We shouldn't be here!");
+    return active_workspace.lock();
 }
 
 std::shared_ptr<Container> Output::intersect(const MirPointerEvent* event)
 {
-    if (get_active_workspace_num() < 0)
+    if (active_workspace.expired())
     {
         mir::log_error("Output::handle_pointer_event: unexpectedly trying to handle a pointer event when we lack workspaces");
         return nullptr;
@@ -113,22 +110,36 @@ void Output::delete_container(std::shared_ptr<miracle::Container> const& contain
     workspace->delete_container(container);
 }
 
-void Output::advise_new_workspace(int workspace)
+void Output::advise_new_workspace(WorkspaceCreationData const&& data)
 {
-    // Workspaces are always kept in sorted order
+    // Workspaces are always kept in sorted order with numbered workspaces in front, then named
+    // workspaces, and then spooky unmarked workspaces.
     auto new_workspace = std::make_shared<Workspace>(
-        this, tools, workspace, config, window_controller, state, floating_window_manager);
+        this, tools, data.id, data.num, data.name, config, window_controller, state, floating_window_manager);
     insert_sorted(workspaces, new_workspace, [](std::shared_ptr<Workspace> const& a, std::shared_ptr<Workspace> const& b)
     {
-        return a->get_workspace() < b->get_workspace();
+        if (a->num() && b->num())
+            return a->num().value() < b->num().value();
+        else if (a->num())
+            return true;
+        else if (b->num())
+            return false;
+        else if (a->name() && b->name())
+            return a->name().value() < b->name().value();
+        else if (a->name())
+            return true;
+        else if (b->name())
+            return false;
+        else
+            return false;
     });
 }
 
-void Output::advise_workspace_deleted(int workspace)
+void Output::advise_workspace_deleted(uint32_t id)
 {
     for (auto it = workspaces.begin(); it != workspaces.end(); it++)
     {
-        if (it->get()->get_workspace() == workspace)
+        if (it->get()->id() == id)
         {
             workspaces.erase(it);
             return;
@@ -136,36 +147,43 @@ void Output::advise_workspace_deleted(int workspace)
     }
 }
 
-bool Output::advise_workspace_active(int key)
+bool Output::advise_workspace_active(uint32_t id)
 {
     std::shared_ptr<Workspace> from = nullptr;
     std::shared_ptr<Workspace> to = nullptr;
-    for (auto const& workspace : workspaces)
+    int from_index = -1;
+    int to_index = -1;
+    for (int i = 0; i < workspaces.size(); i++)
     {
-        if (workspace->get_workspace() == active_workspace)
-            from = workspace;
-
-        if (workspace->get_workspace() == key)
+        auto const& workspace = workspaces[i];
+        if (!active_workspace.expired() && workspace == active_workspace.lock())
         {
-            if (active_workspace == key)
+            from = workspace;
+            from_index = i;
+        }
+
+        if (workspace->id() == id)
+        {
+            if (!active_workspace.expired() && active_workspace.lock()->id() == id)
                 return true;
 
             to = workspace;
+            to_index = i;
         }
     }
 
     if (!to)
     {
-        mir::fatal_error("advise_workspace_active: switch to workspace that doesn't exist: %d", key);
+        mir::fatal_error("advise_workspace_active: switch to workspace that doesn't exist: %d", id);
         return false;
     }
 
     if (!from)
     {
         to->show();
-        active_workspace = key;
+        active_workspace = to;
 
-        auto to_rectangle = get_workspace_rectangle(active_workspace);
+        auto to_rectangle = get_workspace_rectangle(to_index);
         set_position(glm::vec2(
             to_rectangle.top_left.x.as_int(),
             to_rectangle.top_left.y.as_int()));
@@ -175,14 +193,14 @@ bool Output::advise_workspace_active(int key)
 
     // Note: It is very important that [active_workspace] be modified before notifications
     // are sent out.
-    active_workspace = key;
+    active_workspace = to;
 
-    auto from_src = get_workspace_rectangle(from->get_workspace());
+    auto from_src = get_workspace_rectangle(from_index);
     from->transfer_pinned_windows_to(to);
 
     // If 'from' is empty, we can delete the workspace. However, this means that from_src is now incorrect
     if (from->is_empty())
-        workspace_manager.delete_workspace(from->get_workspace());
+        workspace_manager.delete_workspace(from->id());
 
     // Show everyone so that we can animate over all workspaces
     for (auto const& workspace : workspaces)
@@ -192,7 +210,7 @@ bool Output::advise_workspace_active(int key)
         { geom::X { position_offset.x }, geom::Y { position_offset.y } },
         area.size
     };
-    auto to_src = get_workspace_rectangle(to->get_workspace());
+    auto to_src = get_workspace_rectangle(to_index);
     geom::Rectangle src {
         { geom::X { -from_src.top_left.x.as_int() }, geom::Y { from_src.top_left.y.as_int() } },
         area.size
@@ -314,7 +332,7 @@ void Output::request_toggle_active_float()
 void Output::add_immediately(miral::Window& window, AllocationHint hint)
 {
     auto& prev_info = window_controller.info_for(window);
-    WindowSpecification spec = window_helpers::copy_from(prev_info);
+    miral::WindowSpecification spec = window_helpers::copy_from(prev_info);
 
     // If we are adding a window immediately, let's force it back into existence
     if (spec.state() == mir_window_state_hidden)
@@ -331,21 +349,21 @@ void Output::graft(std::shared_ptr<Container> const& container)
     get_active_workspace()->graft(container);
 }
 
-geom::Rectangle Output::get_workspace_rectangle(int workspace) const
+geom::Rectangle Output::get_workspace_rectangle(size_t i) const
 {
     // TODO: Support vertical workspaces one day in the future
-    const size_t x = (workspace - 1) * area.size.width.as_int();
+    const size_t x = (i - 1) * area.size.width.as_int();
     return geom::Rectangle {
         geom::Point { geom::X { x },            geom::Y { 0 }             },
         geom::Size { area.size.width.as_int(), area.size.height.as_int() }
     };
 }
 
-[[nodiscard]] Workspace const* Output::workspace(int key) const
+[[nodiscard]] Workspace const* Output::workspace(uint32_t id) const
 {
     for (auto const& workspace : workspaces)
     {
-        if (workspace->get_workspace() == key)
+        if (workspace->id() == id)
             return workspace.get();
     }
 

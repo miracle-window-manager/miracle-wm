@@ -62,25 +62,23 @@ private:
     Workspace* workspace;
 };
 
-std::string get_name(std::shared_ptr<MiracleConfig> const& config, int workspace)
-{
-    return config->get_workspace_config(workspace).name;
-}
-
 }
 
 Workspace::Workspace(
     miracle::Output* output,
     miral::WindowManagerTools const& tools,
-    int workspace,
+    uint32_t id,
+    std::optional<int> num,
+    std::optional<std::string> name,
     std::shared_ptr<Config> const& config,
     WindowController& window_controller,
     CompositorState const& state,
     std::shared_ptr<MinimalWindowManager> const& floating_window_manager) :
     output { output },
     tools { tools },
-    workspace { workspace },
-    name { ::get_name(config, workspace) },
+    id_{ id },
+    num_{ num },
+    name_{ name },
     window_controller { window_controller },
     state { state },
     config { config },
@@ -89,11 +87,6 @@ Workspace::Workspace(
         std::make_unique<OutputTilingWindowTreeInterface>(output, this),
         window_controller, state, config, output->get_area()))
 {
-}
-
-int Workspace::get_workspace() const
-{
-    return workspace;
 }
 
 void Workspace::set_area(mir::geometry::Rectangle const& area)
@@ -112,8 +105,8 @@ AllocationHint Workspace::allocate_position(
     AllocationHint const& hint)
 {
     // If there's no ideal layout type, use the one provided by the workspace
-    auto layout = hint.container_type == ContainerType::none
-        ? config->get_workspace_config(workspace).layout
+    auto layout = (hint.container_type == ContainerType::none && num_)
+        ? config->get_workspace_config(num_.value()).layout
         : hint.container_type;
     switch (layout)
     {
@@ -457,7 +450,7 @@ std::shared_ptr<ParentContainer> Workspace::get_layout_container()
 
 nlohmann::json Workspace::to_json() const
 {
-    bool is_focused = output->get_active_workspace_num() == workspace;
+    bool const is_focused = output->get_active_workspace().get() == this;
 
     // Note: The reported workspace area appears to be the placement
     // area of the root tree.
@@ -474,10 +467,10 @@ nlohmann::json Workspace::to_json() const
         nodes.push_back(container->to_json());
 
     return {
-        { "num",                  workspace                                                       },
+        { "num",                  num_ ? num_.value() : -1,                                                    },
         { "id",                   reinterpret_cast<std::uintptr_t>(this)                          },
         { "type",                 "workspace"                                                     },
-        { "name",                 std::to_string(workspace)                                       },
+        { "name",                 "TODO!"                                       },
         { "visible",              output->is_active() && is_focused                               },
         { "focused",              output->is_active() && is_focused                               },
         { "urgent",               false                                                           },
