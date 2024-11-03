@@ -27,7 +27,7 @@ class TilingWindowTree;
 class Workspace;
 class WindowController;
 class CompositorState;
-class MiracleConfig;
+class Config;
 
 class FloatingTreeContainer : public Container
 {
@@ -36,7 +36,7 @@ public:
         Workspace*,
         WindowController&,
         CompositorState const&,
-        std::shared_ptr<MiracleConfig> const&);
+        std::shared_ptr<Config> const&);
     [[nodiscard]] TilingWindowTree* get_tree() const { return tree.get(); }
 
     ContainerType get_type() const override;

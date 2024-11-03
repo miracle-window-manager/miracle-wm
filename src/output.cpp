@@ -44,7 +44,7 @@ Output::Output(
     miral::WindowManagerTools const& tools,
     std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
     CompositorState& state,
-    std::shared_ptr<MiracleConfig> const& config,
+    std::shared_ptr<Config> const& config,
     WindowController& node_interface,
     Animator& animator) :
     output { output },

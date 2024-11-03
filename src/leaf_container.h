@@ -30,7 +30,7 @@ namespace geom = mir::geometry;
 namespace miracle
 {
 
-class MiracleConfig;
+class Config;
 class TilingWindowTree;
 class CompositorState;
 
@@ -41,7 +41,7 @@ public:
     LeafContainer(
         WindowController& node_interface,
         geom::Rectangle area,
-        std::shared_ptr<MiracleConfig> const& config,
+        std::shared_ptr<Config> const& config,
         TilingWindowTree* tree,
         std::shared_ptr<ParentContainer> const& parent,
         CompositorState const& state);
@@ -104,7 +104,7 @@ private:
     WindowController& window_controller;
     geom::Rectangle logical_area;
     std::optional<geom::Rectangle> next_logical_area;
-    std::shared_ptr<MiracleConfig> config;
+    std::shared_ptr<Config> config;
     TilingWindowTree* tree;
     miral::Window window_;
     std::weak_ptr<ParentContainer> parent;

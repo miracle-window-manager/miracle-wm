@@ -46,7 +46,7 @@ namespace graphics::gl
 
 namespace miracle
 {
-class MiracleConfig;
+class Config;
 class CompositorState;
 class WindowToolsAccessor;
 
@@ -55,7 +55,7 @@ class Renderer : public mir::renderer::Renderer
 public:
     Renderer(std::shared_ptr<mir::graphics::GLRenderingProvider> gl_interface,
         std::unique_ptr<mir::graphics::gl::OutputSurface> output,
-        std::shared_ptr<MiracleConfig> const& config,
+        std::shared_ptr<Config> const& config,
         SurfaceTracker& surface_tracker,
         CompositorState const& compositor_state,
         std::shared_ptr<WindowToolsAccessor> const& accessor);
@@ -119,7 +119,7 @@ private:
     glm::mat4 display_transform;
     std::vector<mir::gl::Primitive> mutable primitives;
     std::shared_ptr<mir::graphics::GLRenderingProvider> const gl_interface;
-    std::shared_ptr<MiracleConfig> config;
+    std::shared_ptr<Config> config;
     SurfaceTracker& surface_tracker;
     CompositorState const& compositor_state;
     std::shared_ptr<WindowToolsAccessor> const& accessor;

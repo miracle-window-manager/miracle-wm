@@ -68,7 +68,7 @@ Workspace::Workspace(
     miracle::Output* output,
     miral::WindowManagerTools const& tools,
     int workspace,
-    std::shared_ptr<MiracleConfig> const& config,
+    std::shared_ptr<Config> const& config,
     WindowController& window_controller,
     CompositorState const& state,
     std::shared_ptr<MinimalWindowManager> const& floating_window_manager) :
@@ -474,7 +474,7 @@ nlohmann::json Workspace::to_json() const
         { "type",                 "workspace"                                                     },
         { "name",                 std::to_string(workspace)                                       },
         { "visible",              output->is_active() && is_focused                               },
-        { "focused",              output->is_active() && is_focused         },
+        { "focused",              output->is_active() && is_focused                               },
         { "urgent",               false                                                           },
         { "output",               output->get_output().name()                                     },
         { "border",               "none"                                                          },

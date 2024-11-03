@@ -348,7 +348,7 @@ AnimationStepResult Animation::step()
 
 Animator::Animator(
     std::shared_ptr<mir::ServerActionQueue> const& server_action_queue,
-    std::shared_ptr<MiracleConfig> const& config) :
+    std::shared_ptr<Config> const& config) :
     server_action_queue { server_action_queue },
     config { config }
 {

@@ -35,7 +35,7 @@ namespace miracle
 {
 
 class CompositorState;
-class MiracleConfig;
+class Config;
 class WindowController;
 class LeafContainer;
 class Workspace;
@@ -54,7 +54,7 @@ public:
         std::unique_ptr<TilingWindowTreeInterface> tree_interface,
         WindowController&,
         CompositorState const&,
-        std::shared_ptr<MiracleConfig> const& options,
+        std::shared_ptr<Config> const& options,
         geom::Rectangle const& area);
     ~TilingWindowTree();
 
@@ -154,7 +154,7 @@ private:
 
     WindowController& window_controller;
     CompositorState const& state;
-    std::shared_ptr<MiracleConfig> config;
+    std::shared_ptr<Config> config;
     std::shared_ptr<ParentContainer> root_lane;
     std::unique_ptr<TilingWindowTreeInterface> tree_interface;
 

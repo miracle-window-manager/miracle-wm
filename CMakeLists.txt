@@ -76,6 +76,7 @@ add_library(miracle-wm-implementation
     src/layout_scheme.cpp
     src/utility_general.h
     src/minimal_window_manager.cpp src/minimal_window_manager.h
+    src/config_error_handler.cpp src/config_error_handler.h
 )
 
 add_executable(miracle-wm

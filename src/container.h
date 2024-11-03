@@ -34,7 +34,7 @@ namespace geom = mir::geometry;
 
 namespace miracle
 {
-class MiracleConfig;
+class Config;
 class TilingWindowTree;
 class LeafContainer;
 class ParentContainer;

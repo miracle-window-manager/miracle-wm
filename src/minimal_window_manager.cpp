@@ -59,7 +59,7 @@ auto touch_center(MirTouchEvent const* event) -> mir::geometry::Point
 
 struct miracle::MinimalWindowManager::Impl
 {
-    Impl(miral::WindowManagerTools const& tools, std::shared_ptr<MiracleConfig> const& config) :
+    Impl(miral::WindowManagerTools const& tools, std::shared_ptr<Config> const& config) :
         tools { tools },
         config { config }
     {
@@ -90,10 +90,10 @@ struct miracle::MinimalWindowManager::Impl
 
     void apply_resize_by(miral::Displacement movement);
 
-    std::shared_ptr<MiracleConfig> const config;
+    std::shared_ptr<Config> const config;
 };
 
-miracle::MinimalWindowManager::MinimalWindowManager(miral::WindowManagerTools const& tools, std::shared_ptr<MiracleConfig> const& config) :
+miracle::MinimalWindowManager::MinimalWindowManager(miral::WindowManagerTools const& tools, std::shared_ptr<Config> const& config) :
     tools {
         tools
 },

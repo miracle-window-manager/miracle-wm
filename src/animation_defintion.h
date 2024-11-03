@@ -98,9 +98,9 @@ struct AnimationDefinition
     float d1 = 2.75;
 };
 
-AnimateableEvent from_string_animateable_event(std::string const&);
-EaseFunction from_string_ease_function(std::string const&);
-AnimationType from_string_animation_type(std::string const&);
+std::optional<AnimateableEvent> from_string_animateable_event(std::string const&);
+std::optional<EaseFunction> from_string_ease_function(std::string const&);
+std::optional<AnimationType> from_string_animation_type(std::string const&);
 
 }
 

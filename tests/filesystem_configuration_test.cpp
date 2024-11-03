@@ -108,7 +108,7 @@ TEST_F(FilesystemConfigurationTest, CanOverrideDefaultAction)
         mir_input_event_modifier_meta,
         [&](DefaultKeyCommand command)
     {
-        EXPECT_EQ(Terminal, command);
+        EXPECT_EQ(DefaultKeyCommand::Terminal, command);
         return true;
     });
 }
@@ -131,7 +131,7 @@ TEST_F(FilesystemConfigurationTest, WhenEntryInDefaultActionOverridesHasInvalidN
         mir_input_event_modifier_meta,
         [&](DefaultKeyCommand command)
     {
-        EXPECT_EQ(Terminal, command);
+        EXPECT_EQ(DefaultKeyCommand::Terminal, command);
         return true;
     });
 }
@@ -154,7 +154,7 @@ TEST_F(FilesystemConfigurationTest, WhenEntryInDefaultActionOverridesHasInvalidM
         mir_input_event_modifier_meta,
         [&](DefaultKeyCommand command)
     {
-        EXPECT_EQ(Terminal, command);
+        EXPECT_EQ(DefaultKeyCommand::Terminal, command);
         return true;
     });
 }

@@ -21,7 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace miracle;
 
-AnimateableEvent miracle::from_string_animateable_event(std::string const& str)
+std::optional<AnimateableEvent> miracle::from_string_animateable_event(std::string const& str)
 {
     if (str == "window_open")
         return AnimateableEvent::window_open;
@@ -32,13 +32,10 @@ AnimateableEvent miracle::from_string_animateable_event(std::string const& str)
     else if (str == "workspace_switch")
         return AnimateableEvent::workspace_switch;
     else
-    {
-        mir::log_error("from_string_animateable_eventfrom_string: unknown string: %s", str.c_str());
-        return AnimateableEvent::max;
-    }
+        return std::nullopt;
 }
 
-EaseFunction miracle::from_string_ease_function(std::string const& str)
+std::optional<EaseFunction> miracle::from_string_ease_function(std::string const& str)
 {
     if (str == "linear")
         return EaseFunction::linear;
@@ -103,13 +100,10 @@ EaseFunction miracle::from_string_ease_function(std::string const& str)
     else if (str == "ease_in_out_bounce")
         return EaseFunction::ease_in_out_bounce;
     else
-    {
-        mir::log_error("from_string_ease_function: unknown string: %s", str.c_str());
-        return EaseFunction::max;
-    }
+        return std::nullopt;
 }
 
-AnimationType miracle::from_string_animation_type(std::string const& str)
+std::optional<AnimationType> miracle::from_string_animation_type(std::string const& str)
 {
     if (str == "disabled")
         return AnimationType::disabled;
@@ -120,8 +114,5 @@ AnimationType miracle::from_string_animation_type(std::string const& str)
     else if (str == "shrink")
         return AnimationType::shrink;
     else
-    {
-        mir::log_error("from_string_animation_type: unknown string: %s", str.c_str());
-        return AnimationType::max;
-    }
+        return std::nullopt;
 }
