@@ -90,11 +90,12 @@ public:
     /// Builds and returns a sorted array of all active workspaces.
     std::vector<Workspace const*> workspaces() const;
 
+    /// The number of default workspaces
+    static constexpr int NUM_DEFAULT_WORKSPACES = 10;
+
 private:
     bool focus_existing(Workspace const*, bool back_and_forth);
 
-    /// The number of default workspaces
-    const int NUM_DEFAULT_WORKSPACES = 10;
     uint32_t next_id = 0;
 
     Workspace* workspace(int num) const;

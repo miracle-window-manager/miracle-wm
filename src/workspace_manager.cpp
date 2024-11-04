@@ -115,11 +115,45 @@ int WorkspaceManager::request_first_available_workspace(Output* output)
 
 bool WorkspaceManager::request_next(std::shared_ptr<Output> const& output)
 {
+    auto const& active = output->active();
+    if (!active)
+        return false;
+
+    auto const l = workspaces();
+    for (auto it = l.begin(); it != l.end(); it++)
+    {
+        if (*it == active)
+        {
+            it++;
+            if (it == l.end())
+                it = l.begin();
+
+            return focus_existing(*it, false);
+        }
+    }
+
     return false;
 }
 
 bool WorkspaceManager::request_prev(std::shared_ptr<Output> const& output)
 {
+    auto const& active = output->active();
+    if (!active)
+        return false;
+
+    auto const l = workspaces();
+    for (auto it = l.rbegin(); it != l.rend(); it++)
+    {
+        if (*it == active)
+        {
+            it++;
+            if (it == l.rend())
+                it = l.rbegin();
+
+            return focus_existing(*it, false);
+        }
+    }
+
     return false;
 }
 
@@ -163,13 +197,13 @@ bool WorkspaceManager::request_prev_on_output(Output const& output)
         return false;
 
     auto const& workspaces = output.get_workspaces();
-    for (auto it = workspaces.end() - 1; it != workspaces.begin(); it--)
+    for (auto it = workspaces.rbegin(); it != workspaces.rend(); it++)
     {
         if (it->get() == active)
         {
-            it--;
-            if (it == workspaces.begin())
-                it = workspaces.end() - 1;
+            it++;
+            if (it == workspaces.rend())
+                it = workspaces.rbegin();
 
             return focus_existing(it->get(), false);
         }
@@ -270,14 +304,8 @@ std::vector<Workspace const*> WorkspaceManager::workspaces() const
                     return true;
                 else if (b->num())
                     return false;
-                else if (a->name() && b->name())
-                    return a->name().value() < b->name().value();
-                else if (a->name())
-                    return true;
-                else if (b->name())
-                    return false;
                 else
-                    return false;
+                    return true;
             });
         }
     }

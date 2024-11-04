@@ -112,8 +112,7 @@ void Output::delete_container(std::shared_ptr<miracle::Container> const& contain
 
 void Output::advise_new_workspace(WorkspaceCreationData const&& data)
 {
-    // Workspaces are always kept in sorted order with numbered workspaces in front, then named
-    // workspaces, and then spooky unmarked workspaces.
+    // Workspaces are always kept in sorted order with numbered workspaces in front followed by all other workspaces
     auto new_workspace = std::make_shared<Workspace>(
         this, tools, data.id, data.num, data.name, config, window_controller, state, floating_window_manager);
     insert_sorted(workspaces, new_workspace, [](std::shared_ptr<Workspace> const& a, std::shared_ptr<Workspace> const& b)
@@ -124,14 +123,8 @@ void Output::advise_new_workspace(WorkspaceCreationData const&& data)
             return true;
         else if (b->num())
             return false;
-        else if (a->name() && b->name())
-            return a->name().value() < b->name().value();
-        else if (a->name())
-            return true;
-        else if (b->name())
-            return false;
         else
-            return false;
+            return true;
     });
 }
 
@@ -352,7 +345,13 @@ void Output::graft(std::shared_ptr<Container> const& container)
 geom::Rectangle Output::get_workspace_rectangle(size_t i) const
 {
     // TODO: Support vertical workspaces one day in the future
-    const size_t x = (i - 1) * area.size.width.as_int();
+    auto const& workspace = workspaces[i];
+    size_t x = 0;
+    if (workspace->num())
+        x = (workspace->num().value() - 1) * area.size.width.as_int();
+    else
+        x = ((WorkspaceManager::NUM_DEFAULT_WORKSPACES - 1) + i) * area.size.width.as_int();
+
     return geom::Rectangle {
         geom::Point { geom::X { x },            geom::Y { 0 }             },
         geom::Size { area.size.width.as_int(), area.size.height.as_int() }
