@@ -19,33 +19,31 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace miracle;
 
-void WorkspaceObserverRegistrar::advise_created(Output const& info, int key)
+void WorkspaceObserverRegistrar::advise_created(uint32_t id)
 {
     for (auto& observer : observers)
     {
         if (!observer.expired())
-            observer.lock()->on_created(info, key);
+            observer.lock()->on_created(id);
     }
 }
 
-void WorkspaceObserverRegistrar::advise_removed(Output const& info, int key)
+void WorkspaceObserverRegistrar::advise_removed(uint32_t id)
 {
     for (auto& observer : observers)
     {
         if (!observer.expired())
-            observer.lock()->on_removed(info, key);
+            observer.lock()->on_removed(id);
     }
 }
 
 void WorkspaceObserverRegistrar::advise_focused(
-    Output const* previous,
-    int previous_key,
-    Output const* current,
-    int current_key)
+    std::optional<uint32_t> previous_id,
+    uint32_t current_id)
 {
     for (auto& observer : observers)
     {
         if (!observer.expired())
-            observer.lock()->on_focused(previous, previous_key, current, current_key);
+            observer.lock()->on_focused(previous_id, current_id);
     }
 }

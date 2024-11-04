@@ -189,7 +189,7 @@ void I3CommandExecutor::process_focus(I3Command const& command, I3ScopedCommandL
         auto window = get_window_meeting_criteria(command_list);
         auto container = window_controller.get_container(window);
         if (container)
-            workspace_manager.request_focus(container->get_workspace()->get_workspace());
+            workspace_manager.request_focus(container->get_workspace()->id());
     }
     else if (arg == "left")
         policy.try_select(Direction::left);

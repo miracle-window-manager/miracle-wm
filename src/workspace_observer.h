@@ -32,18 +32,18 @@ class WorkspaceObserver
 {
 public:
     virtual ~WorkspaceObserver() = default;
-    virtual void on_created(Output const&, uint32_t) = 0;
-    virtual void on_removed(Output const&, uint32_t) = 0;
-    virtual void on_focused(Output const* previous, uint32_t, Output const* current, uint32_t) = 0;
+    virtual void on_created(uint32_t) = 0;
+    virtual void on_removed(uint32_t) = 0;
+    virtual void on_focused(std::optional<uint32_t>, uint32_t) = 0;
 };
 
 class WorkspaceObserverRegistrar : public ObserverRegistrar<WorkspaceObserver>
 {
 public:
     WorkspaceObserverRegistrar() = default;
-    void advise_created(Output const&, uint32_t);
-    void advise_removed(Output const&, uint32_t);
-    void advise_focused(Output const* previous, uint32_t, Output const* current, uint32_t);
+    void advise_created(uint32_t);
+    void advise_removed(uint32_t);
+    void advise_focused(std::optional<uint32_t>, uint32_t);
 };
 
 } // miracle

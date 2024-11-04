@@ -815,7 +815,7 @@ nlohmann::json ParentContainer::to_json() const
     if (!output->is_active())
         visible = false;
 
-    if (output->get_active_workspace_num() != workspace->get_workspace())
+    if (output->active() != workspace)
         visible = false;
 
     if (locked_parent == nullptr)

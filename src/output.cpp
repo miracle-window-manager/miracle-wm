@@ -60,12 +60,12 @@ Output::Output(
 {
 }
 
-std::shared_ptr<Workspace> Output::active() const
+Workspace* Output::active() const
 {
     if (active_workspace.expired())
         return nullptr;
 
-    return active_workspace.lock();
+    return active_workspace.lock().get();
 }
 
 std::shared_ptr<Container> Output::intersect(const MirPointerEvent* event)
@@ -95,13 +95,13 @@ AllocationHint Output::allocate_position(
     if (hint.container_type == ContainerType::shell)
         return hint;
 
-    return get_active_workspace()->allocate_position(app_info, requested_specification, hint);
+    return active()->allocate_position(app_info, requested_specification, hint);
 }
 
 std::shared_ptr<Container> Output::create_container(
     miral::WindowInfo const& window_info, AllocationHint const& hint) const
 {
-    return get_active_workspace()->create_container(window_info, hint);
+    return active()->create_container(window_info, hint);
 }
 
 void Output::delete_container(std::shared_ptr<miracle::Container> const& container)
@@ -346,7 +346,7 @@ void Output::add_immediately(miral::Window& window, AllocationHint hint)
 
 void Output::graft(std::shared_ptr<Container> const& container)
 {
-    get_active_workspace()->graft(container);
+    active()->graft(container);
 }
 
 geom::Rectangle Output::get_workspace_rectangle(size_t i) const

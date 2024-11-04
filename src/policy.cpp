@@ -61,8 +61,10 @@ Policy::Policy(
     workspace_manager { WorkspaceManager(
         tools,
         workspace_observer_registrar,
-        [&]()
-{ return get_active_output(); }) },
+        [this]()
+{ return get_active_output(); },
+        [this]()
+{ return get_output_list(); }) },
     animator(server.the_main_loop(), config),
     window_controller(tools, animator, state),
     i3_command_executor(*this, workspace_manager, tools, external_client_launcher, window_controller),
@@ -220,7 +222,8 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
                     state.active_output->set_is_active(false);
                 state.active_output = output;
                 state.active_output->set_is_active(true);
-                workspace_manager.request_focus(output->get_active_workspace_num());
+                if (auto active = output->active())
+                    workspace_manager.request_focus(active->id());
             }
             break;
         }
@@ -390,7 +393,7 @@ void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
     default:
     {
         auto const* workspace = container->get_workspace();
-        if (workspace && workspace != state.active_output->get_active_workspace().get())
+        if (workspace && workspace != state.active_output->active())
             return;
 
         state.active = container;
@@ -459,7 +462,7 @@ void Policy::advise_output_create(miral::Output const& output)
     auto output_content = std::make_shared<Output>(
         output, workspace_manager, output.extents(), window_manager_tools,
         floating_window_manager, state, config, window_controller, animator);
-    workspace_manager.request_first_available_workspace(output_content);
+    workspace_manager.request_first_available_workspace(output_content.get());
     output_list.push_back(output_content);
     if (state.active_output == nullptr)
     {
@@ -501,12 +504,12 @@ void Policy::advise_output_delete(miral::Output const& output)
             auto const remove_workspaces = [&]()
             {
                 // WARNING: We copy the workspace numbers first because we shouldn't delete while iterating
-                std::vector<int> workspaces;
+                std::vector<uint32_t> workspaces;
                 workspaces.reserve(other_output->get_workspaces().size());
                 for (auto const& workspace : other_output->get_workspaces())
-                    workspaces.push_back(workspace->get_workspace());
+                    workspaces.push_back(workspace->id());
 
-                for (auto w : workspaces)
+                for (auto const w : workspaces)
                     workspace_manager.delete_workspace(w);
             };
 
@@ -553,7 +556,7 @@ void Policy::handle_modify_window(
     }
 
     auto const* workspace = container->get_workspace();
-    if (workspace && workspace != state.active_output->get_active_workspace().get())
+    if (workspace && workspace != state.active_output->active())
         return;
 
     container->handle_modify(modifications);
@@ -798,7 +801,7 @@ bool Policy::select_workspace(int number, bool back_and_forth)
     if (!state.active_output)
         return false;
 
-    workspace_manager.request_workspace(state.active_output, number, back_and_forth);
+    workspace_manager.request_workspace(state.active_output.get(), number, back_and_forth);
     return true;
 }
 
@@ -808,7 +811,7 @@ bool Policy::select_workspace(std::string const& name, bool back_and_forth)
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    return workspace_manager.request_workspace(name, back_and_forth);
+    return workspace_manager.request_workspace(state.active_output.get(), name, back_and_forth);
 }
 
 bool Policy::next_workspace()
@@ -863,10 +866,14 @@ bool Policy::move_active_to_workspace(int number, bool back_and_forth)
     container->get_output()->delete_container(container);
     state.active = nullptr;
 
-    auto output = workspace_manager.request_workspace(
-        state.active_output, number, back_and_forth);
-    output->graft(container);
-    return true;
+    if (workspace_manager.request_workspace(
+            state.active_output.get(), number, back_and_forth))
+    {
+        state.active_output->graft(container);
+        return true;
+    }
+
+    return false;
 }
 
 bool Policy::move_active_to_workspace_named(std::string const& name, bool back_and_forth)
@@ -878,7 +885,7 @@ bool Policy::move_active_to_workspace_named(std::string const& name, bool back_a
     container->get_output()->delete_container(container);
     state.active = nullptr;
 
-    if (workspace_manager.request_workspace(name, back_and_forth))
+    if (workspace_manager.request_workspace(state.active_output.get(), name, back_and_forth))
     {
         state.active_output->graft(container);
         return true;

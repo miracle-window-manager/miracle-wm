@@ -37,11 +37,12 @@ class Output;
 class WorkspaceManager
 {
 public:
-    explicit WorkspaceManager(
+    WorkspaceManager(
         miral::WindowManagerTools const& tools,
         WorkspaceObserverRegistrar& registry,
         std::function<Output const*()> const& get_active,
-        std::function<std::vector<std::shared_ptr<Output>> const&()> const& get_outputs);
+        std::function<std::vector<std::shared_ptr<Output>>()> const& get_outputs);
+    WorkspaceManager(WorkspaceManager const&) = delete;
     virtual ~WorkspaceManager() = default;
 
     /// Request workspace by number. If it does not yet exist, then one
@@ -83,22 +84,27 @@ public:
     /// Focuses the workspace with the provided id
     bool request_focus(uint32_t id);
 
+    /// Returns the workspace with the provided [id], if any.
+    Workspace* workspace(uint32_t id) const;
+
+    /// Builds and returns a sorted array of all active workspaces.
+    std::vector<Workspace const*> workspaces() const;
+
 private:
-    bool focus_existing(std::shared_ptr<Workspace> const&, bool back_and_forth);
+    bool focus_existing(Workspace const*, bool back_and_forth);
 
     /// The number of default workspaces
     const int NUM_DEFAULT_WORKSPACES = 10;
     uint32_t next_id = 0;
 
-    std::shared_ptr<Workspace> const& workspace(int num);
-    std::shared_ptr<Workspace> const& workspace(uint32_t id);
-    std::shared_ptr<Workspace> const& workspace(std::string const& name);
+    Workspace* workspace(int num) const;
+    Workspace* workspace(std::string const& name) const;
 
     miral::WindowManagerTools tools_;
     WorkspaceObserverRegistrar& registry;
     std::function<Output const*()> get_active;
-    std::function<std::vector<std::shared_ptr<Output>> const&()> get_outputs;
-    std::optional<std::shared_ptr<Workspace>> last_selected;
+    std::function<std::vector<std::shared_ptr<Output>>()> get_outputs;
+    std::optional<Workspace*> last_selected;
 };
 }
 

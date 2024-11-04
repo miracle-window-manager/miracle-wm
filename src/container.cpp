@@ -47,9 +47,18 @@ glm::mat4 Container::get_workspace_transform() const
     if (!output)
         return glm::mat4(1.f);
 
-    auto const workspace_rect = output->get_workspace_rectangle(get_workspace()->get_workspace());
-    return glm::translate(
-        glm::vec3(workspace_rect.top_left.x.as_int(), workspace_rect.top_left.y.as_int(), 0));
+    auto const& workspaces = output->get_workspaces();
+    for (size_t i = 0; i < workspaces.size(); i++)
+    {
+        if (workspaces[i].get() == get_workspace())
+        {
+            auto const workspace_rect = output->get_workspace_rectangle(i);
+            return glm::translate(
+                glm::vec3(workspace_rect.top_left.x.as_int(), workspace_rect.top_left.y.as_int(), 0));
+        }
+    }
+
+    return glm::mat4(1.f);
 }
 
 glm::mat4 Container::get_output_transform() const

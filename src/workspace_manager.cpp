@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MIR_LOG_COMPONENT "workspace_manager"
 #include "workspace_manager.h"
 #include "output.h"
-#include "window_helpers.h"
+#include "vector_helpers.h"
 #include <mir/log.h>
 
 using namespace mir::geometry;
@@ -28,7 +28,7 @@ WorkspaceManager::WorkspaceManager(
     miral::WindowManagerTools const& tools,
     WorkspaceObserverRegistrar& registry,
     std::function<Output const*()> const& get_active,
-    std::function<std::vector<std::shared_ptr<Output>> const&()> const& get_outputs) :
+    std::function<std::vector<std::shared_ptr<Output>>()> const& get_outputs) :
     tools_ { tools },
     registry { registry },
     get_active { get_active },
@@ -36,7 +36,7 @@ WorkspaceManager::WorkspaceManager(
 {
 }
 
-bool WorkspaceManager::focus_existing(std::shared_ptr<Workspace> const& existing, bool back_and_forth)
+bool WorkspaceManager::focus_existing(Workspace const* existing, bool back_and_forth)
 {
     auto const& active_workspace = get_active()->active();
     if (active_workspace == existing)
@@ -70,12 +70,10 @@ bool WorkspaceManager::request_workspace(
         return focus_existing(existing, back_and_forth);
 
     uint32_t id = next_id++;
-    output_hint->advise_new_workspace({
-        .id=id,
-        .num=num
-    });
+    output_hint->advise_new_workspace({ .id = id,
+        .num = num });
     request_focus(id);
-    registry.advise_created(*output_hint, id);
+    registry.advise_created(id);
     return true;
 }
 
@@ -88,12 +86,10 @@ bool WorkspaceManager::request_workspace(
         return focus_existing(existing, back_and_forth);
 
     uint32_t id = next_id++;
-    output_hint->advise_new_workspace({
-        .id=id,
-        .name=name
-    });
+    output_hint->advise_new_workspace({ .id = id,
+        .name = name });
     request_focus(id);
-    registry.advise_created(*output_hint, id);
+    registry.advise_created(id);
     return true;
 }
 
@@ -147,13 +143,13 @@ bool WorkspaceManager::request_next_on_output(Output const& output)
     auto const& workspaces = output.get_workspaces();
     for (auto it = workspaces.begin(); it != workspaces.end(); it++)
     {
-        if (*it == active)
+        if (it->get() == active)
         {
             it++;
             if (it == workspaces.end())
                 it = workspaces.begin();
 
-            return focus_existing(*it, false);
+            return focus_existing(it->get(), false);
         }
     }
 
@@ -169,13 +165,13 @@ bool WorkspaceManager::request_prev_on_output(Output const& output)
     auto const& workspaces = output.get_workspaces();
     for (auto it = workspaces.end() - 1; it != workspaces.begin(); it--)
     {
-        if (*it == active)
+        if (it->get() == active)
         {
             it--;
             if (it == workspaces.begin())
                 it = workspaces.end() - 1;
 
-            return focus_existing(*it, false);
+            return focus_existing(it->get(), false);
         }
     }
 
@@ -188,7 +184,7 @@ bool WorkspaceManager::delete_workspace(uint32_t id)
     if (!w)
         return false;
 
-    registry.advise_removed(*w->get_output(), id);
+    registry.advise_removed(id);
     return true;
 }
 
@@ -207,51 +203,81 @@ bool WorkspaceManager::request_focus(uint32_t id)
     existing->get_output()->advise_workspace_active(id);
 
     if (active_screen != nullptr)
-        registry.advise_focused(last_selected.value()->get_output(), last_selected.value()->id(), active_screen, id);
+        registry.advise_focused(last_selected.value()->id(), id);
     else
-        registry.advise_focused(nullptr, -1, active_screen, id);
+        registry.advise_focused(std::nullopt, id);
 
     return true;
 }
 
-std::shared_ptr<Workspace> const& WorkspaceManager::workspace(int num)
+Workspace* WorkspaceManager::workspace(int num) const
 {
     for (auto const& output : get_outputs())
     {
         for (auto const& workspace : output->get_workspaces())
         {
             if (workspace->num() == num)
-                return workspace;
+                return workspace.get();
         }
     }
 
     return nullptr;
 }
 
-std::shared_ptr<Workspace> const& WorkspaceManager::workspace(uint32_t id)
+Workspace* WorkspaceManager::workspace(uint32_t id) const
 {
     for (auto const& output : get_outputs())
     {
         for (auto const& workspace : output->get_workspaces())
         {
             if (workspace->id() == id)
-                return workspace;
+                return workspace.get();
         }
     }
 
     return nullptr;
 }
 
-std::shared_ptr<Workspace> const& WorkspaceManager::workspace(std::string const& name)
+Workspace* WorkspaceManager::workspace(std::string const& name) const
 {
     for (auto const& output : get_outputs())
     {
         for (auto const& workspace : output->get_workspaces())
         {
             if (workspace->name() == name)
-                return workspace;
+                return workspace.get();
         }
     }
 
     return nullptr;
+}
+
+std::vector<Workspace const*> WorkspaceManager::workspaces() const
+{
+    std::vector<Workspace const*> result;
+    for (auto const& output : get_outputs())
+    {
+        for (auto const& w : output->get_workspaces())
+        {
+            auto const* ptr = w.get();
+            insert_sorted(result, ptr, [](Workspace const* a, Workspace const* b)
+            {
+                if (a->num() && b->num())
+                    return a->num().value() < b->num().value();
+                else if (a->num())
+                    return true;
+                else if (b->num())
+                    return false;
+                else if (a->name() && b->name())
+                    return a->name().value() < b->name().value();
+                else if (a->name())
+                    return true;
+                else if (b->name())
+                    return false;
+                else
+                    return false;
+            });
+        }
+    }
+    return result;
 }

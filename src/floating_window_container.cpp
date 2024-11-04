@@ -124,7 +124,7 @@ void FloatingWindowContainer::on_open()
 
 void FloatingWindowContainer::on_focus_gained()
 {
-    if (get_output()->get_active_workspace()->get_workspace() != workspace_->get_workspace())
+    if (get_output()->active() != workspace_)
         return;
 
     wm->advise_focus_gained(window_controller.info_for(window_));
@@ -270,11 +270,7 @@ glm::mat4 FloatingWindowContainer::get_workspace_transform() const
     if (pinned())
         return glm::mat4(1.f);
 
-    auto output = get_output();
-    auto workspace = get_workspace();
-    auto const workspace_rect = output->get_workspace_rectangle(workspace->get_workspace());
-    return glm::translate(
-        glm::vec3(workspace_rect.top_left.x.as_int(), workspace_rect.top_left.y.as_int(), 0));
+    return Container::get_workspace_transform();
 }
 
 glm::mat4 FloatingWindowContainer::get_output_transform() const
@@ -357,7 +353,7 @@ nlohmann::json FloatingWindowContainer::to_json() const
     if (!output->is_active())
         visible = false;
 
-    if (output->get_active_workspace_num() != workspace->get_workspace())
+    if (output->active() != workspace)
         visible = false;
 
     return {

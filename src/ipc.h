@@ -89,9 +89,9 @@ public:
         std::shared_ptr<Config> const&);
     ~Ipc();
 
-    void on_created(Output const& info, int key) override;
-    void on_removed(Output const& info, int key) override;
-    void on_focused(Output const* previous, int, Output const* current, int) override;
+    void on_created(uint32_t id) override;
+    void on_removed(uint32_t id) override;
+    void on_focused(std::optional<uint32_t>, uint32_t) override;
     void on_changed(WindowManagerMode mode) override;
     void on_shutdown();
 

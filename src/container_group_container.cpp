@@ -244,7 +244,7 @@ ContainerGroupContainer::confirm_placement(MirWindowState state, mir::geometry::
 
 Workspace* ContainerGroupContainer::get_workspace() const
 {
-    return state.active_output->get_active_workspace().get();
+    return state.active_output->active();
 }
 
 Output* ContainerGroupContainer::get_output() const

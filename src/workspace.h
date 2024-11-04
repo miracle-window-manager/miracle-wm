@@ -85,7 +85,7 @@ public:
     [[nodiscard]] std::optional<int> num() const { return num_; }
     [[nodiscard]] nlohmann::json to_json() const;
     [[nodiscard]] TilingWindowTree const* get_tree() const { return tree.get(); }
-    [[nodiscard]] std::optional<std::string> const& name() { return name_; }
+    [[nodiscard]] std::optional<std::string> const& name() const { return name_; }
 
 private:
     Output* output;

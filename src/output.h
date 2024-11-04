@@ -94,7 +94,7 @@ public:
     // Getters
 
     [[nodiscard]] std::vector<miral::Window> collect_all_windows() const;
-    [[nodiscard]] std::shared_ptr<Workspace> active() const;
+    [[nodiscard]] Workspace* active() const;
     [[nodiscard]] std::vector<std::shared_ptr<Workspace>> const& get_workspaces() const { return workspaces; }
     [[nodiscard]] geom::Rectangle const& get_area() const { return area; }
     [[nodiscard]] std::vector<miral::Zone> const& get_app_zones() const { return application_zone_list; }

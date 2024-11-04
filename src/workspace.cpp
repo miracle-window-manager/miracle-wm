@@ -76,9 +76,9 @@ Workspace::Workspace(
     std::shared_ptr<MinimalWindowManager> const& floating_window_manager) :
     output { output },
     tools { tools },
-    id_{ id },
-    num_{ num },
-    name_{ name },
+    id_ { id },
+    num_ { num },
+    name_ { name },
     window_controller { window_controller },
     state { state },
     config { config },
@@ -450,7 +450,7 @@ std::shared_ptr<ParentContainer> Workspace::get_layout_container()
 
 nlohmann::json Workspace::to_json() const
 {
-    bool const is_focused = output->get_active_workspace().get() == this;
+    bool const is_focused = output->active() == this;
 
     // Note: The reported workspace area appears to be the placement
     // area of the root tree.
@@ -467,44 +467,47 @@ nlohmann::json Workspace::to_json() const
         nodes.push_back(container->to_json());
 
     return {
-        { "num",                  num_ ? num_.value() : -1,                                                    },
-        { "id",                   reinterpret_cast<std::uintptr_t>(this)                          },
-        { "type",                 "workspace"                                                     },
-        { "name",                 "TODO!"                                       },
-        { "visible",              output->is_active() && is_focused                               },
-        { "focused",              output->is_active() && is_focused                               },
-        { "urgent",               false                                                           },
-        { "output",               output->get_output().name()                                     },
-        { "border",               "none"                                                          },
-        { "current_border_width", 0                                                               },
-        { "layout",               to_string(root->get_scheme())                                   },
-        { "orientation",          "none"                                                          },
-        { "window_rect",          {
+        {
+         "num",
+         num_ ? num_.value() : -1,
+         },
+        { "id", reinterpret_cast<std::uintptr_t>(this) },
+        { "type", "workspace" },
+        { "name", "TODO!" },
+        { "visible", output->is_active() && is_focused },
+        { "focused", output->is_active() && is_focused },
+        { "urgent", false },
+        { "output", output->get_output().name() },
+        { "border", "none" },
+        { "current_border_width", 0 },
+        { "layout", to_string(root->get_scheme()) },
+        { "orientation", "none" },
+        { "window_rect", {
                              { "x", 0 },
                              { "y", 0 },
                              { "width", 0 },
                              { "height", 0 },
-                         }                                                },
-        { "deco_rect",            {
+                         } },
+        { "deco_rect", {
                            { "x", 0 },
                            { "y", 0 },
                            { "width", 0 },
                            { "height", 0 },
-                       }                                                    },
-        { "geometry",             {
+                       } },
+        { "geometry", {
                           { "x", 0 },
                           { "y", 0 },
                           { "width", 0 },
                           { "height", 0 },
-                      }                                                      },
-        { "window",               nullptr                                                         },
-        { "floating_nodes",       floating_nodes                                                  },
-        { "rect",                 {
+                      } },
+        { "window", nullptr },
+        { "floating_nodes", floating_nodes },
+        { "rect", {
                                                                                    { "x", area.top_left.x.as_int() },
                                                                                    { "y", area.top_left.y.as_int() },
                                                                                    { "width", area.size.width.as_int() },
                                                                                    { "height", area.size.height.as_int() },
                                                                                } },
-        { "nodes",                nodes                                                           }
+        { "nodes", nodes }
     };
 }
