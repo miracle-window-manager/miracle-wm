@@ -94,7 +94,7 @@ json workspace_to_json(WorkspaceManager const& workspace_manager, uint32_t id)
         { "num",     workspace->num() ? workspace->num().value() : -1 },
         { "id",      reinterpret_cast<std::uintptr_t>(workspace)      },
         { "type",    "workspace"                                      },
-        { "name",    "TODO"                                           },
+        { "name",    workspace->display_name()                        },
         { "visible", screen->is_active() && is_focused                },
         { "focused", screen->is_active() && is_focused                },
         { "urgent",  false                                            },
@@ -756,15 +756,6 @@ void Ipc::handle_writeable(miracle::Ipc::IpcClient& client)
     }
 
     client.write_buffer_len = 0;
-}
-
-namespace
-{
-bool equals(std::string_view const& s, const char* v)
-{
-    // TODO: Perhaps this is a bit naive, as it is basically a "startswith"
-    return strncmp(s.data(), v, strlen(v)) == 0;
-}
 }
 
 bool Ipc::parse_i3_command(std::string_view const& command)

@@ -76,7 +76,7 @@ public:
     void toggle_floating(std::shared_ptr<Container> const&);
     bool has_floating_window(std::shared_ptr<Container> const&);
     std::shared_ptr<FloatingWindowContainer> add_floating_window(miral::Window const&);
-    Output* get_output();
+    Output* get_output() const;
     void trigger_rerender();
     [[nodiscard]] bool is_empty() const;
     void graft(std::shared_ptr<Container> const&);
@@ -86,6 +86,7 @@ public:
     [[nodiscard]] nlohmann::json to_json() const;
     [[nodiscard]] TilingWindowTree const* get_tree() const { return tree.get(); }
     [[nodiscard]] std::optional<std::string> const& name() const { return name_; }
+    [[nodiscard]] std::string display_name() const;
 
 private:
     Output* output;

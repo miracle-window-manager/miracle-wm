@@ -462,8 +462,8 @@ void Policy::advise_output_create(miral::Output const& output)
     auto output_content = std::make_shared<Output>(
         output, workspace_manager, output.extents(), window_manager_tools,
         floating_window_manager, state, config, window_controller, animator);
-    workspace_manager.request_first_available_workspace(output_content.get());
     output_list.push_back(output_content);
+    workspace_manager.request_first_available_workspace(output_content.get());
     if (state.active_output == nullptr)
     {
         state.active_output = output_content;

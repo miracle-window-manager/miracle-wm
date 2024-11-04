@@ -385,7 +385,7 @@ std::shared_ptr<FloatingWindowContainer> Workspace::add_floating_window(miral::W
     return floating;
 }
 
-Output* Workspace::get_output()
+Output* Workspace::get_output() const
 {
     return output;
 }
@@ -448,6 +448,21 @@ std::shared_ptr<ParentContainer> Workspace::get_layout_container()
     return parent;
 }
 
+std::string Workspace::display_name() const
+{
+    std::stringstream ss;
+    if (num_ && name_)
+        ss << num_.value() << ": " << name_.value();
+    else if (name_)
+        return name_.value();
+    else if (num_)
+        ss << num_.value();
+    else
+        ss << "Unknown #" << id_;
+
+    return ss.str();
+}
+
 nlohmann::json Workspace::to_json() const
 {
     bool const is_focused = output->active() == this;
@@ -473,7 +488,7 @@ nlohmann::json Workspace::to_json() const
          },
         { "id", reinterpret_cast<std::uintptr_t>(this) },
         { "type", "workspace" },
-        { "name", "TODO!" },
+        { "name", display_name() },
         { "visible", output->is_active() && is_focused },
         { "focused", output->is_active() && is_focused },
         { "urgent", false },

@@ -180,10 +180,12 @@ bool WorkspaceManager::request_prev_on_output(Output const& output)
 
 bool WorkspaceManager::delete_workspace(uint32_t id)
 {
-    auto const& w = workspace(id);
+    auto const* w = workspace(id);
     if (!w)
         return false;
 
+    auto* output = w->get_output();
+    output->advise_workspace_deleted(id);
     registry.advise_removed(id);
     return true;
 }
