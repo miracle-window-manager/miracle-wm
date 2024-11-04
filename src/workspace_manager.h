@@ -31,6 +31,7 @@ namespace miracle
 {
 
 class Output;
+class Config;
 
 /// A central place to request operations on workspaces.
 /// [Workspace] objects are held in their [Output] containers.
@@ -40,6 +41,7 @@ public:
     WorkspaceManager(
         miral::WindowManagerTools const& tools,
         WorkspaceObserverRegistrar& registry,
+        std::shared_ptr<Config> const& config,
         std::function<Output const*()> const& get_active,
         std::function<std::vector<std::shared_ptr<Output>>()> const& get_outputs);
     WorkspaceManager(WorkspaceManager const&) = delete;
@@ -103,6 +105,7 @@ private:
 
     miral::WindowManagerTools tools_;
     WorkspaceObserverRegistrar& registry;
+    std::shared_ptr<Config> config;
     std::function<Output const*()> get_active;
     std::function<std::vector<std::shared_ptr<Output>>()> get_outputs;
     std::optional<Workspace*> last_selected;

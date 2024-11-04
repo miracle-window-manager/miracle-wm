@@ -191,10 +191,6 @@ bool Output::advise_workspace_active(uint32_t id)
     auto from_src = get_workspace_rectangle(from_index);
     from->transfer_pinned_windows_to(to);
 
-    // If 'from' is empty, we can delete the workspace. However, this means that from_src is now incorrect
-    if (from->is_empty())
-        workspace_manager.delete_workspace(from->id());
-
     // Show everyone so that we can animate over all workspaces
     for (auto const& workspace : workspaces)
         workspace->show();
@@ -212,6 +208,11 @@ bool Output::advise_workspace_active(uint32_t id)
         { geom::X { -to_src.top_left.x.as_int() }, geom::Y { to_src.top_left.y.as_int() } },
         area.size
     };
+
+    // If 'from' is empty, we can delete the workspace. However, this means that from_src is now incorrect
+    if (from->is_empty())
+        workspace_manager.delete_workspace(from->id());
+
     animator.workspace_switch(
         handle,
         src,

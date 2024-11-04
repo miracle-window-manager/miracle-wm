@@ -17,6 +17,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define MIR_LOG_COMPONENT "workspace_manager"
 #include "workspace_manager.h"
+
+#include "config.h"
 #include "output.h"
 #include "vector_helpers.h"
 #include <mir/log.h>
@@ -27,10 +29,12 @@ using namespace miracle;
 WorkspaceManager::WorkspaceManager(
     miral::WindowManagerTools const& tools,
     WorkspaceObserverRegistrar& registry,
+    std::shared_ptr<Config> const& config,
     std::function<Output const*()> const& get_active,
     std::function<std::vector<std::shared_ptr<Output>>()> const& get_outputs) :
     tools_ { tools },
     registry { registry },
+    config { config },
     get_active { get_active },
     get_outputs { get_outputs }
 {
@@ -70,8 +74,10 @@ bool WorkspaceManager::request_workspace(
         return focus_existing(existing, back_and_forth);
 
     uint32_t id = next_id++;
+    auto const& workspace_config = config->get_workspace_config(num);
     output_hint->advise_new_workspace({ .id = id,
-        .num = num });
+        .num = num,
+        .name = workspace_config.name });
     request_focus(id);
     registry.advise_created(id);
     return true;

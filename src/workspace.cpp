@@ -105,8 +105,9 @@ AllocationHint Workspace::allocate_position(
     AllocationHint const& hint)
 {
     // If there's no ideal layout type, use the one provided by the workspace
-    auto layout = (hint.container_type == ContainerType::none && num_)
-        ? config->get_workspace_config(num_.value()).layout
+    auto const& workspace_config = config->get_workspace_config(num_.value());
+    auto const layout = (hint.container_type == ContainerType::none && num_)
+        ? workspace_config.layout ? workspace_config.layout.value() : ContainerType::leaf
         : hint.container_type;
     switch (layout)
     {

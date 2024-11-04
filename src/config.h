@@ -140,8 +140,8 @@ struct BorderConfig
 struct WorkspaceConfig
 {
     int num = -1;
-    ContainerType layout = ContainerType::leaf;
-    std::string name;
+    std::optional<ContainerType> layout;
+    std::optional<std::string> name;
 };
 
 enum class RenderFilter : int

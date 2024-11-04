@@ -61,6 +61,7 @@ Policy::Policy(
     workspace_manager { WorkspaceManager(
         tools,
         workspace_observer_registrar,
+        config,
         [this]()
 { return get_active_output(); },
         [this]()
