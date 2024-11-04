@@ -14,11 +14,6 @@ pkg_check_modules(MIRSERVER mirserver REQUIRED)
 find_package(GTest REQUIRED)
 pkg_check_modules(YAML REQUIRED IMPORTED_TARGET yaml-cpp)
 
-if(MIR_LIBRARIES_PKGCONFIG_DIRECTORY)
-    list( PREPEND CMAKE_INSTALL_RPATH ${MIRAL_LIBRARY_DIRS} )
-    set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
-endif()
-
 add_executable(miracle-wm-tests
     filesystem_configuration_test.cpp
     tiling_window_tree_test.cpp
