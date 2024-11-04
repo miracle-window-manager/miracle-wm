@@ -50,13 +50,14 @@ public:
     Workspace(
         Output* output,
         miral::WindowManagerTools const& tools,
-        int workspace,
+        uint32_t id,
+        std::optional<int> num,
+        std::optional<std::string> name,
         std::shared_ptr<Config> const& config,
         WindowController& window_controller,
         CompositorState const& state,
         std::shared_ptr<MinimalWindowManager> const& floating_window_manager);
 
-    [[nodiscard]] int get_workspace() const;
     void set_area(mir::geometry::Rectangle const&);
     void recalculate_area();
 
@@ -75,21 +76,25 @@ public:
     void toggle_floating(std::shared_ptr<Container> const&);
     bool has_floating_window(std::shared_ptr<Container> const&);
     std::shared_ptr<FloatingWindowContainer> add_floating_window(miral::Window const&);
-    Output* get_output();
+    Output* get_output() const;
     void trigger_rerender();
     [[nodiscard]] bool is_empty() const;
     void graft(std::shared_ptr<Container> const&);
     /// Converts a workspace to its corresponding index in the workspace array.
+    [[nodiscard]] uint32_t id() const { return id_; }
+    [[nodiscard]] std::optional<int> num() const { return num_; }
+    [[nodiscard]] nlohmann::json to_json() const;
     [[nodiscard]] TilingWindowTree const* get_tree() const { return tree.get(); }
-    nlohmann::json to_json() const;
-    [[nodiscard]] std::string const& get_name() { return name; }
+    [[nodiscard]] std::optional<std::string> const& name() const { return name_; }
+    [[nodiscard]] std::string display_name() const;
 
 private:
     Output* output;
     miral::WindowManagerTools tools;
+    uint32_t id_;
+    std::optional<int> num_;
+    std::optional<std::string> name_;
     std::shared_ptr<TilingWindowTree> tree;
-    int workspace;
-    std::string name;
     std::vector<std::shared_ptr<FloatingWindowContainer>> floating_windows;
     std::vector<std::shared_ptr<FloatingTreeContainer>> floating_trees;
     WindowController& window_controller;

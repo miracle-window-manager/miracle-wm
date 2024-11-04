@@ -17,127 +17,125 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define MIR_LOG_COMPONENT "workspace_manager"
 #include "workspace_manager.h"
+
+#include "config.h"
 #include "output.h"
-#include "window_helpers.h"
+#include "vector_helpers.h"
 #include <mir/log.h>
 
 using namespace mir::geometry;
 using namespace miracle;
 
 WorkspaceManager::WorkspaceManager(
-    WindowManagerTools const& tools,
+    miral::WindowManagerTools const& tools,
     WorkspaceObserverRegistrar& registry,
-    std::function<Output const*()> const& get_active_screen) :
+    std::shared_ptr<Config> const& config,
+    std::function<Output const*()> const& get_active,
+    std::function<std::vector<std::shared_ptr<Output>>()> const& get_outputs) :
     tools_ { tools },
     registry { registry },
-    get_active_screen { get_active_screen }
+    config { config },
+    get_active { get_active },
+    get_outputs { get_outputs }
 {
 }
 
-std::shared_ptr<Output> WorkspaceManager::request_workspace(std::shared_ptr<Output> const& screen, int key, bool back_and_forth)
+bool WorkspaceManager::focus_existing(Workspace const* existing, bool back_and_forth)
 {
-    if (output_to_workspace_mapping[key] != nullptr)
+    auto const& active_workspace = get_active()->active();
+    if (active_workspace == existing)
     {
-        auto output = output_to_workspace_mapping[key];
-        auto active_workspace = output->get_active_workspace_num();
-        if (active_workspace == key)
+        if (last_selected)
         {
-            if (last_selected)
-            {
-                // If we reselect the same workspace and we have a previously selected
-                // workspace, let's reselect it.
-                auto last_output = last_selected->output.lock();
-                if (!last_output)
-                {
-                    last_selected.reset();
-                    mir::log_warning("request_workspace: last_selected output unavailable");
-                    return nullptr;
-                }
+            // If we reselect the same workspace and we have a previously selected
+            // workspace, let's reselect it.
+            auto last_output = last_selected.value()->get_output();
 
-                /// If back_and_forth isn't true and we have a last_output, don't visit it.
-                if (!back_and_forth)
-                    return output;
+            /// If back_and_forth isn't true and we have a last_output, don't visit it.
+            if (!back_and_forth)
+                return false;
 
-                return request_workspace(last_output, last_selected->number, back_and_forth);
-            }
-            else
-            {
-                mir::log_warning("Same workspace selected twice in a row");
-                return output;
-            }
+            return request_focus(last_selected.value()->id());
         }
-
-        request_focus(key);
-        return output;
+        else
+            return false;
     }
 
-    output_to_workspace_mapping[key] = screen;
-    screen->advise_new_workspace(key);
-
-    request_focus(key);
-    registry.advise_created(*output_to_workspace_mapping[key].get(), key);
-    return screen;
+    request_focus(existing->id());
+    return true;
 }
 
-int WorkspaceManager::request_first_available_workspace(std::shared_ptr<Output> const& screen)
+bool WorkspaceManager::request_workspace(
+    Output* output_hint,
+    int num,
+    bool back_and_forth)
 {
-    for (int i = 1; i < NUM_WORKSPACES; i++)
+    if (auto const& existing = workspace(num))
+        return focus_existing(existing, back_and_forth);
+
+    uint32_t id = next_id++;
+    auto const& workspace_config = config->get_workspace_config(num);
+    output_hint->advise_new_workspace({ .id = id,
+        .num = num,
+        .name = workspace_config.name });
+    request_focus(id);
+    registry.advise_created(id);
+    return true;
+}
+
+bool WorkspaceManager::request_workspace(
+    Output* output_hint,
+    std::string const& name,
+    bool back_and_forth)
+{
+    if (auto const& existing = workspace(name))
+        return focus_existing(existing, back_and_forth);
+
+    uint32_t id = next_id++;
+    output_hint->advise_new_workspace({ .id = id,
+        .name = name });
+    request_focus(id);
+    registry.advise_created(id);
+    return true;
+}
+
+int WorkspaceManager::request_first_available_workspace(Output* output)
+{
+    for (int i = 1; i < NUM_DEFAULT_WORKSPACES; i++)
     {
-        if (output_to_workspace_mapping[i] == nullptr)
-        {
-            request_workspace(screen, i, true);
-            return i;
-        }
+        if (auto const& w = workspace(i))
+            continue;
+
+        request_workspace(output, i, true);
+        return i;
     }
 
-    if (output_to_workspace_mapping[0] == nullptr)
+    if (workspace(0) == nullptr)
     {
-        request_workspace(screen, 0, true);
+        request_workspace(output, 0, true);
         return 0;
     }
 
     return -1;
 }
 
-bool WorkspaceManager::request_workspace(std::string const& name, bool back_and_forth)
-{
-    for (auto const& output : output_to_workspace_mapping)
-    {
-        if (output == nullptr)
-            continue;
-
-        for (auto const& workspace : output->get_workspaces())
-        {
-            if (workspace->get_name() == name)
-            {
-                request_workspace(output, workspace->get_workspace(), back_and_forth);
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
 bool WorkspaceManager::request_next(std::shared_ptr<Output> const& output)
 {
-    int start = output->get_active_workspace_num() + 1;
-    if (start == NUM_WORKSPACES)
-        start = 0;
+    auto const& active = output->active();
+    if (!active)
+        return false;
 
-    int i = start;
-    while (i != output->get_active_workspace_num())
+    auto const l = workspaces();
+    for (auto it = l.begin(); it != l.end(); it++)
     {
-        if (output_to_workspace_mapping[i] != nullptr)
+        if (*it == active)
         {
-            request_workspace(output_to_workspace_mapping[i], i, true);
-            return true;
+            it++;
+            if (it == l.end())
+                it = l.begin();
+
+            return focus_existing(*it, false);
         }
-
-        i++;
-
-        if (i == NUM_WORKSPACES)
-            i = 0;
     }
 
     return false;
@@ -145,23 +143,21 @@ bool WorkspaceManager::request_next(std::shared_ptr<Output> const& output)
 
 bool WorkspaceManager::request_prev(std::shared_ptr<Output> const& output)
 {
-    int start = output->get_active_workspace_num() - 1;
-    if (start == NUM_WORKSPACES)
-        start = 0;
+    auto const& active = output->active();
+    if (!active)
+        return false;
 
-    int i = start;
-    while (i != output->get_active_workspace_num())
+    auto const l = workspaces();
+    for (auto it = l.rbegin(); it != l.rend(); it++)
     {
-        if (output_to_workspace_mapping[i] != nullptr)
+        if (*it == active)
         {
-            request_workspace(output_to_workspace_mapping[i], i, true);
-            return true;
+            it++;
+            if (it == l.rend())
+                it = l.rbegin();
+
+            return focus_existing(*it, false);
         }
-
-        i--;
-
-        if (i < 0)
-            i = NUM_WORKSPACES - 1;
     }
 
     return false;
@@ -171,11 +167,8 @@ bool WorkspaceManager::request_back_and_forth()
 {
     if (last_selected)
     {
-        if (auto output = last_selected->output.lock())
-        {
-            request_workspace(output, last_selected->number);
-            return true;
-        }
+        request_focus(last_selected.value()->id());
+        return true;
     }
 
     return false;
@@ -183,23 +176,21 @@ bool WorkspaceManager::request_back_and_forth()
 
 bool WorkspaceManager::request_next_on_output(Output const& output)
 {
-    int start = output.get_active_workspace_num() + 1;
-    if (start == NUM_WORKSPACES)
-        start = 0;
+    auto const& active = output.active();
+    if (!active)
+        return false;
 
-    int i = start;
-    while (i != output.get_active_workspace_num())
+    auto const& workspaces = output.get_workspaces();
+    for (auto it = workspaces.begin(); it != workspaces.end(); it++)
     {
-        if (output_to_workspace_mapping[i].get() == &output)
+        if (it->get() == active)
         {
-            request_workspace(output_to_workspace_mapping[i], i, true);
-            return true;
+            it++;
+            if (it == workspaces.end())
+                it = workspaces.begin();
+
+            return focus_existing(it->get(), false);
         }
-
-        i++;
-
-        if (i == NUM_WORKSPACES)
-            i = 0;
     }
 
     return false;
@@ -207,61 +198,122 @@ bool WorkspaceManager::request_next_on_output(Output const& output)
 
 bool WorkspaceManager::request_prev_on_output(Output const& output)
 {
-    int start = output.get_active_workspace_num() - 1;
-    if (start == NUM_WORKSPACES)
-        start = 0;
+    auto const& active = output.active();
+    if (!active)
+        return false;
 
-    int i = start;
-    while (i != output.get_active_workspace_num())
+    auto const& workspaces = output.get_workspaces();
+    for (auto it = workspaces.rbegin(); it != workspaces.rend(); it++)
     {
-        if (output_to_workspace_mapping[i].get() == &output)
+        if (it->get() == active)
         {
-            request_workspace(output_to_workspace_mapping[i], i, true);
-            return true;
+            it++;
+            if (it == workspaces.rend())
+                it = workspaces.rbegin();
+
+            return focus_existing(it->get(), false);
         }
-
-        i--;
-
-        if (i < 0)
-            i = NUM_WORKSPACES - 1;
     }
 
     return false;
 }
 
-bool WorkspaceManager::delete_workspace(int key)
+bool WorkspaceManager::delete_workspace(uint32_t id)
 {
-    if (output_to_workspace_mapping[key])
-    {
-        registry.advise_removed(*output_to_workspace_mapping[key].get(), key);
-        output_to_workspace_mapping[key]->advise_workspace_deleted(key);
-        output_to_workspace_mapping[key] = nullptr;
-        return true;
-    }
+    auto const* w = workspace(id);
+    if (!w)
+        return false;
 
-    return false;
+    auto* output = w->get_output();
+    output->advise_workspace_deleted(id);
+    registry.advise_removed(id);
+    return true;
 }
 
-std::shared_ptr<Output> WorkspaceManager::request_focus(int key)
+bool WorkspaceManager::request_focus(uint32_t id)
 {
-    if (!output_to_workspace_mapping[key])
-        return nullptr;
+    auto const& existing = workspace(id);
+    if (!existing)
+        return false;
 
-    auto active_screen = get_active_screen();
-    int previous_workspace = -1;
+    auto active_screen = get_active();
     if (active_screen)
-    {
-        previous_workspace = active_screen->get_active_workspace_num();
-        last_selected = { previous_workspace, output_to_workspace_mapping[previous_workspace] };
-    }
-    output_to_workspace_mapping[key]->advise_workspace_active(key);
+        last_selected = active_screen->active();
+    else
+        last_selected = nullptr;
+
+    existing->get_output()->advise_workspace_active(id);
 
     if (active_screen != nullptr)
-    {
-        registry.advise_focused(output_to_workspace_mapping[previous_workspace].get(), previous_workspace, output_to_workspace_mapping[key].get(), key);
-    }
+        registry.advise_focused(last_selected.value()->id(), id);
     else
-        registry.advise_focused(nullptr, -1, output_to_workspace_mapping[key].get(), key);
+        registry.advise_focused(std::nullopt, id);
 
-    return output_to_workspace_mapping[key];
+    return true;
+}
+
+Workspace* WorkspaceManager::workspace(int num) const
+{
+    for (auto const& output : get_outputs())
+    {
+        for (auto const& workspace : output->get_workspaces())
+        {
+            if (workspace->num() == num)
+                return workspace.get();
+        }
+    }
+
+    return nullptr;
+}
+
+Workspace* WorkspaceManager::workspace(uint32_t id) const
+{
+    for (auto const& output : get_outputs())
+    {
+        for (auto const& workspace : output->get_workspaces())
+        {
+            if (workspace->id() == id)
+                return workspace.get();
+        }
+    }
+
+    return nullptr;
+}
+
+Workspace* WorkspaceManager::workspace(std::string const& name) const
+{
+    for (auto const& output : get_outputs())
+    {
+        for (auto const& workspace : output->get_workspaces())
+        {
+            if (workspace->name() == name)
+                return workspace.get();
+        }
+    }
+
+    return nullptr;
+}
+
+std::vector<Workspace const*> WorkspaceManager::workspaces() const
+{
+    std::vector<Workspace const*> result;
+    for (auto const& output : get_outputs())
+    {
+        for (auto const& w : output->get_workspaces())
+        {
+            auto const* ptr = w.get();
+            insert_sorted(result, ptr, [](Workspace const* a, Workspace const* b)
+            {
+                if (a->num() && b->num())
+                    return a->num().value() < b->num().value();
+                else if (a->num())
+                    return true;
+                else if (b->num())
+                    return false;
+                else
+                    return true;
+            });
+        }
+    }
+    return result;
 }

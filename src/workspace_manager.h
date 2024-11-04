@@ -30,34 +30,44 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 namespace miracle
 {
 
-using miral::Window;
-using miral::WindowInfo;
-using miral::WindowManagerTools;
-using miral::WindowSpecification;
-
 class Output;
+class Config;
 
+/// A central place to request operations on workspaces.
+/// [Workspace] objects are held in their [Output] containers.
 class WorkspaceManager
 {
 public:
-    explicit WorkspaceManager(
-        WindowManagerTools const& tools,
+    WorkspaceManager(
+        miral::WindowManagerTools const& tools,
         WorkspaceObserverRegistrar& registry,
-        std::function<Output const*()> const& get_active_screen);
+        std::shared_ptr<Config> const& config,
+        std::function<Output const*()> const& get_active,
+        std::function<std::vector<std::shared_ptr<Output>>()> const& get_outputs);
+    WorkspaceManager(WorkspaceManager const&) = delete;
     virtual ~WorkspaceManager() = default;
 
-    /// Request the workspace. If it does not yet exist, then one
-    /// is created on the current Screen. If it does exist, we navigate
+    /// Request workspace by number. If it does not yet exist, then one
+    /// is created on the provided output. If it does exist, we navigate
     /// to the screen containing that workspace and show it if it
     /// isn't already shown.
-    std::shared_ptr<Output> request_workspace(std::shared_ptr<Output> const& screen, int workspace, bool back_and_forth = true);
+    /// \param output_hint output that we want to show on if creating a new workspace
+    /// \param key workspace number that we want to create
+    /// \param back_and_forth
+    /// \returns true if we focused a new workspace, otherwise false
+    bool request_workspace(
+        Output* output_hint,
+        int key,
+        bool back_and_forth = true);
+
+    /// Request the workspace by name.
+    bool request_workspace(
+        Output* output_hint,
+        std::string const& name,
+        bool back_and_forth = true);
 
     /// Returns any available workspace with the lowest numerical value starting with 1.
-    int request_first_available_workspace(std::shared_ptr<Output> const& screen);
-
-    /// Request the workspace by name. If it does not exist, then it will not
-    /// be selected.
-    bool request_workspace(std::string const& name, bool back_and_forth = true);
+    int request_first_available_workspace(Output* output);
 
     /// Selects the next workspace after the current selected one.
     bool request_next(std::shared_ptr<Output> const& output);
@@ -71,27 +81,34 @@ public:
 
     bool request_prev_on_output(Output const&);
 
-    bool delete_workspace(int workspace);
+    bool delete_workspace(uint32_t id);
 
-    /// Focuses a workspace only if it is already mapped to an output. Prefer using request_workspace
-    /// for most situations.
-    std::shared_ptr<Output> request_focus(int workspace);
+    /// Focuses the workspace with the provided id
+    bool request_focus(uint32_t id);
 
-    static int constexpr NUM_WORKSPACES = 10;
-    std::array<std::shared_ptr<Output>, NUM_WORKSPACES> const& get_output_to_workspace_mapping() { return output_to_workspace_mapping; }
+    /// Returns the workspace with the provided [id], if any.
+    Workspace* workspace(uint32_t id) const;
+
+    /// Builds and returns a sorted array of all active workspaces.
+    std::vector<Workspace const*> workspaces() const;
+
+    /// The number of default workspaces
+    static constexpr int NUM_DEFAULT_WORKSPACES = 10;
 
 private:
-    struct LastSelectedWorkspace
-    {
-        int number = -1;
-        std::weak_ptr<Output> output;
-    };
+    bool focus_existing(Workspace const*, bool back_and_forth);
 
-    WindowManagerTools tools_;
+    uint32_t next_id = 0;
+
+    Workspace* workspace(int num) const;
+    Workspace* workspace(std::string const& name) const;
+
+    miral::WindowManagerTools tools_;
     WorkspaceObserverRegistrar& registry;
-    std::function<Output const*()> get_active_screen;
-    std::array<std::shared_ptr<Output>, NUM_WORKSPACES> output_to_workspace_mapping;
-    std::optional<LastSelectedWorkspace> last_selected;
+    std::shared_ptr<Config> config;
+    std::function<Output const*()> get_active;
+    std::function<std::vector<std::shared_ptr<Output>>()> get_outputs;
+    std::optional<Workspace*> last_selected;
 };
 }
 

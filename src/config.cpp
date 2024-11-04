@@ -531,11 +531,19 @@ void FilesystemConfiguration::read_workspaces(YAML::Node const& workspaces)
         if (!try_parse_value(workspace, "number", num))
             continue;
 
-        auto type = try_parse_string_to_optional_value<std::optional<ContainerType>>(workspace, "layout", container_type_from_string);
-        if (!type || type.value() == ContainerType::none)
+        std::optional<ContainerType> type;
+        if (workspace["key"])
+        {
+            type = try_parse_string_to_optional_value<std::optional<ContainerType>>(workspace, "layout", container_type_from_string);
+            if (!type || type.value() == ContainerType::none)
+                continue;
+        }
+
+        std::string name;
+        if (!try_parse_value(workspace, "name", name, true))
             continue;
 
-        options.workspace_configs.push_back({ num, type.value() });
+        options.workspace_configs.push_back({ num, type, name });
     }
 }
 
