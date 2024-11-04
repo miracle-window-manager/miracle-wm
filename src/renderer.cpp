@@ -60,7 +60,7 @@ auto make_output_current(std::unique_ptr<mg::gl::OutputSurface> output) -> std::
 class OutlineRenderable : public mir::graphics::Renderable
 {
 public:
-    OutlineRenderable(mir::graphics::Renderable const& renderable, int outline_width_px, float alpha) :
+    OutlineRenderable(Renderable const& renderable, int outline_width_px, float alpha) :
         renderable { renderable },
         outline_width_px { outline_width_px },
         _alpha { alpha }
@@ -83,8 +83,7 @@ public:
         if (!surface)
             return {};
 
-        return get_rectangle({ surface.value()->top_left(),
-            surface.value()->window_size() });
+        return get_rectangle(renderable.screen_position());
     }
 
     [[nodiscard]] geom::RectangleD src_bounds() const override
@@ -143,7 +142,7 @@ private:
 Renderer::Renderer(
     std::shared_ptr<mir::graphics::GLRenderingProvider> gl_interface,
     std::unique_ptr<mir::graphics::gl::OutputSurface> output,
-    std::shared_ptr<MiracleConfig> const& config,
+    std::shared_ptr<Config> const& config,
     SurfaceTracker& surface_tracker,
     CompositorState const& compositor_state,
     std::shared_ptr<WindowToolsAccessor> const& accessor) :

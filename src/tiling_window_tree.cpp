@@ -36,7 +36,7 @@ TilingWindowTree::TilingWindowTree(
     std::unique_ptr<TilingWindowTreeInterface> tree_interface,
     WindowController& window_controller,
     CompositorState const& state,
-    std::shared_ptr<MiracleConfig> const& config,
+    std::shared_ptr<Config> const& config,
     geom::Rectangle const& area) :
     root_lane { std::make_shared<ParentContainer>(
         window_controller,

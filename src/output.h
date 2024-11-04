@@ -32,10 +32,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 namespace miracle
 {
 class WorkspaceManager;
-class MiracleConfig;
+class Config;
 class WindowManagerToolsWindowController;
 class CompositorState;
 class Animator;
+
+struct WorkspaceCreationData
+{
+    uint32_t id;
+    std::optional<int> num;
+    std::optional<std::string> name;
+};
 
 class Output
 {
@@ -47,7 +54,7 @@ public:
         miral::WindowManagerTools const& tools,
         std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
         CompositorState& state,
-        std::shared_ptr<MiracleConfig> const& options,
+        std::shared_ptr<Config> const& options,
         WindowController&,
         Animator&);
     ~Output() = default;
@@ -60,9 +67,9 @@ public:
     [[nodiscard]] std::shared_ptr<Container> create_container(
         miral::WindowInfo const& window_info, AllocationHint const& hint) const;
     void delete_container(std::shared_ptr<miracle::Container> const& container);
-    void advise_new_workspace(int workspace);
-    void advise_workspace_deleted(int workspace);
-    bool advise_workspace_active(int workspace);
+    void advise_new_workspace(WorkspaceCreationData const&&);
+    void advise_workspace_deleted(uint32_t id);
+    bool advise_workspace_active(uint32_t id);
     void advise_application_zone_create(miral::Zone const& application_zone);
     void advise_application_zone_update(miral::Zone const& updated, miral::Zone const& original);
     void advise_application_zone_delete(miral::Zone const& application_zone);
@@ -87,8 +94,7 @@ public:
     // Getters
 
     [[nodiscard]] std::vector<miral::Window> collect_all_windows() const;
-    [[nodiscard]] int get_active_workspace_num() const { return active_workspace; }
-    [[nodiscard]] std::shared_ptr<Workspace> const& get_active_workspace() const;
+    [[nodiscard]] Workspace* active() const;
     [[nodiscard]] std::vector<std::shared_ptr<Workspace>> const& get_workspaces() const { return workspaces; }
     [[nodiscard]] geom::Rectangle const& get_area() const { return area; }
     [[nodiscard]] std::vector<miral::Zone> const& get_app_zones() const { return application_zone_list; }
@@ -97,9 +103,9 @@ public:
     [[nodiscard]] glm::mat4 get_transform() const;
     /// Gets the relative position of the current rectangle (e.g. the active
     /// rectangle with be at position (0, 0))
-    [[nodiscard]] geom::Rectangle get_workspace_rectangle(int workspace) const;
-    [[nodiscard]] Workspace const* workspace(int key) const;
-    nlohmann::json to_json() const;
+    [[nodiscard]] geom::Rectangle get_workspace_rectangle(size_t i) const;
+    [[nodiscard]] Workspace const* workspace(uint32_t id) const;
+    [[nodiscard]] nlohmann::json to_json() const;
 
 private:
     miral::Output output;
@@ -108,10 +114,10 @@ private:
     std::shared_ptr<MinimalWindowManager> floating_window_manager;
     CompositorState& state;
     geom::Rectangle area;
-    std::shared_ptr<MiracleConfig> config;
+    std::shared_ptr<Config> config;
     WindowController& window_controller;
     Animator& animator;
-    int active_workspace = -1;
+    std::weak_ptr<Workspace> active_workspace;
     std::vector<std::shared_ptr<Workspace>> workspaces;
     std::vector<miral::Zone> application_zone_list;
     bool is_active_ = false;

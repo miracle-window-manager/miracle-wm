@@ -24,10 +24,11 @@ namespace miracle
 {
 namespace test
 {
-    class StubConfiguration : public miracle::MiracleConfig
+    class StubConfiguration : public miracle::Config
     {
+    public:
         void load(mir::Server& server) override { }
-        [[nodiscard]] std::string const& get_filename() const override { return ""; }
+        [[nodiscard]] std::string const& get_filename() const override { return filename; }
         [[nodiscard]] MirInputEventModifier get_input_event_modifier() const override { return mir_input_event_modifier_none; }
         [[nodiscard]] CustomKeyCommand const* matches_custom_key_command(MirKeyboardAction action, int scan_code, unsigned int modifiers) const override
         {
@@ -61,12 +62,12 @@ namespace test
 
         [[nodiscard]] std::vector<StartupApp> const& get_startup_apps() const override
         {
-            return {};
+            return startup_apps;
         }
 
         [[nodiscard]] std::optional<std::string> const& get_terminal_command() const override
         {
-            return std::nullopt;
+            return terminal_command;
         }
 
         [[nodiscard]] int get_resize_jump() const override
@@ -76,7 +77,7 @@ namespace test
 
         [[nodiscard]] std::vector<EnvironmentVariable> const& get_env_variables() const override
         {
-            return {};
+            return env;
         }
 
         [[nodiscard]] BorderConfig const& get_border_config() const override
@@ -99,14 +100,14 @@ namespace test
             return WorkspaceConfig(key);
         }
 
-        int register_listener(std::function<void(miracle::MiracleConfig&)> const&) override
+        int register_listener(std::function<void(miracle::Config&)> const&) override
         {
             return -1;
         }
 
         /// Register a listener on configuration change. A lower "priority" number signifies that the
         /// listener should be triggered earlier. A higher priority means later
-        int register_listener(std::function<void(miracle::MiracleConfig&)> const&, int priority) override
+        int register_listener(std::function<void(miracle::Config&)> const&, int priority) override
         {
             return -1;
         }
@@ -117,19 +118,23 @@ namespace test
 
         void try_process_change() override { }
 
-        uint get_primary_modifier() const override
+        [[nodiscard]] uint get_primary_modifier() const override
         {
             return 0;
         }
 
-        LayoutScheme get_default_layout_scheme() const override
+        [[nodiscard]] LayoutScheme get_default_layout_scheme() const override
         {
             return LayoutScheme::horizontal;
         }
 
     private:
         miracle::BorderConfig border_config;
-        std::array<AnimationDefinition, (int)AnimateableEvent::max> animations;
+        std::array<AnimationDefinition, static_cast<int>(AnimateableEvent::max)> animations;
+        std::string filename;
+        std::vector<StartupApp> startup_apps;
+        std::optional<std::string> terminal_command;
+        std::vector<EnvironmentVariable> env;
     };
 }
 }

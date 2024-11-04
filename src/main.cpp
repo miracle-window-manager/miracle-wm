@@ -27,12 +27,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "version.h"
 #include "window_tools_accessor.h"
 
-#include <libnotify/notify.h>
 #include <mir/log.h>
-#include <mir/options/option.h>
 #include <mir/renderer/gl/gl_surface.h>
 #include <mir/server.h>
-#include <miral/add_init_callback.h>
 #include <miral/append_event_filter.h>
 #include <miral/custom_renderer.h>
 #include <miral/display_configuration_option.h>
@@ -99,8 +96,6 @@ int main(int argc, char const* argv[])
     });
 
     Keymap config_keymap;
-
-    notify_init("miracle-wm");
 
     WaylandExtensions wayland_extensions = WaylandExtensions {}
                                                .enable(miral::WaylandExtensions::zwlr_layer_shell_v1)

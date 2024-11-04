@@ -47,7 +47,7 @@ Policy::Policy(
     miral::WindowManagerTools const& tools,
     AutoRestartingLauncher& external_client_launcher,
     miral::MirRunner& runner,
-    std::shared_ptr<MiracleConfig> const& config,
+    std::shared_ptr<Config> const& config,
     SurfaceTracker& surface_tracker,
     mir::Server const& server,
     CompositorState& compositor_state,
@@ -61,8 +61,11 @@ Policy::Policy(
     workspace_manager { WorkspaceManager(
         tools,
         workspace_observer_registrar,
-        [&]()
-{ return get_active_output(); }) },
+        config,
+        [this]()
+{ return get_active_output(); },
+        [this]()
+{ return get_output_list(); }) },
     animator(server.the_main_loop(), config),
     window_controller(tools, animator, state),
     i3_command_executor(*this, workspace_manager, tools, external_client_launcher, window_controller),
@@ -102,100 +105,100 @@ bool Policy::handle_keyboard_event(MirKeyboardEvent const* event)
 
         switch (key_command)
         {
-        case Terminal:
+        case DefaultKeyCommand::Terminal:
         {
             auto terminal_command = config->get_terminal_command();
             if (terminal_command)
                 external_client_launcher.launch({ terminal_command.value() });
             return true;
         }
-        case RequestVertical:
+        case DefaultKeyCommand::RequestVertical:
             return try_request_vertical();
-        case RequestHorizontal:
+        case DefaultKeyCommand::RequestHorizontal:
             return try_request_horizontal();
-        case ToggleResize:
+        case DefaultKeyCommand::ToggleResize:
             try_toggle_resize_mode();
             return true;
-        case ResizeUp:
+        case DefaultKeyCommand::ResizeUp:
             return try_resize(Direction::up);
-        case ResizeDown:
+        case DefaultKeyCommand::ResizeDown:
             return try_resize(Direction::down);
-        case ResizeLeft:
+        case DefaultKeyCommand::ResizeLeft:
             return try_resize(Direction::left);
-        case ResizeRight:
+        case DefaultKeyCommand::ResizeRight:
             return try_resize(Direction::right);
-        case MoveUp:
+        case DefaultKeyCommand::MoveUp:
             return try_move(Direction::up);
-        case MoveDown:
+        case DefaultKeyCommand::MoveDown:
             return try_move(Direction::down);
-        case MoveLeft:
+        case DefaultKeyCommand::MoveLeft:
             return try_move(Direction::left);
-        case MoveRight:
+        case DefaultKeyCommand::MoveRight:
             return try_move(Direction::right);
-        case SelectUp:
+        case DefaultKeyCommand::SelectUp:
             return try_select(Direction::up);
-        case SelectDown:
+        case DefaultKeyCommand::SelectDown:
             return try_select(Direction::down);
-        case SelectLeft:
+        case DefaultKeyCommand::SelectLeft:
             return try_select(Direction::left);
-        case SelectRight:
+        case DefaultKeyCommand::SelectRight:
             return try_select(Direction::right);
-        case QuitActiveWindow:
+        case DefaultKeyCommand::QuitActiveWindow:
             return try_close_window();
-        case QuitCompositor:
+        case DefaultKeyCommand::QuitCompositor:
             return quit();
-        case Fullscreen:
+        case DefaultKeyCommand::Fullscreen:
             return try_toggle_fullscreen();
-        case SelectWorkspace1:
+        case DefaultKeyCommand::SelectWorkspace1:
             return select_workspace(1);
-        case SelectWorkspace2:
+        case DefaultKeyCommand::SelectWorkspace2:
             return select_workspace(2);
-        case SelectWorkspace3:
+        case DefaultKeyCommand::SelectWorkspace3:
             return select_workspace(3);
-        case SelectWorkspace4:
+        case DefaultKeyCommand::SelectWorkspace4:
             return select_workspace(4);
-        case SelectWorkspace5:
+        case DefaultKeyCommand::SelectWorkspace5:
             return select_workspace(5);
-        case SelectWorkspace6:
+        case DefaultKeyCommand::SelectWorkspace6:
             return select_workspace(6);
-        case SelectWorkspace7:
+        case DefaultKeyCommand::SelectWorkspace7:
             return select_workspace(7);
-        case SelectWorkspace8:
+        case DefaultKeyCommand::SelectWorkspace8:
             return select_workspace(8);
-        case SelectWorkspace9:
+        case DefaultKeyCommand::SelectWorkspace9:
             return select_workspace(9);
-        case SelectWorkspace0:
+        case DefaultKeyCommand::SelectWorkspace0:
             return select_workspace(0);
-        case MoveToWorkspace1:
+        case DefaultKeyCommand::MoveToWorkspace1:
             return move_active_to_workspace(1);
-        case MoveToWorkspace2:
+        case DefaultKeyCommand::MoveToWorkspace2:
             return move_active_to_workspace(2);
-        case MoveToWorkspace3:
+        case DefaultKeyCommand::MoveToWorkspace3:
             return move_active_to_workspace(3);
-        case MoveToWorkspace4:
+        case DefaultKeyCommand::MoveToWorkspace4:
             return move_active_to_workspace(4);
-        case MoveToWorkspace5:
+        case DefaultKeyCommand::MoveToWorkspace5:
             return move_active_to_workspace(5);
-        case MoveToWorkspace6:
+        case DefaultKeyCommand::MoveToWorkspace6:
             return move_active_to_workspace(6);
-        case MoveToWorkspace7:
+        case DefaultKeyCommand::MoveToWorkspace7:
             return move_active_to_workspace(7);
-        case MoveToWorkspace8:
+        case DefaultKeyCommand::MoveToWorkspace8:
             return move_active_to_workspace(8);
-        case MoveToWorkspace9:
+        case DefaultKeyCommand::MoveToWorkspace9:
             return move_active_to_workspace(9);
-        case MoveToWorkspace0:
+        case DefaultKeyCommand::MoveToWorkspace0:
             return move_active_to_workspace(0);
-        case ToggleFloating:
+        case DefaultKeyCommand::ToggleFloating:
             return toggle_floating();
-        case TogglePinnedToWorkspace:
+        case DefaultKeyCommand::TogglePinnedToWorkspace:
             return toggle_pinned_to_workspace();
-        case ToggleTabbing:
+        case DefaultKeyCommand::ToggleTabbing:
             return toggle_tabbing();
-        case ToggleStacking:
+        case DefaultKeyCommand::ToggleStacking:
             return toggle_stacking();
         default:
-            std::cerr << "Unknown key_command: " << key_command << std::endl;
+            std::cerr << "Unknown key_command: " << static_cast<int>(key_command) << std::endl;
             break;
         }
         return false;
@@ -220,7 +223,8 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
                     state.active_output->set_is_active(false);
                 state.active_output = output;
                 state.active_output->set_is_active(true);
-                workspace_manager.request_focus(output->get_active_workspace_num());
+                if (auto active = output->active())
+                    workspace_manager.request_focus(active->id());
             }
             break;
         }
@@ -390,7 +394,7 @@ void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
     default:
     {
         auto const* workspace = container->get_workspace();
-        if (workspace && workspace != state.active_output->get_active_workspace().get())
+        if (workspace && workspace != state.active_output->active())
             return;
 
         state.active = container;
@@ -459,9 +463,10 @@ void Policy::advise_output_create(miral::Output const& output)
     auto output_content = std::make_shared<Output>(
         output, workspace_manager, output.extents(), window_manager_tools,
         floating_window_manager, state, config, window_controller, animator);
-    workspace_manager.request_first_available_workspace(output_content);
     output_list.push_back(output_content);
-    if (state.active_output == nullptr) {
+    workspace_manager.request_first_available_workspace(output_content.get());
+    if (state.active_output == nullptr)
+    {
         state.active_output = output_content;
         state.active_output->set_is_active(true);
     }
@@ -500,12 +505,12 @@ void Policy::advise_output_delete(miral::Output const& output)
             auto const remove_workspaces = [&]()
             {
                 // WARNING: We copy the workspace numbers first because we shouldn't delete while iterating
-                std::vector<int> workspaces;
+                std::vector<uint32_t> workspaces;
                 workspaces.reserve(other_output->get_workspaces().size());
                 for (auto const& workspace : other_output->get_workspaces())
-                    workspaces.push_back(workspace->get_workspace());
+                    workspaces.push_back(workspace->id());
 
-                for (auto w : workspaces)
+                for (auto const w : workspaces)
                     workspace_manager.delete_workspace(w);
             };
 
@@ -552,7 +557,7 @@ void Policy::handle_modify_window(
     }
 
     auto const* workspace = container->get_workspace();
-    if (workspace && workspace != state.active_output->get_active_workspace().get())
+    if (workspace && workspace != state.active_output->active())
         return;
 
     container->handle_modify(modifications);
@@ -797,7 +802,7 @@ bool Policy::select_workspace(int number, bool back_and_forth)
     if (!state.active_output)
         return false;
 
-    workspace_manager.request_workspace(state.active_output, number, back_and_forth);
+    workspace_manager.request_workspace(state.active_output.get(), number, back_and_forth);
     return true;
 }
 
@@ -807,7 +812,7 @@ bool Policy::select_workspace(std::string const& name, bool back_and_forth)
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    return workspace_manager.request_workspace(name, back_and_forth);
+    return workspace_manager.request_workspace(state.active_output.get(), name, back_and_forth);
 }
 
 bool Policy::next_workspace()
@@ -862,10 +867,14 @@ bool Policy::move_active_to_workspace(int number, bool back_and_forth)
     container->get_output()->delete_container(container);
     state.active = nullptr;
 
-    auto output = workspace_manager.request_workspace(
-        state.active_output, number, back_and_forth);
-    output->graft(container);
-    return true;
+    if (workspace_manager.request_workspace(
+            state.active_output.get(), number, back_and_forth))
+    {
+        state.active_output->graft(container);
+        return true;
+    }
+
+    return false;
 }
 
 bool Policy::move_active_to_workspace_named(std::string const& name, bool back_and_forth)
@@ -877,7 +886,7 @@ bool Policy::move_active_to_workspace_named(std::string const& name, bool back_a
     container->get_output()->delete_container(container);
     state.active = nullptr;
 
-    if (workspace_manager.request_workspace(name, back_and_forth))
+    if (workspace_manager.request_workspace(state.active_output.get(), name, back_and_forth))
     {
         state.active_output->graft(container);
         return true;

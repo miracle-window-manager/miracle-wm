@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MIRACLEWM_CONFIG_H
 
 #include "animation_defintion.h"
+#include "config_error_handler.h"
 #include "container.h"
 
 #include <atomic>
@@ -32,6 +33,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <optional>
 #include <string>
 #include <vector>
+#include <yaml-cpp/yaml.h>
 
 namespace mir
 {
@@ -51,7 +53,7 @@ class FdHandle;
 namespace miracle
 {
 
-enum DefaultKeyCommand
+enum class DefaultKeyCommand
 {
     Terminal = 0,
     RequestVertical,
@@ -138,7 +140,8 @@ struct BorderConfig
 struct WorkspaceConfig
 {
     int num = -1;
-    ContainerType layout = ContainerType::leaf;
+    std::optional<ContainerType> layout;
+    std::optional<std::string> name;
 };
 
 enum class RenderFilter : int
@@ -150,10 +153,10 @@ enum class RenderFilter : int
     tritanopia
 };
 
-class MiracleConfig
+class Config
 {
 public:
-    virtual ~MiracleConfig() = default;
+    virtual ~Config() = default;
     virtual void load(mir::Server& server) = 0;
     [[nodiscard]] virtual std::string const& get_filename() const = 0;
     [[nodiscard]] virtual MirInputEventModifier get_input_event_modifier() const = 0;
@@ -168,28 +171,28 @@ public:
     [[nodiscard]] virtual int get_resize_jump() const = 0;
     [[nodiscard]] virtual std::vector<EnvironmentVariable> const& get_env_variables() const = 0;
     [[nodiscard]] virtual BorderConfig const& get_border_config() const = 0;
-    [[nodiscard]] virtual std::array<AnimationDefinition, (int)AnimateableEvent::max> const& get_animation_definitions() const = 0;
+    [[nodiscard]] virtual std::array<AnimationDefinition, static_cast<int>(AnimateableEvent::max)> const& get_animation_definitions() const = 0;
     [[nodiscard]] virtual bool are_animations_enabled() const = 0;
     [[nodiscard]] virtual WorkspaceConfig get_workspace_config(int key) const = 0;
     [[nodiscard]] virtual LayoutScheme get_default_layout_scheme() const = 0;
 
-    virtual int register_listener(std::function<void(miracle::MiracleConfig&)> const&) = 0;
+    virtual int register_listener(std::function<void(miracle::Config&)> const&) = 0;
     /// Register a listener on configuration change. A lower "priority" number signifies that the
     /// listener should be triggered earlier. A higher priority means later
-    virtual int register_listener(std::function<void(miracle::MiracleConfig&)> const&, int priority) = 0;
+    virtual int register_listener(std::function<void(miracle::Config&)> const&, int priority) = 0;
     virtual void unregister_listener(int handle) = 0;
     virtual void try_process_change() = 0;
-    virtual uint get_primary_modifier() const = 0;
+    [[nodiscard]] virtual uint get_primary_modifier() const = 0;
 };
 
-class FilesystemConfiguration : public MiracleConfig
+class FilesystemConfiguration : public Config
 {
 public:
     explicit FilesystemConfiguration(miral::MirRunner&);
     FilesystemConfiguration(miral::MirRunner&, std::string const&, bool load_immediately = false);
-    ~FilesystemConfiguration() = default;
-    FilesystemConfiguration(FilesystemConfiguration const&) = default;
-    auto operator=(FilesystemConfiguration const&) -> FilesystemConfiguration& = default;
+    ~FilesystemConfiguration() override = default;
+    FilesystemConfiguration(FilesystemConfiguration const&) = delete;
+    auto operator=(FilesystemConfiguration const&) -> FilesystemConfiguration& = delete;
 
     void load(mir::Server& server) override;
     [[nodiscard]] std::string const& get_filename() const override;
@@ -205,29 +208,134 @@ public:
     [[nodiscard]] int get_resize_jump() const override;
     [[nodiscard]] std::vector<EnvironmentVariable> const& get_env_variables() const override;
     [[nodiscard]] BorderConfig const& get_border_config() const override;
-    [[nodiscard]] std::array<AnimationDefinition, (int)AnimateableEvent::max> const& get_animation_definitions() const override;
+    [[nodiscard]] std::array<AnimationDefinition, static_cast<int>(AnimateableEvent::max)> const& get_animation_definitions() const override;
     [[nodiscard]] bool are_animations_enabled() const override;
     [[nodiscard]] WorkspaceConfig get_workspace_config(int key) const override;
     [[nodiscard]] LayoutScheme get_default_layout_scheme() const override;
-    int register_listener(std::function<void(miracle::MiracleConfig&)> const&) override;
-    int register_listener(std::function<void(miracle::MiracleConfig&)> const&, int priority) override;
+    int register_listener(std::function<void(miracle::Config&)> const&) override;
+    int register_listener(std::function<void(miracle::Config&)> const&, int priority) override;
     void unregister_listener(int handle) override;
     void try_process_change() override;
     [[nodiscard]] uint get_primary_modifier() const override;
 
 private:
+    struct ConfigDetails
+    {
+        ConfigDetails();
+        uint primary_modifier = mir_input_event_modifier_meta;
+        std::vector<CustomKeyCommand> custom_key_commands;
+        KeyCommandList key_commands[static_cast<int>(DefaultKeyCommand::MAX)];
+        int inner_gaps_x = 10;
+        int inner_gaps_y = 10;
+        int outer_gaps_x = 10;
+        int outer_gaps_y = 10;
+        std::vector<StartupApp> startup_apps;
+        std::optional<std::string> terminal = "miracle-wm-sensible-terminal";
+        int resize_jump = 50;
+        std::vector<EnvironmentVariable> environment_variables;
+        BorderConfig border_config;
+        bool animations_enabled = true;
+        std::array<AnimationDefinition, static_cast<int>(AnimateableEvent::max)> animation_definitions;
+        std::vector<WorkspaceConfig> workspace_configs;
+    };
+
     struct ChangeListener
     {
-        std::function<void(miracle::MiracleConfig&)> listener;
+        std::function<void(miracle::Config&)> listener;
         int priority;
         int handle;
     };
 
-    static uint parse_modifier(std::string const& stringified_action_key);
     void _init(std::optional<StartupApp> const& systemd_app, std::optional<StartupApp> const& exec_app);
     void _reload();
     void _watch(miral::MirRunner& runner);
+    void add_error(YAML::Node const&);
+    void read_action_key(YAML::Node const&);
+    void read_default_action_overrides(YAML::Node const&);
+    void read_custom_actions(YAML::Node const&);
+    void read_inner_gaps(YAML::Node const&);
+    void read_outer_gaps(YAML::Node const&);
+    void read_startup_apps(YAML::Node const&);
+    void read_terminal(YAML::Node const&);
+    void read_resize_jump(YAML::Node const&);
+    void read_environment_variables(YAML::Node const&);
+    void read_border(YAML::Node const&);
+    void read_workspaces(YAML::Node const&);
     void read_animation_definitions(YAML::Node const&);
+    void read_enable_animations(YAML::Node const&);
+
+    static std::optional<uint> try_parse_modifier(std::string const& stringified_action_key);
+
+    template <typename T>
+    bool try_parse_value(YAML::Node const& node, T& value)
+    {
+        try
+        {
+            value = node.as<T>();
+        }
+        catch (YAML::BadConversion const& e)
+        {
+            builder << "Unable to parse value to correct type";
+            add_error(node);
+            return false;
+        }
+        return true;
+    }
+
+    template <typename T>
+    bool try_parse_value(YAML::Node const& root, const char* key, T& value, bool optional = false)
+    {
+        if (!root[key])
+        {
+            if (!optional)
+            {
+                builder << "Node is missing key: " << key;
+                add_error(root);
+            }
+            return false;
+        }
+
+        return try_parse_value(root[key], value);
+    }
+
+    template <typename T>
+    T try_parse_string_to_optional_value(YAML::Node const& node, std::function<T(std::string const&)> const& parse)
+    {
+        try
+        {
+            auto const& v = node.as<std::string>();
+            T retval = parse(v);
+            if (retval == std::nullopt)
+            {
+                builder << "Invalid option: " << v;
+                add_error(node);
+            }
+
+            return retval;
+        }
+        catch (YAML::BadConversion const& e)
+        {
+            builder << "Unable to parse enum value";
+            add_error(node);
+            return std::nullopt;
+        }
+    }
+
+    template <typename T>
+    T try_parse_string_to_optional_value(YAML::Node const& root, const char* key, std::function<T(std::string const&)> const& parse)
+    {
+        if (!root[key])
+        {
+            builder << "Missing key in value: " << key;
+            add_error(root);
+            return std::nullopt;
+        }
+
+        return try_parse_string_to_optional_value(root[key], parse);
+    }
+
+    bool try_parse_color(YAML::Node const& node, glm::vec4&);
+    bool try_parse_color(YAML::Node const& root, const char* key, glm::vec4&);
 
     miral::MirRunner& runner;
     int next_listener_handle = 0;
@@ -241,30 +349,9 @@ private:
     std::mutex mutex;
     std::atomic<bool> has_changes = false;
     bool is_loaded_ = false;
-
-    static const uint miracle_input_event_modifier_default = 1 << 18;
-    struct ConfigDetails
-    {
-        ConfigDetails();
-        uint primary_modifier = mir_input_event_modifier_meta;
-        std::vector<CustomKeyCommand> custom_key_commands;
-        KeyCommandList key_commands[DefaultKeyCommand::MAX];
-        int inner_gaps_x = 10;
-        int inner_gaps_y = 10;
-        int outer_gaps_x = 10;
-        int outer_gaps_y = 10;
-        std::vector<StartupApp> startup_apps;
-        std::optional<std::string> terminal = "miracle-wm-sensible-terminal";
-        std::string desired_terminal = "";
-        int resize_jump = 50;
-        std::vector<EnvironmentVariable> environment_variables;
-        BorderConfig border_config;
-        bool animations_enabled = true;
-        std::array<AnimationDefinition, (int)AnimateableEvent::max> animation_defintions;
-        std::vector<WorkspaceConfig> workspace_configs;
-    };
-
+    std::stringstream builder;
     ConfigDetails options;
+    ConfigErrorHandler error_handler;
 };
 }
 

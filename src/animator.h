@@ -34,7 +34,7 @@ class ServerActionQueue;
 
 namespace miracle
 {
-class MiracleConfig;
+class Config;
 
 /// Unique handle provided to track animators
 typedef uint32_t AnimationHandle;
@@ -87,7 +87,7 @@ class Animator
 public:
     explicit Animator(
         std::shared_ptr<mir::ServerActionQueue> const&,
-        std::shared_ptr<MiracleConfig> const&);
+        std::shared_ptr<Config> const&);
     ~Animator();
 
     /// Animateable components must register with the Animator before being
@@ -124,7 +124,7 @@ private:
     void append(Animation&&);
     bool running = false;
     std::shared_ptr<mir::ServerActionQueue> server_action_queue;
-    std::shared_ptr<MiracleConfig> config;
+    std::shared_ptr<Config> config;
     std::vector<Animation> queued_animations;
     std::thread run_thread;
     std::mutex processing_lock;

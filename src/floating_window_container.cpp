@@ -38,7 +38,7 @@ FloatingWindowContainer::FloatingWindowContainer(
     WindowController& window_controller,
     Workspace* workspace,
     CompositorState const& state,
-    std::shared_ptr<MiracleConfig> const& config) :
+    std::shared_ptr<Config> const& config) :
     window_ { window },
     wm { wm },
     window_controller { window_controller },
@@ -124,7 +124,7 @@ void FloatingWindowContainer::on_open()
 
 void FloatingWindowContainer::on_focus_gained()
 {
-    if (get_output()->get_active_workspace()->get_workspace() != workspace_->get_workspace())
+    if (get_output()->active() != workspace_)
         return;
 
     wm->advise_focus_gained(window_controller.info_for(window_));
@@ -270,11 +270,7 @@ glm::mat4 FloatingWindowContainer::get_workspace_transform() const
     if (pinned())
         return glm::mat4(1.f);
 
-    auto output = get_output();
-    auto workspace = get_workspace();
-    auto const workspace_rect = output->get_workspace_rectangle(workspace->get_workspace());
-    return glm::translate(
-        glm::vec3(workspace_rect.top_left.x.as_int(), workspace_rect.top_left.y.as_int(), 0));
+    return Container::get_workspace_transform();
 }
 
 glm::mat4 FloatingWindowContainer::get_output_transform() const
@@ -357,59 +353,59 @@ nlohmann::json FloatingWindowContainer::to_json() const
     if (!output->is_active())
         visible = false;
 
-    if (output->get_active_workspace_num() != workspace->get_workspace())
+    if (output->active() != workspace)
         visible = false;
 
     return {
-        { "id",                   reinterpret_cast<std::uintptr_t>(this)                                                                                                                                                                                                    },
-        { "name",                 app->name()                                                                                                                                                                                                                               },
+        { "id",                   reinterpret_cast<std::uintptr_t>(this)                                                                                                                                                                                                               },
+        { "name",                 app->name()                                                                                                                                                                                                                                          },
         { "rect",                 {
                       { "x", logical_area.top_left.x.as_int() },
                       { "y", logical_area.top_left.y.as_int() },
                       { "width", logical_area.size.width.as_int() },
                       { "height", logical_area.size.height.as_int() },
-                  }                                                                                                                                                                                                                                        },
+                  }                                                                                                                                                                                                                                                   },
         { "focused",              visible && is_focused()                                                                                                                                                                                                                              },
-        { "focus",                std::vector<int>()                                                                                                                                                                                                                        },
-        { "border",               "normal"                                                                                                                                                                                                                                  },
-        { "current_border_width", config->get_border_config().size                                                                                                                                                                                                          },
-        { "layout",               "none"                                                                                                                                                                                                                                    },
-        { "orientation",          "none"                                                                                                                                                                                                                                    },
-        { "percent",              1.0                                                                                                                                                                                                                                       },
+        { "focus",                std::vector<int>()                                                                                                                                                                                                                                   },
+        { "border",               "normal"                                                                                                                                                                                                                                             },
+        { "current_border_width", config->get_border_config().size                                                                                                                                                                                                                     },
+        { "layout",               "none"                                                                                                                                                                                                                                               },
+        { "orientation",          "none"                                                                                                                                                                                                                                               },
+        { "percent",              1.0                                                                                                                                                                                                                                                  },
         { "window_rect",          {
-                                                                                                                                                                                                                                                      { "x", visible_area.top_left.x.as_int() },
-                                                                                                                                                                                                                                                      { "y", visible_area.top_left.y.as_int() },
-                                                                                                                                                                                                                                                      { "width", visible_area.size.width.as_int() },
-                                                                                                                                                                                                                                                      { "height", visible_area.size.height.as_int() },
-                                                                                                                                                                                                                                                  } },
+                                                                                                                                                                                                                                                                 { "x", visible_area.top_left.x.as_int() },
+                                                                                                                                                                                                                                                                 { "y", visible_area.top_left.y.as_int() },
+                                                                                                                                                                                                                                                                 { "width", visible_area.size.width.as_int() },
+                                                                                                                                                                                                                                                                 { "height", visible_area.size.height.as_int() },
+                                                                                                                                                                                                                                                             } },
         { "deco_rect",            {
                            { "x", 0 },
                            { "y", 0 },
                            { "width", logical_area.size.width.as_int() },
                            { "height", logical_area.size.height.as_int() },
-                       }                                                                                                                                                                                                                              },
+                       }                                                                                                                                                                                                                                         },
         { "geometry",             {
                           { "x", 0 },
                           { "y", 0 },
                           { "width", logical_area.size.width.as_int() },
                           { "height", logical_area.size.height.as_int() },
-                      }                                                                                                                                                                                                                                },
-        { "window",               0                                                                                                                                                                                                                                         }, // TODO
-        { "urgent",               false                                                                                                                                                                                                                                     },
-        { "floating_nodes",       std::vector<int>()                                                                                                                                                                                                                        },
-        { "sticky",               false                                                                                                                                                                                                                                     },
-        { "type",                 "floating_con"                                                                                                                                                                                                                            },
-        { "fullscreen_mode",      is_fullscreen() ? 1 : 0                                                                                                                                                                                                                   }, // TODO: Support value 2
-        { "pid",                  app->process_id()                                                                                                                                                                                                                         },
-        { "app_id",               win_info.application_id()                                                                                                                                                                                                                 },
-        { "visible",              pinned() || visible                                                                                                                                                                                                                       },
-        { "shell",                "miracle-wm"                                                                                                                                                                                                                              }, // TODO
-        { "inhibit_idle",         false                                                                                                                                                                                                                                     },
+                      }                                                                                                                                                                                                                                           },
+        { "window",               0                                                                                                                                                                                                                                                    }, // TODO
+        { "urgent",               false                                                                                                                                                                                                                                                },
+        { "floating_nodes",       std::vector<int>()                                                                                                                                                                                                                                   },
+        { "sticky",               false                                                                                                                                                                                                                                                },
+        { "type",                 "floating_con"                                                                                                                                                                                                                                       },
+        { "fullscreen_mode",      is_fullscreen() ? 1 : 0                                                                                                                                                                                                                              }, // TODO: Support value 2
+        { "pid",                  app->process_id()                                                                                                                                                                                                                                    },
+        { "app_id",               win_info.application_id()                                                                                                                                                                                                                            },
+        { "visible",              pinned() || visible                                                                                                                                                                                                                                  },
+        { "shell",                "miracle-wm"                                                                                                                                                                                                                                         }, // TODO
+        { "inhibit_idle",         false                                                                                                                                                                                                                                                },
         { "idle_inhibitors",      {
                                                             { "application", "none" },
                                                             { "user", "visible" },
-                                                        }                                                                                                                                                                                       },
-        { "window_properties",    {}                                                                                                                                                                                                                                        }, // TODO
-        { "nodes",                std::vector<int>()                                                                                                                                                                                                                        }
+                                                        }                                                                                                                                                                                                  },
+        { "window_properties",    {}                                                                                                                                                                                                                                                   }, // TODO
+        { "nodes",                std::vector<int>()                                                                                                                                                                                                                                   }
     };
 }

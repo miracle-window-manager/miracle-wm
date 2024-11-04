@@ -60,7 +60,7 @@ public:
     }
     miral::MirRunner runner;
     std::shared_ptr<mir::ServerActionQueue> queue;
-    std::shared_ptr<MiracleConfig> config;
+    std::shared_ptr<Config> config;
 };
 
 TEST_F(AnimatorTest, CanStepLinearSlideAnimation)

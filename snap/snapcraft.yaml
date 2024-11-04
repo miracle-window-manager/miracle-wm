@@ -75,7 +75,6 @@ parts:
       - libevdev-dev
       - libevdev2
       - nlohmann-json3-dev
-      - libnotify-dev
       - libgles2-mesa-dev
       - libmirrenderer-dev
       - libmirwayland-dev
@@ -86,7 +85,6 @@ parts:
       - mir-graphics-drivers-desktop
       - mir-graphics-drivers-nvidia
       - pcre2-utils
-      - libnotify4
     prime:
       - -lib/udev
       - -usr/doc

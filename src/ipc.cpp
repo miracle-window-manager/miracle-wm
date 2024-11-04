@@ -76,10 +76,14 @@ bool fd_is_valid(int fd)
     return fcntl(fd, F_GETFD) != -1 || errno != EBADF;
 }
 
-json workspace_to_json(Output const& screen, int key)
+json workspace_to_json(WorkspaceManager const& workspace_manager, uint32_t id)
 {
-    auto workspace = screen.workspace(key);
-    bool is_focused = screen.get_active_workspace_num() == key;
+    auto const& workspace = workspace_manager.workspace(id);
+    if (!workspace)
+        return {};
+
+    auto screen = workspace->get_output();
+    bool is_focused = screen->active() == workspace;
 
     // Note: The reported workspace area appears to be the placement
     // area of the root tree.
@@ -87,20 +91,20 @@ json workspace_to_json(Output const& screen, int key)
     auto area = workspace->get_tree()->get_area();
 
     return {
-        { "num",     key                                         },
-        { "id",      reinterpret_cast<std::uintptr_t>(workspace) },
-        { "type",    "workspace"                                 },
-        { "name",    std::to_string(key)                         },
-        { "visible", screen.is_active() && is_focused            },
-        { "focused", screen.is_active() && is_focused            },
-        { "urgent",  false                                       },
-        { "output",  screen.get_output().name()                  },
+        { "num",     workspace->num() ? workspace->num().value() : -1 },
+        { "id",      reinterpret_cast<std::uintptr_t>(workspace)      },
+        { "type",    "workspace"                                      },
+        { "name",    workspace->display_name()                        },
+        { "visible", screen->is_active() && is_focused                },
+        { "focused", screen->is_active() && is_focused                },
+        { "urgent",  false                                            },
+        { "output",  screen->get_output().name()                      },
         { "rect",    {
                       { "x", area.top_left.x.as_int() },
                       { "y", area.top_left.y.as_int() },
                       { "width", area.size.width.as_int() },
                       { "height", area.size.height.as_int() },
-                  }                             }
+                  }                                  }
     };
 }
 
@@ -223,7 +227,7 @@ Ipc::Ipc(miral::MirRunner& runner,
     Policy& policy,
     std::shared_ptr<mir::ServerActionQueue> const& queue,
     I3CommandExecutor& executor,
-    std::shared_ptr<MiracleConfig> const& config) :
+    std::shared_ptr<Config> const& config) :
     workspace_manager { workspace_manager },
     policy { policy },
     queue { queue },
@@ -369,12 +373,12 @@ Ipc::~Ipc()
 {
 }
 
-void Ipc::on_created(Output const& info, int key)
+void Ipc::on_created(uint32_t id)
 {
     json j = {
         { "change", "init" },
         { "old", nullptr },
-        { "current", workspace_to_json(info, key) }
+        { "current", workspace_to_json(workspace_manager, id) }
     };
 
     auto serialized_value = to_string(j);
@@ -389,11 +393,11 @@ void Ipc::on_created(Output const& info, int key)
     }
 }
 
-void Ipc::on_removed(Output const& screen, int key)
+void Ipc::on_removed(uint32_t id)
 {
     json j = {
         { "change", "empty" },
-        { "current", workspace_to_json(screen, key) }
+        { "current", workspace_to_json(workspace_manager, id) }
     };
 
     auto serialized_value = to_string(j);
@@ -409,18 +413,16 @@ void Ipc::on_removed(Output const& screen, int key)
 }
 
 void Ipc::on_focused(
-    Output const* previous,
-    int previous_key,
-    Output const* current,
-    int current_key)
+    std::optional<uint32_t> previous_id,
+    uint32_t current_id)
 {
     json j = {
         { "change", "focus" },
-        { "current", workspace_to_json(*current, current_key) }
+        { "current", workspace_to_json(workspace_manager, current_id) }
     };
 
-    if (previous)
-        j["old"] = workspace_to_json(*previous, previous_key);
+    if (previous_id)
+        j["old"] = workspace_to_json(workspace_manager, previous_id.value());
     else
         j["old"] = nullptr;
 
@@ -540,12 +542,9 @@ void Ipc::handle_command(miracle::Ipc::IpcClient& client, uint32_t payload_lengt
     case IPC_GET_WORKSPACES:
     {
         json j = json::array();
-        for (int i = 0; i < WorkspaceManager::NUM_WORKSPACES; i++)
-        {
-            auto workspace = workspace_manager.get_output_to_workspace_mapping()[i].get();
-            if (workspace)
-                j.push_back(workspace_to_json(*workspace, i));
-        }
+        for (auto const& workspace : workspace_manager.workspaces())
+            j.push_back(workspace_to_json(workspace_manager, workspace->id()));
+
         auto json_string = to_string(j);
         send_reply(client, payload_type, json_string);
         break;
@@ -757,15 +756,6 @@ void Ipc::handle_writeable(miracle::Ipc::IpcClient& client)
     }
 
     client.write_buffer_len = 0;
-}
-
-namespace
-{
-bool equals(std::string_view const& s, const char* v)
-{
-    // TODO: Perhaps this is a bit naive, as it is basically a "startswith"
-    return strncmp(s.data(), v, strlen(v)) == 0;
-}
 }
 
 bool Ipc::parse_i3_command(std::string_view const& command)

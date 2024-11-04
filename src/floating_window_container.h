@@ -37,7 +37,7 @@ public:
         WindowController& window_controller,
         Workspace* workspace,
         CompositorState const& state,
-        std::shared_ptr<MiracleConfig> const&);
+        std::shared_ptr<Config> const&);
     [[nodiscard]] mir::geometry::Rectangle get_logical_area() const override;
     void set_logical_area(mir::geometry::Rectangle const&) override;
     void commit_changes() override;
@@ -95,7 +95,7 @@ private:
     std::shared_ptr<MinimalWindowManager> wm;
     WindowController& window_controller;
     CompositorState const& state;
-    std::shared_ptr<MiracleConfig> config;
+    std::shared_ptr<Config> config;
 
     bool is_pinned = false;
     std::optional<MirWindowState> restore_state_;
