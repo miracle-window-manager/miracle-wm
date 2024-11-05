@@ -998,15 +998,17 @@ bool FilesystemConfiguration::are_animations_enabled() const
     return options.animations_enabled;
 }
 
-WorkspaceConfig FilesystemConfiguration::get_workspace_config(int key) const
+WorkspaceConfig FilesystemConfiguration::get_workspace_config(std::optional<int> const& num, std::optional<std::string> const& name) const
 {
     for (auto const& config : options.workspace_configs)
     {
-        if (config.num == key)
+        if (num && config.num == num.value())
+            return config;
+        else if (name && config.name == name.value())
             return config;
     }
 
-    return { key, ContainerType::leaf };
+    return { num, ContainerType::leaf, name };
 }
 
 LayoutScheme FilesystemConfiguration::get_default_layout_scheme() const

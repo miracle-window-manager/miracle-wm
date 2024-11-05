@@ -139,7 +139,7 @@ struct BorderConfig
 
 struct WorkspaceConfig
 {
-    int num = -1;
+    std::optional<int> num;
     std::optional<ContainerType> layout;
     std::optional<std::string> name;
 };
@@ -173,7 +173,7 @@ public:
     [[nodiscard]] virtual BorderConfig const& get_border_config() const = 0;
     [[nodiscard]] virtual std::array<AnimationDefinition, static_cast<int>(AnimateableEvent::max)> const& get_animation_definitions() const = 0;
     [[nodiscard]] virtual bool are_animations_enabled() const = 0;
-    [[nodiscard]] virtual WorkspaceConfig get_workspace_config(int key) const = 0;
+    [[nodiscard]] virtual WorkspaceConfig get_workspace_config(std::optional<int> const& num, std::optional<std::string> const& name) const = 0;
     [[nodiscard]] virtual LayoutScheme get_default_layout_scheme() const = 0;
 
     virtual int register_listener(std::function<void(miracle::Config&)> const&) = 0;
@@ -210,7 +210,7 @@ public:
     [[nodiscard]] BorderConfig const& get_border_config() const override;
     [[nodiscard]] std::array<AnimationDefinition, static_cast<int>(AnimateableEvent::max)> const& get_animation_definitions() const override;
     [[nodiscard]] bool are_animations_enabled() const override;
-    [[nodiscard]] WorkspaceConfig get_workspace_config(int key) const override;
+    [[nodiscard]] WorkspaceConfig get_workspace_config(std::optional<int> const& num, std::optional<std::string> const& name) const override;
     [[nodiscard]] LayoutScheme get_default_layout_scheme() const override;
     int register_listener(std::function<void(miracle::Config&)> const&) override;
     int register_listener(std::function<void(miracle::Config&)> const&, int priority) override;

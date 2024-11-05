@@ -124,7 +124,7 @@ void Output::advise_new_workspace(WorkspaceCreationData const&& data)
         else if (b->num())
             return false;
         else
-            return true;
+            return false;
     });
 }
 
@@ -351,7 +351,17 @@ geom::Rectangle Output::get_workspace_rectangle(size_t i) const
     if (workspace->num())
         x = (workspace->num().value() - 1) * area.size.width.as_int();
     else
-        x = ((WorkspaceManager::NUM_DEFAULT_WORKSPACES - 1) + i) * area.size.width.as_int();
+    {
+        // Find the index of the first non-numbered workspace
+        size_t j = 0;
+        for (; j < workspaces.size(); j++)
+        {
+            if (workspaces[j]->num() == std::nullopt)
+                break;
+        }
+
+        x = ((WorkspaceManager::NUM_DEFAULT_WORKSPACES - 1) + (i - j)) * area.size.width.as_int();
+    }
 
     return geom::Rectangle {
         geom::Point { geom::X { x },            geom::Y { 0 }             },
