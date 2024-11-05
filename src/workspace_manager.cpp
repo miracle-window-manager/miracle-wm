@@ -74,7 +74,7 @@ bool WorkspaceManager::request_workspace(
         return focus_existing(existing, back_and_forth);
 
     uint32_t id = next_id++;
-    auto const& workspace_config = config->get_workspace_config(num);
+    auto const& workspace_config = config->get_workspace_config(num, std::nullopt);
     output_hint->advise_new_workspace({ .id = id,
         .num = num,
         .name = workspace_config.name });

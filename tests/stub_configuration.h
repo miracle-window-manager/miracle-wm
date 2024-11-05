@@ -95,9 +95,9 @@ namespace test
             return false;
         }
 
-        [[nodiscard]] WorkspaceConfig get_workspace_config(int key) const override
+        [[nodiscard]] WorkspaceConfig get_workspace_config(std::optional<int> const& num, std::optional<std::string> const& name) const override
         {
-            return WorkspaceConfig(key);
+            return { num, ContainerType::leaf, name };
         }
 
         int register_listener(std::function<void(miracle::Config&)> const&) override
