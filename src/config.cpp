@@ -50,7 +50,7 @@ std::string create_default_configuration_path()
 {
     std::stringstream config_path_stream;
     config_path_stream << g_get_user_config_dir();
-    config_path_stream << "/miracles-wm.yaml";
+    config_path_stream << "/miracle-wm.yaml";
     return config_path_stream.str();
 }
 
