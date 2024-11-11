@@ -70,7 +70,8 @@ Policy::Policy(
     window_controller(tools, animator, state),
     i3_command_executor(*this, workspace_manager, tools, external_client_launcher, window_controller),
     surface_tracker { surface_tracker },
-    ipc { std::make_shared<Ipc>(runner, workspace_manager, *this, server.the_main_loop(), i3_command_executor, config) }
+    ipc { std::make_shared<Ipc>(runner, workspace_manager, *this, server.the_main_loop(), i3_command_executor, config) },
+    scratchpad_(window_controller)
 {
     animator.start();
     workspace_observer_registrar.register_interest(ipc);
@@ -949,6 +950,41 @@ bool Policy::move_active_to_back_and_forth()
     return false;
 }
 
+bool Policy::move_to_scratchpad()
+{
+    if (!can_move_container())
+        return false;
+
+    // Only floating or tiled windows can be moved to the scratchpad
+    auto container = state.active;
+    if (container->get_type() != ContainerType::floating_window
+        && container->get_type() != ContainerType::leaf)
+    {
+        mir::log_error("move_to_scratchpad: cannot move window to scratchpad: %d", static_cast<int>(container->get_type()));
+        return false;
+    }
+
+    // If the window isn't floating already, we should make it floating
+    if (container->get_type() != ContainerType::floating_window)
+    {
+        if (!state.active_output)
+            return false;
+
+        container = state.active_output->toggle_floating(container);
+    }
+
+    // Remove it from its current workspace since it is no longer wanted there
+    container->get_workspace()->remove_floating_hack(container);
+
+    return scratchpad_.move_to(container);
+}
+
+bool Policy::show_scratchpad()
+{
+    // TODO: Only show the window that meets the criteria
+    return scratchpad_.toggle_show_all();
+}
+
 bool Policy::can_move_container() const
 {
     if (state.mode == WindowManagerMode::resizing)
@@ -971,7 +1007,10 @@ bool Policy::toggle_floating()
     if (!state.active_output)
         return false;
 
-    state.active_output->request_toggle_active_float();
+    if (!state.active)
+        return false;
+
+    state.active_output->toggle_floating(state.active);
     return true;
 }
 

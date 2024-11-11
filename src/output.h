@@ -66,7 +66,7 @@ public:
         AllocationHint hint = AllocationHint());
     [[nodiscard]] std::shared_ptr<Container> create_container(
         miral::WindowInfo const& window_info, AllocationHint const& hint) const;
-    void delete_container(std::shared_ptr<miracle::Container> const& container);
+    void delete_container(std::shared_ptr<Container> const& container);
     void advise_new_workspace(WorkspaceCreationData const&&);
     void advise_workspace_deleted(uint32_t id);
     bool advise_workspace_active(uint32_t id);
@@ -76,7 +76,7 @@ public:
     bool point_is_in_output(int x, int y);
     void update_area(geom::Rectangle const& area);
 
-    void request_toggle_active_float();
+    std::shared_ptr<Container> toggle_floating(std::shared_ptr<Container> const& container);
 
     /// Immediately requests that the provided window be added to the output
     /// with the provided type. This is a deviation away from the typical

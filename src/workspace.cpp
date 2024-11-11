@@ -247,7 +247,7 @@ void Workspace::for_each_window(std::function<void(std::shared_ptr<Container>)> 
     });
 }
 
-void Workspace::toggle_floating(std::shared_ptr<Container> const& container)
+std::shared_ptr<Container> Workspace::toggle_floating(std::shared_ptr<Container> const& container)
 {
     auto const handle_ready = [&](
                                   miral::Window const& window,
@@ -257,6 +257,7 @@ void Workspace::toggle_floating(std::shared_ptr<Container> const& container)
         auto new_container = create_container(info, result);
         new_container->handle_ready();
         window_controller.select_active_window(state.active->window().value());
+        return new_container;
     };
 
     switch (container->get_type())
@@ -265,7 +266,7 @@ void Workspace::toggle_floating(std::shared_ptr<Container> const& container)
     {
         auto window = container->window();
         if (!window)
-            return;
+            return nullptr;
 
         // First, remove the container
         delete_container(window_controller.get_container(*window));
@@ -279,14 +280,13 @@ void Workspace::toggle_floating(std::shared_ptr<Container> const& container)
         window_controller.modify(*window, spec);
 
         // Finally, declare it ready
-        handle_ready(*window, result);
-        break;
+        return handle_ready(*window, result);
     }
     case ContainerType::floating_window:
     {
         auto window = container->window();
         if (!window)
-            return;
+            return nullptr;
 
         // First, remove the container
         delete_container(window_controller.get_container(*window));
@@ -298,8 +298,7 @@ void Workspace::toggle_floating(std::shared_ptr<Container> const& container)
         window_controller.modify(*window, spec);
 
         // Finally, declare it ready
-        handle_ready(*window, result);
-        break;
+        return handle_ready(*window, result);
     }
     case ContainerType::group:
     {
@@ -331,7 +330,7 @@ void Workspace::toggle_floating(std::shared_ptr<Container> const& container)
         }
 
         floating_trees.push_back(tree_container);
-        break;
+        return tree_container;
     }
     case ContainerType::floating_tree:
     {
@@ -340,8 +339,10 @@ void Workspace::toggle_floating(std::shared_ptr<Container> const& container)
     }
     default:
         mir::log_warning("toggle_floating: has no effect on window of type: %d", (int)container->get_type());
-        return;
+        return nullptr;
     }
+
+    return nullptr;
 }
 
 void Workspace::transfer_pinned_windows_to(std::shared_ptr<Workspace> const& other)
@@ -384,6 +385,12 @@ std::shared_ptr<FloatingWindowContainer> Workspace::add_floating_window(miral::W
         window, floating_window_manager, window_controller, this, state, config);
     floating_windows.push_back(floating);
     return floating;
+}
+
+void Workspace::remove_floating_hack(std::shared_ptr<Container> const& container)
+{
+    floating_windows.erase(
+        std::remove(floating_windows.begin(), floating_windows.end(), container), floating_windows.end());
 }
 
 Output* Workspace::get_output() const

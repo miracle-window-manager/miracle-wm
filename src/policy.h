@@ -27,13 +27,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "minimal_window_manager.h"
 #include "mode_observer.h"
 #include "output.h"
+#include "scratchpad.h"
 #include "surface_tracker.h"
 #include "window_manager_tools_window_controller.h"
 #include "workspace_manager.h"
 
 #include <memory>
-#include <miral/internal_client.h>
-#include <miral/output.h>
 #include <miral/window_management_policy.h>
 #include <miral/window_manager_tools.h>
 #include <vector>
@@ -126,6 +125,8 @@ public:
     bool move_active_to_next();
     bool move_active_to_prev();
     bool move_active_to_back_and_forth();
+    bool move_to_scratchpad();
+    bool show_scratchpad();
     bool toggle_floating();
     bool toggle_pinned_to_workspace();
     bool set_is_pinned(bool);
@@ -165,6 +166,7 @@ private:
     I3CommandExecutor i3_command_executor;
     SurfaceTracker& surface_tracker;
     std::shared_ptr<ContainerGroupContainer> group_selection;
+    Scratchpad scratchpad_;
 };
 }
 

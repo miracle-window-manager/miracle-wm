@@ -58,6 +58,7 @@ private:
     void process_input(I3Command const&, I3ScopedCommandList const&);
     void process_workspace(I3Command const&, I3ScopedCommandList const&);
     void process_layout(I3Command const&, I3ScopedCommandList const&);
+    void process_scratchpad(I3Command const&, I3ScopedCommandList const&);
 };
 
 } // miracle
