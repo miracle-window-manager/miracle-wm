@@ -18,7 +18,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef SCRATCHPAD_MIRACLE_WM_H
 #define SCRATCHPAD_MIRACLE_WM_H
 
+#include "compositor_state.h"
 #include "window_controller.h"
+
 #include <memory>
 #include <vector>
 
@@ -27,10 +29,16 @@ namespace miracle
 class Container;
 class FloatingWindowContainer;
 
+struct ScratchpadItem
+{
+    std::shared_ptr<FloatingWindowContainer> container;
+    bool is_showing = false;
+};
+
 class Scratchpad
 {
 public:
-    Scratchpad(WindowController&);
+    Scratchpad(WindowController&, CompositorState&);
     ~Scratchpad() = default;
     Scratchpad(Scratchpad&&) = delete;
     Scratchpad(Scratchpad const&) = delete;
@@ -39,10 +47,15 @@ public:
     bool remove(std::shared_ptr<Container> const&);
     bool toggle_show(std::shared_ptr<Container>&);
     bool toggle_show_all();
+    bool contains(std::shared_ptr<Container> const&);
+    bool is_showing(std::shared_ptr<Container> const&);
 
 private:
+    void toggle(ScratchpadItem& item);
+
     WindowController& window_controller;
-    std::vector<std::shared_ptr<FloatingWindowContainer>> containers;
+    CompositorState& compositor_state;
+    std::vector<ScratchpadItem> items;
 };
 }
 

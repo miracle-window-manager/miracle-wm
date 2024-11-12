@@ -21,7 +21,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "container_group_container.h"
 #include "feature_flags.h"
+#include "floating_tree_container.h"
 #include "shell_component_container.h"
+#include "window_helpers.h"
 #include "window_tools_accessor.h"
 #include "workspace_manager.h"
 
@@ -71,7 +73,7 @@ Policy::Policy(
     i3_command_executor(*this, workspace_manager, tools, external_client_launcher, window_controller),
     surface_tracker { surface_tracker },
     ipc { std::make_shared<Ipc>(runner, workspace_manager, *this, server.the_main_loop(), i3_command_executor, config) },
-    scratchpad_(window_controller)
+    scratchpad_(window_controller, state)
 {
     animator.start();
     workspace_observer_registrar.register_interest(ipc);
@@ -438,8 +440,10 @@ void Policy::advise_delete_window(const miral::WindowInfo& window_info)
         return;
     }
 
-    if (container->get_output())
-        container->get_output()->delete_container(container);
+    if (auto output = container->get_output())
+        output->delete_container(container);
+    else
+        scratchpad_.remove(container);
 
     surface_tracker.remove(window_info.window());
 
@@ -558,7 +562,12 @@ void Policy::handle_modify_window(
     }
 
     auto const* workspace = container->get_workspace();
-    if (workspace && workspace != state.active_output->active())
+    if (workspace)
+    {
+        if (workspace != state.active_output->active())
+            return;
+    }
+    else if (scratchpad_.contains(container) && !scratchpad_.is_showing(container))
         return;
 
     container->handle_modify(modifications);
@@ -970,11 +979,12 @@ bool Policy::move_to_scratchpad()
         if (!state.active_output)
             return false;
 
-        container = state.active_output->toggle_floating(container);
+        container = toggle_floating_internal(container);
     }
 
     // Remove it from its current workspace since it is no longer wanted there
-    container->get_workspace()->remove_floating_hack(container);
+    if (auto workspace = container->get_workspace())
+        workspace->remove_floating_hack(container);
 
     return scratchpad_.move_to(container);
 }
@@ -999,18 +1009,77 @@ bool Policy::can_move_container() const
     return true;
 }
 
+std::shared_ptr<Container> Policy::toggle_floating_internal(std::shared_ptr<Container> const& container)
+{
+    auto const handle_ready = [&](
+                                  miral::Window const& window,
+                                  AllocationHint const& result)
+    {
+        auto& info = window_controller.info_for(window);
+        auto new_container = state.active_output->create_container(info, result);
+        new_container->handle_ready();
+        window_controller.select_active_window(state.active->window().value());
+        return new_container;
+    };
+
+    switch (container->get_type())
+    {
+    case ContainerType::leaf:
+    {
+        auto window = container->window();
+        if (!window)
+            return nullptr;
+
+        // First, remove the container
+        container->get_output()->delete_container(window_controller.get_container(*window));
+
+        // Next, place the new container
+        auto& prev_info = window_controller.info_for(*window);
+        auto spec = window_helpers::copy_from(prev_info);
+        spec.top_left() = geom::Point { window->top_left().x.as_int() + 20, window->top_left().y.as_int() + 20 };
+        window_controller.noclip(*window);
+        auto result = state.active_output->allocate_position(window_manager_tools.info_for(window->application()), spec, { ContainerType::floating_window });
+        window_controller.modify(*window, spec);
+
+        // Finally, declare it ready
+        return handle_ready(*window, result);
+    }
+    case ContainerType::floating_window:
+    {
+        auto window = container->window();
+        if (!window)
+            return nullptr;
+
+        // First, remove the container
+        if (scratchpad_.contains(container))
+            scratchpad_.remove(container);
+        else
+            container->get_output()->delete_container(window_controller.get_container(*window));
+
+        // Next, place the container
+        auto& prev_info = window_controller.info_for(*window);
+        miral::WindowSpecification spec = window_helpers::copy_from(prev_info);
+        auto result = state.active_output->allocate_position(window_manager_tools.info_for(window->application()), spec, { ContainerType::leaf });
+        window_controller.modify(*window, spec);
+
+        // Finally, declare it ready
+        return handle_ready(*window, result);
+    }
+    default:
+        mir::log_warning("toggle_floating: has no effect on window of type: %d", (int)container->get_type());
+        return nullptr;
+    }
+}
+
 bool Policy::toggle_floating()
 {
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    if (!state.active_output)
-        return false;
-
     if (!state.active)
         return false;
 
-    state.active_output->toggle_floating(state.active);
+    toggle_floating_internal(state.active);
     return true;
 }
 

@@ -76,8 +76,6 @@ public:
     bool point_is_in_output(int x, int y);
     void update_area(geom::Rectangle const& area);
 
-    std::shared_ptr<Container> toggle_floating(std::shared_ptr<Container> const& container);
-
     /// Immediately requests that the provided window be added to the output
     /// with the provided type. This is a deviation away from the typical
     /// window-adding flow where you first call 'place_new_window' followed

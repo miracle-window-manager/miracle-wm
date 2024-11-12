@@ -107,6 +107,9 @@ std::shared_ptr<Container> Output::create_container(
 void Output::delete_container(std::shared_ptr<miracle::Container> const& container)
 {
     auto workspace = container->get_workspace();
+    if (!workspace)
+        return;
+
     workspace->delete_container(container);
 }
 
@@ -310,11 +313,6 @@ std::vector<miral::Window> Output::collect_all_windows() const
     }
 
     return windows;
-}
-
-std::shared_ptr<Container> Output::toggle_floating(std::shared_ptr<Container> const& container)
-{
-    return container->get_workspace()->toggle_floating(container);
 }
 
 void Output::add_immediately(miral::Window& window, AllocationHint hint)

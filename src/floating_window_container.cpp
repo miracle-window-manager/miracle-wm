@@ -32,6 +32,24 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace miracle;
 
+namespace
+{
+const char* scratchpad_state_to_string(ScratchpadState state)
+{
+    switch (state)
+    {
+    case ScratchpadState::none:
+        return "none";
+    case ScratchpadState::fresh:
+        return "fresh";
+    case ScratchpadState::changed:
+        return "changed";
+    default:
+        return "unknown";
+    }
+}
+}
+
 FloatingWindowContainer::FloatingWindowContainer(
     miral::Window const& window,
     std::shared_ptr<MinimalWindowManager> const& wm,
@@ -348,15 +366,9 @@ std::weak_ptr<ParentContainer> FloatingWindowContainer::get_parent() const
     return std::weak_ptr<ParentContainer>();
 }
 
-bool FloatingWindowContainer::toggle_shown()
+void FloatingWindowContainer::set_scratchpad_state(ScratchpadState in)
 {
-    auto const& info = window_controller.info_for(window_);
-    if (info.state() != mir_window_state_hidden)
-        hide();
-    else
-        show();
-
-    return true;
+    scratchpad_state = in;
 }
 
 nlohmann::json FloatingWindowContainer::to_json() const
@@ -428,6 +440,7 @@ nlohmann::json FloatingWindowContainer::to_json() const
                                                             { "user", "visible" },
                                                         }                                                                                                                                                                                                  },
         { "window_properties",    {}                                                                                                                                                                                                                                                   }, // TODO
-        { "nodes",                std::vector<int>()                                                                                                                                                                                                                                   }
+        { "nodes",                std::vector<int>()                                                                                                                                                                                                                                   },
+        { "scratchpad_state",     scratchpad_state_to_string(scratchpad_state)                                                                                                                                                                                                         }
     };
 }

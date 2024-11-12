@@ -728,6 +728,12 @@ void I3CommandExecutor::process_layout(I3Command const& command, I3ScopedCommand
 
 void I3CommandExecutor::process_scratchpad(I3Command const& command, I3ScopedCommandList const& command_list)
 {
+    if (command.arguments.empty())
+    {
+        mir::log_error("process_scratchpad: no arguments provided");
+        return;
+    }
+
     std::string const& arg0 = command.arguments[0];
     if (arg0 != "show")
     {

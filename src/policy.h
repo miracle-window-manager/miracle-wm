@@ -145,6 +145,7 @@ public:
 private:
     bool can_move_container() const;
     bool can_set_layout() const;
+    std::shared_ptr<Container> toggle_floating_internal(std::shared_ptr<Container> const& container);
 
     bool is_starting_ = true;
     CompositorState& state;

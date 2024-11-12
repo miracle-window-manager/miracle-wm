@@ -73,7 +73,6 @@ public:
     void hide();
     void transfer_pinned_windows_to(std::shared_ptr<Workspace> const& other);
     void for_each_window(std::function<void(std::shared_ptr<Container>)> const&) const;
-    std::shared_ptr<Container> toggle_floating(std::shared_ptr<Container> const&);
     bool has_floating_window(std::shared_ptr<Container> const&);
     std::shared_ptr<FloatingWindowContainer> add_floating_window(miral::Window const&);
 

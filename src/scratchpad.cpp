@@ -20,39 +20,66 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "scratchpad.h"
 #include "container.h"
 #include "floating_window_container.h"
+#include "output.h"
 
 #include <mir/log.h>
 
 using namespace miracle;
 
-Scratchpad::Scratchpad(WindowController& window_controller) :
-    window_controller { window_controller }
+Scratchpad::Scratchpad(WindowController& window_controller, CompositorState& compositor_state) :
+    window_controller { window_controller },
+    compositor_state { compositor_state }
 {
 }
 
 bool Scratchpad::move_to(std::shared_ptr<Container> const& container)
 {
     auto floating = Container::as_floating(container);
-    floating->set_workspace(nullptr);
+    items.push_back({ floating, false });
+    floating->set_scratchpad_state(ScratchpadState::fresh);
     floating->hide();
-    containers.push_back(floating);
     return true;
 }
 
 bool Scratchpad::remove(std::shared_ptr<Container> const& container)
 {
-    assert(container->get_type() == ContainerType::floating_window);
-    auto const& floating = Container::as_floating(container);
-    return containers.erase(std::remove(containers.begin(), containers.end(), floating), containers.end())
-        != containers.end();
+    return items.erase(std::remove_if(items.begin(), items.end(), [&](auto const& item)
+    {
+        return item.container == container;
+    }),
+               items.end())
+        != items.end();
+}
+
+void Scratchpad::toggle(ScratchpadItem& other)
+{
+    other.is_showing = !other.is_showing;
+    other.container->set_scratchpad_state(ScratchpadState::changed);
+    if (other.is_showing)
+    {
+        auto window = other.container->window().value();
+        auto output_extents = compositor_state.active_output->get_output().extents();
+        other.container->show();
+        miral::WindowSpecification spec;
+        spec.top_left() = {
+            output_extents.top_left.x.as_int() + (output_extents.size.width.as_int() - window.size().width.as_int()) / 2.f,
+            output_extents.top_left.y.as_int() + (output_extents.size.height.as_int() - window.size().height.as_int()) / 2.f,
+        };
+        window_controller.modify(window, spec);
+    }
+    else
+        other.container->hide();
 }
 
 bool Scratchpad::toggle_show(std::shared_ptr<Container>& container)
 {
-    for (auto const& other : containers)
+    for (auto& other : items)
     {
-        if (other == container)
-            return other->toggle_shown();
+        if (other.container == container)
+        {
+            toggle(other);
+            return true;
+        }
     }
 
     return false;
@@ -60,8 +87,30 @@ bool Scratchpad::toggle_show(std::shared_ptr<Container>& container)
 
 bool Scratchpad::toggle_show_all()
 {
-    for (auto const& container : containers)
-        container->toggle_shown();
+    for (auto& item : items)
+        toggle(item);
 
     return true;
+}
+
+bool Scratchpad::contains(std::shared_ptr<Container> const& container)
+{
+    for (auto const& other : items)
+    {
+        if (other.container == container)
+            return true;
+    }
+
+    return false;
+}
+
+bool Scratchpad::is_showing(std::shared_ptr<Container> const& container)
+{
+    for (auto const& other : items)
+    {
+        if (other.container == container)
+            return other.is_showing;
+    }
+
+    return false;
 }
