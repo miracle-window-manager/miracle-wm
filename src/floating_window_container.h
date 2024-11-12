@@ -27,6 +27,13 @@ namespace miracle
 class WindowController;
 class CompositorState;
 
+enum class ScratchpadState
+{
+    none,
+    fresh,
+    changed
+};
+
 /// Contains a single floating window
 class FloatingWindowContainer : public Container
 {
@@ -88,6 +95,7 @@ public:
     bool set_layout(LayoutScheme scheme) override { return false; }
     LayoutScheme get_layout() const override { return LayoutScheme::none; }
     std::weak_ptr<ParentContainer> get_parent() const override;
+    void set_scratchpad_state(ScratchpadState state);
     nlohmann::json to_json() const override;
 
 private:
@@ -102,6 +110,7 @@ private:
     Workspace* workspace_;
     glm::mat4 transform = glm::mat4(1.f);
     uint32_t animation_handle_ = 0;
+    ScratchpadState scratchpad_state = ScratchpadState::none;
 };
 
 } // miracle

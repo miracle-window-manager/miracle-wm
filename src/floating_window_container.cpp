@@ -32,6 +32,24 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace miracle;
 
+namespace
+{
+const char* scratchpad_state_to_string(ScratchpadState state)
+{
+    switch (state)
+    {
+    case ScratchpadState::none:
+        return "none";
+    case ScratchpadState::fresh:
+        return "fresh";
+    case ScratchpadState::changed:
+        return "changed";
+    default:
+        return "unknown";
+    }
+}
+}
+
 FloatingWindowContainer::FloatingWindowContainer(
     miral::Window const& window,
     std::shared_ptr<MinimalWindowManager> const& wm,
@@ -124,7 +142,8 @@ void FloatingWindowContainer::on_open()
 
 void FloatingWindowContainer::on_focus_gained()
 {
-    if (get_output()->active() != workspace_)
+    auto const* output = get_output();
+    if (output && output->active() != workspace_)
         return;
 
     wm->advise_focus_gained(window_controller.info_for(window_));
@@ -227,6 +246,9 @@ void FloatingWindowContainer::set_workspace(Workspace* workspace)
 
 Output* FloatingWindowContainer::get_output() const
 {
+    if (!workspace_)
+        return nullptr;
+
     return workspace_->get_output();
 }
 
@@ -278,7 +300,11 @@ glm::mat4 FloatingWindowContainer::get_output_transform() const
     if (pinned())
         return glm::mat4(1.f);
 
-    return get_output()->get_transform();
+    auto const* output = get_output();
+    if (!output)
+        return glm::mat4(1.f);
+
+    return output->get_transform();
 }
 
 bool FloatingWindowContainer::select_next(Direction)
@@ -340,6 +366,11 @@ std::weak_ptr<ParentContainer> FloatingWindowContainer::get_parent() const
     return std::weak_ptr<ParentContainer>();
 }
 
+void FloatingWindowContainer::set_scratchpad_state(ScratchpadState in)
+{
+    scratchpad_state = in;
+}
+
 nlohmann::json FloatingWindowContainer::to_json() const
 {
     auto const app = window_.application();
@@ -350,11 +381,14 @@ nlohmann::json FloatingWindowContainer::to_json() const
     auto output = get_output();
     bool visible = true;
 
-    if (!output->is_active())
-        visible = false;
+    if (output)
+    {
+        if (!output->is_active())
+            visible = false;
 
-    if (output->active() != workspace)
-        visible = false;
+        if (output->active() != workspace)
+            visible = false;
+    }
 
     return {
         { "id",                   reinterpret_cast<std::uintptr_t>(this)                                                                                                                                                                                                               },
@@ -406,6 +440,7 @@ nlohmann::json FloatingWindowContainer::to_json() const
                                                             { "user", "visible" },
                                                         }                                                                                                                                                                                                  },
         { "window_properties",    {}                                                                                                                                                                                                                                                   }, // TODO
-        { "nodes",                std::vector<int>()                                                                                                                                                                                                                                   }
+        { "nodes",                std::vector<int>()                                                                                                                                                                                                                                   },
+        { "scratchpad_state",     scratchpad_state_to_string(scratchpad_state)                                                                                                                                                                                                         }
     };
 }

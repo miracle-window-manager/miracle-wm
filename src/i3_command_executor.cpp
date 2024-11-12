@@ -79,6 +79,9 @@ void I3CommandExecutor::process(miracle::I3ScopedCommandList const& command_list
         case I3CommandType::layout:
             process_layout(command, command_list);
             break;
+        case I3CommandType::scratchpad:
+            process_scratchpad(command, command_list);
+            break;
         default:
             break;
         }
@@ -463,6 +466,11 @@ void I3CommandExecutor::process_move(I3Command const& command, I3ScopedCommandLi
             return;
         }
     }
+    else if (arg0 == "scratchpad")
+    {
+        policy.move_to_scratchpad();
+        return;
+    }
 
     if (direction < Direction::MAX)
     {
@@ -716,4 +724,22 @@ void I3CommandExecutor::process_layout(I3Command const& command, I3ScopedCommand
                 policy.set_layout(LayoutScheme::horizontal);
         }
     }
+}
+
+void I3CommandExecutor::process_scratchpad(I3Command const& command, I3ScopedCommandList const& command_list)
+{
+    if (command.arguments.empty())
+    {
+        mir::log_error("process_scratchpad: no arguments provided");
+        return;
+    }
+
+    std::string const& arg0 = command.arguments[0];
+    if (arg0 != "show")
+    {
+        mir::log_error("process_scratchpad: all scratchpad commands must be 'scratchpad show'");
+        return;
+    }
+
+    policy.show_scratchpad();
 }

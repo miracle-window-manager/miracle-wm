@@ -107,6 +107,9 @@ std::shared_ptr<Container> Output::create_container(
 void Output::delete_container(std::shared_ptr<miracle::Container> const& container)
 {
     auto workspace = container->get_workspace();
+    if (!workspace)
+        return;
+
     workspace->delete_container(container);
 }
 
@@ -310,17 +313,6 @@ std::vector<miral::Window> Output::collect_all_windows() const
     }
 
     return windows;
-}
-
-void Output::request_toggle_active_float()
-{
-    if (!state.active)
-    {
-        mir::log_warning("request_toggle_active_float: active unset");
-        return;
-    }
-
-    state.active->get_workspace()->toggle_floating(state.active);
 }
 
 void Output::add_immediately(miral::Window& window, AllocationHint hint)

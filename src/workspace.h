@@ -73,9 +73,15 @@ public:
     void hide();
     void transfer_pinned_windows_to(std::shared_ptr<Workspace> const& other);
     void for_each_window(std::function<void(std::shared_ptr<Container>)> const&) const;
-    void toggle_floating(std::shared_ptr<Container> const&);
     bool has_floating_window(std::shared_ptr<Container> const&);
     std::shared_ptr<FloatingWindowContainer> add_floating_window(miral::Window const&);
+
+    /// A hack to remove floating windows immediately from the list
+    /// without notifying the window manager. Note that this is a tad
+    /// weird, but it is useful for the scratchpad. Some of this may
+    /// need to be rethought later.
+    void remove_floating_hack(std::shared_ptr<Container> const&);
+
     Output* get_output() const;
     void trigger_rerender();
     [[nodiscard]] bool is_empty() const;

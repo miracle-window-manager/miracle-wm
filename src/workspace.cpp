@@ -247,103 +247,6 @@ void Workspace::for_each_window(std::function<void(std::shared_ptr<Container>)> 
     });
 }
 
-void Workspace::toggle_floating(std::shared_ptr<Container> const& container)
-{
-    auto const handle_ready = [&](
-                                  miral::Window const& window,
-                                  AllocationHint const& result)
-    {
-        auto& info = window_controller.info_for(window);
-        auto new_container = create_container(info, result);
-        new_container->handle_ready();
-        window_controller.select_active_window(state.active->window().value());
-    };
-
-    switch (container->get_type())
-    {
-    case ContainerType::leaf:
-    {
-        auto window = container->window();
-        if (!window)
-            return;
-
-        // First, remove the container
-        delete_container(window_controller.get_container(*window));
-
-        // Next, place the new container
-        auto& prev_info = window_controller.info_for(*window);
-        auto spec = window_helpers::copy_from(prev_info);
-        spec.top_left() = geom::Point { window->top_left().x.as_int() + 20, window->top_left().y.as_int() + 20 };
-        window_controller.noclip(*window);
-        auto result = allocate_position(tools.info_for(window->application()), spec, { ContainerType::floating_window });
-        window_controller.modify(*window, spec);
-
-        // Finally, declare it ready
-        handle_ready(*window, result);
-        break;
-    }
-    case ContainerType::floating_window:
-    {
-        auto window = container->window();
-        if (!window)
-            return;
-
-        // First, remove the container
-        delete_container(window_controller.get_container(*window));
-
-        // Next, place the container
-        auto& prev_info = window_controller.info_for(*window);
-        miral::WindowSpecification spec = window_helpers::copy_from(prev_info);
-        auto result = allocate_position(tools.info_for(window->application()), spec, { ContainerType::leaf, tree.get() });
-        window_controller.modify(*window, spec);
-
-        // Finally, declare it ready
-        handle_ready(*window, result);
-        break;
-    }
-    case ContainerType::group:
-    {
-        auto group = Container::as_group(container);
-        auto tree_container = std::make_shared<FloatingTreeContainer>(
-            this,
-            window_controller,
-            state,
-            config);
-
-        // Delete all containers in the group and add them to the new tree
-        for (auto const& c : group->get_containers())
-        {
-            if (auto s = c.lock())
-            {
-                delete_container(s);
-
-                auto window = s->window();
-                if (!window)
-                    continue;
-
-                auto& prev_info = window_controller.info_for(*window);
-                miral::WindowSpecification spec = window_helpers::copy_from(prev_info);
-                auto result = allocate_position(tools.info_for(window->application()), spec, { ContainerType::leaf, tree_container->get_tree() });
-                window_controller.modify(*window, spec);
-
-                handle_ready(*window, result);
-            }
-        }
-
-        floating_trees.push_back(tree_container);
-        break;
-    }
-    case ContainerType::floating_tree:
-    {
-        // TODO: !
-        break;
-    }
-    default:
-        mir::log_warning("toggle_floating: has no effect on window of type: %d", (int)container->get_type());
-        return;
-    }
-}
-
 void Workspace::transfer_pinned_windows_to(std::shared_ptr<Workspace> const& other)
 {
     for (auto it = floating_windows.begin(); it != floating_windows.end();)
@@ -384,6 +287,14 @@ std::shared_ptr<FloatingWindowContainer> Workspace::add_floating_window(miral::W
         window, floating_window_manager, window_controller, this, state, config);
     floating_windows.push_back(floating);
     return floating;
+}
+
+void Workspace::remove_floating_hack(std::shared_ptr<Container> const& container)
+{
+    assert(container->get_type() == ContainerType::floating_window);
+    Container::as_floating(container)->set_workspace(nullptr);
+    floating_windows.erase(
+        std::remove(floating_windows.begin(), floating_windows.end(), container), floating_windows.end());
 }
 
 Output* Workspace::get_output() const

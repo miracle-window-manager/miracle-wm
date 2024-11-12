@@ -45,8 +45,8 @@ class ImmediateServerActionQueue : public mir::ServerActionQueue
         action();
     }
 
-    void pause_processing_for(void const* owner) override {};
-    void resume_processing_for(void const* owner) override {};
+    void pause_processing_for(void const* owner) override { };
+    void resume_processing_for(void const* owner) override { };
 };
 
 class AnimatorTest : public testing::Test
@@ -154,6 +154,6 @@ TEST_F(AnimationTest, InterruptingSlideResultsInModifiedAnimationDuration)
         mir::geometry::Rectangle(
             mir::geometry::Point(200, 200),
             mir::geometry::Size(0, 0)),
-        [](auto const& asr) {});
+        [](auto const& asr) { });
     ASSERT_NEAR(animation.get_runtime_seconds(), 2, 0.05);
 }
