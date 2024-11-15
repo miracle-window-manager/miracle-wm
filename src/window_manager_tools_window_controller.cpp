@@ -236,6 +236,11 @@ miral::WindowInfo& WindowManagerToolsWindowController::info_for(miral::Window co
     return tools.info_for(window);
 }
 
+miral::ApplicationInfo& WindowManagerToolsWindowController::app_info(miral::Window const& window)
+{
+    return tools.info_for(window.application());
+}
+
 void WindowManagerToolsWindowController::close(miral::Window const& window)
 {
     tools.ask_client_to_close(window);

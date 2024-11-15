@@ -790,5 +790,5 @@ Workspace* TilingWindowTree::get_workspace() const
 
 std::shared_ptr<LeafContainer> TilingWindowTree::active_container() const
 {
-    return Container::as_leaf(state.active);
+    return Container::as_leaf(state.active());
 }

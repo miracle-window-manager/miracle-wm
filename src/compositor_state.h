@@ -18,12 +18,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef MIRACLE_WM_COMPOSITOR_STATE_H
 #define MIRACLE_WM_COMPOSITOR_STATE_H
 
+#include "container.h"
+
+#include <algorithm>
 #include <memory>
 #include <mir/geometry/point.h>
+#include <vector>
 
 namespace miracle
 {
-class Container;
 class Output;
 
 enum class WindowManagerMode
@@ -40,14 +43,26 @@ enum class WindowManagerMode
     selecting
 };
 
-struct CompositorState
+class CompositorState
 {
+public:
     WindowManagerMode mode = WindowManagerMode::normal;
-    std::shared_ptr<Output> active_output;
-    std::shared_ptr<Container> active;
+    std::shared_ptr<Output> active_output = nullptr;
     mir::geometry::Point cursor_position;
     uint32_t modifiers = 0;
     bool has_clicked_floating_window = false;
+
+    [[nodiscard]] std::shared_ptr<Container> active() const;
+    void focus(std::shared_ptr<Container> const& container);
+    void unfocus(std::shared_ptr<Container> const& container);
+    void add(std::shared_ptr<Container> const& container);
+    void remove(std::shared_ptr<Container> const& container);
+    [[nodiscard]] std::shared_ptr<Container> get_first_with_type(ContainerType type) const;
+    [[nodiscard]] std::vector<std::weak_ptr<Container>> const& containers() const { return focus_order; }
+
+private:
+    std::weak_ptr<Container> focused;
+    std::vector<std::weak_ptr<Container>> focus_order;
 };
 }
 

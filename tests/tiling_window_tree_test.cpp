@@ -91,6 +91,7 @@ public:
     void set_user_data(miral::Window const&, std::shared_ptr<void> const&) override { }
     void modify(miral::Window const&, miral::WindowSpecification const&) override { }
     miral::WindowInfo& info_for(miral::Window const&) override { }
+    miral::ApplicationInfo& app_info(miral::Window const&) override { }
 
 private:
     std::vector<std::pair<miral::Window, std::shared_ptr<Container>>>& pairs;
@@ -125,8 +126,9 @@ public:
         auto leaf = tree.confirm_window(info, nullptr);
         pairs.push_back({ window, leaf });
 
-        state.active = leaf;
+        state.add(leaf);
         tree.advise_focus_gained(*leaf);
+        state.focus(leaf);
         return leaf;
     }
 

@@ -640,7 +640,7 @@ void ParentContainer::on_focus_gained()
     {
         for (auto const& container : sub_nodes)
         {
-            if (container != state.active && container->window())
+            if (container != state.active() && container->window())
                 node_interface.send_to_back(container->window().value());
         }
     }

@@ -35,12 +35,12 @@ using namespace miracle;
 I3CommandExecutor::I3CommandExecutor(
     miracle::Policy& policy,
     WorkspaceManager& workspace_manager,
-    miral::WindowManagerTools const& tools,
+    CompositorState const& state,
     AutoRestartingLauncher& launcher,
     WindowController& window_controller) :
     policy { policy },
     workspace_manager { workspace_manager },
-    tools { tools },
+    state { state },
     launcher { launcher },
     window_controller { window_controller }
 {
@@ -90,21 +90,20 @@ void I3CommandExecutor::process(miracle::I3ScopedCommandList const& command_list
 
 miral::Window I3CommandExecutor::get_window_meeting_criteria(I3ScopedCommandList const& command_list)
 {
-    miral::Window result;
-    tools.find_application([&](miral::ApplicationInfo const& info)
+    for (auto const& container : state.containers())
     {
-        for (auto const& window : info.windows())
-        {
-            if (command_list.meets_criteria(window, window_controller))
-            {
-                result = window;
-                return true;
-            }
-        }
+        if (container.expired())
+            continue;
 
-        return false;
-    });
-    return result;
+        auto window = container.lock()->window();
+        if (auto const& w = window.value())
+        {
+            if (command_list.meets_criteria(w, window_controller))
+                return window.value();
+        }
+    }
+
+    return miral::Window {};
 }
 
 void I3CommandExecutor::process_exec(miracle::I3Command const& command, miracle::I3ScopedCommandList const& command_list)
@@ -203,16 +202,12 @@ void I3CommandExecutor::process_focus(I3Command const& command, I3ScopedCommandL
     else if (arg == "down")
         policy.try_select(Direction::down);
     else if (arg == "parent")
-        mir::log_warning("'focus parent' is not supported, see https://github.com/mattkae/miracle-wm/issues/117"); // TODO
+        policy.try_select_parent();
     else if (arg == "child")
         mir::log_warning("'focus child' is not supported, see https://github.com/mattkae/miracle-wm/issues/117"); // TODO
     else if (arg == "prev")
     {
-        auto active_window = tools.active_window();
-        if (!active_window)
-            return;
-
-        auto container = window_controller.get_container(active_window);
+        auto container = state.active();
         if (!container)
             return;
 
@@ -234,11 +229,7 @@ void I3CommandExecutor::process_focus(I3Command const& command, I3ScopedCommandL
     }
     else if (arg == "next")
     {
-        auto active_window = tools.active_window();
-        if (!active_window)
-            return;
-
-        auto container = window_controller.get_container(active_window);
+        auto container = state.active();
         if (!container)
             return;
 
@@ -259,13 +250,38 @@ void I3CommandExecutor::process_focus(I3Command const& command, I3ScopedCommandL
         }
     }
     else if (arg == "floating")
-        mir::log_warning("'focus floating' is not supported, see https://github.com/mattkae/miracle-wm/issues/117"); // TODO
+        policy.try_select_floating();
     else if (arg == "tiling")
-        mir::log_warning("'focus tiling' is not supported, see https://github.com/mattkae/miracle-wm/issues/117"); // TODO
+        policy.try_select_tiling();
     else if (arg == "mode_toggle")
-        mir::log_warning("'focus mode_toggle' is not supported, see https://github.com/mattkae/miracle-wm/issues/117"); // TODO
+        policy.try_select_toggle();
     else if (arg == "output")
-        mir::log_warning("'focus output' is not supported, see https://github.com/canonical/mir/issues/3357"); // TODO
+    {
+        if (command.arguments.size() < 2)
+        {
+            mir::log_error("process_focus: 'focus output' must have more than two arguments");
+            return;
+        }
+
+        auto const& arg1 = command.arguments[1];
+        if (arg1 == "next")
+            policy.try_select_next_output();
+        else if (arg1 == "prev")
+            policy.try_select_prev_output();
+        else if (arg1 == "left")
+            policy.try_select_output(Direction::left);
+        else if (arg1 == "right")
+            policy.try_select_output(Direction::right);
+        else if (arg1 == "up")
+            policy.try_select_output(Direction::up);
+        else if (arg1 == "down")
+            policy.try_select_output(Direction::down);
+        else
+        {
+            auto names = std::vector<std::string>(command.arguments.begin() + 1, command.arguments.end());
+            policy.try_select_output(names);
+        }
+    }
 }
 
 namespace
@@ -350,7 +366,7 @@ void I3CommandExecutor::process_move(I3Command const& command, I3ScopedCommandLi
         auto const& arg1 = command.arguments[index++];
         if (arg1 == "center")
         {
-            auto active = policy.get_state().active.get();
+            auto active = policy.get_state().active().get();
             auto area = active_output->get_area();
             float x = (float)area.size.width.as_int() / 2.f - (float)active->get_visible_area().size.width.as_int() / 2.f;
             float y = (float)area.size.height.as_int() / 2.f - (float)active->get_visible_area().size.height.as_int() / 2.f;
@@ -410,7 +426,7 @@ void I3CommandExecutor::process_move(I3Command const& command, I3ScopedCommandLi
                 y = end_y;
         }
 
-        auto active = policy.get_state().active;
+        auto active = policy.get_state().active();
         float x_pos = x / 2.f - (float)active->get_visible_area().size.width.as_int() / 2.f;
         float y_pos = y / 2.f - (float)active->get_visible_area().size.height.as_int() / 2.f;
         policy.try_move_to((int)x_pos, (int)y_pos);
@@ -653,7 +669,7 @@ void I3CommandExecutor::process_layout(I3Command const& command, I3ScopedCommand
         }
         else
         {
-            auto const& container = policy.get_state().active;
+            auto container = policy.get_state().active();
             if (!container)
             {
                 mir::log_error("process_layout: container unavailable");
