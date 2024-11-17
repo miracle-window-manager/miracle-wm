@@ -110,6 +110,10 @@ public:
     bool try_move_by(Direction direction, int pixels);
     bool try_move_to(int x, int y);
     bool try_select(Direction direction);
+    bool try_select_parent();
+    bool try_select_floating();
+    bool try_select_tiling();
+    bool try_select_toggle();
     bool try_close_window();
     bool quit();
     bool try_toggle_fullscreen();
@@ -134,6 +138,11 @@ public:
     bool toggle_stacking();
     bool set_layout(LayoutScheme scheme);
     bool set_layout_default();
+    void move_cursor_to_output(std::shared_ptr<Output> const&);
+    bool try_select_next_output();
+    bool try_select_prev_output();
+    bool try_select_output(Direction direction);
+    bool try_select_output(std::vector<std::string> const& names);
 
     // Getters
 
@@ -150,7 +159,6 @@ private:
     bool is_starting_ = true;
     CompositorState& state;
     std::vector<std::shared_ptr<Output>> output_list;
-    std::weak_ptr<Output> pending_output;
     AllocationHint pending_allocation;
     std::vector<miral::Window> orphaned_window_list;
     miral::WindowManagerTools window_manager_tools;

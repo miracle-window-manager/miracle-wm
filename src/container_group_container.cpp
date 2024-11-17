@@ -282,7 +282,7 @@ void ContainerGroupContainer::animation_handle(uint32_t uint_32)
 
 bool ContainerGroupContainer::is_focused() const
 {
-    return state.active.get() == this;
+    return state.active().get() == this;
 }
 
 bool ContainerGroupContainer::is_fullscreen() const

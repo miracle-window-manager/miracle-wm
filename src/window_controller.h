@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef MIRACLEWM_TILING_INTERFACE_H
 #define MIRACLEWM_TILING_INTERFACE_H
 
+#include <miral/application_info.h>
 #include <miral/window.h>
 #include <miral/window_info.h>
 
@@ -52,6 +53,7 @@ public:
     virtual void set_user_data(miral::Window const&, std::shared_ptr<void> const&) = 0;
     virtual void modify(miral::Window const&, miral::WindowSpecification const&) = 0;
     virtual miral::WindowInfo& info_for(miral::Window const&) = 0;
+    virtual miral::ApplicationInfo& app_info(miral::Window const&) = 0;
 };
 
 }

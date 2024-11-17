@@ -178,7 +178,7 @@ void Workspace::handle_ready_hack(LeafContainer& container)
         window_controller.raise(window->window().value());
 
     if (tree->has_fullscreen_window())
-        window_controller.raise(state.active->window().value());
+        window_controller.raise(state.active()->window().value());
 }
 
 void Workspace::delete_container(std::shared_ptr<Container> const& container)
@@ -347,10 +347,10 @@ void Workspace::graft(std::shared_ptr<Container> const& container)
 
 std::shared_ptr<ParentContainer> Workspace::get_layout_container()
 {
-    if (!state.active)
+    if (!state.active())
         return nullptr;
 
-    auto parent = state.active->get_parent().lock();
+    auto parent = state.active()->get_parent().lock();
     if (!parent)
         return nullptr;
 

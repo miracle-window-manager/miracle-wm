@@ -55,6 +55,7 @@ enum class I3CommandType
     input
 };
 
+// https://i3wm.org/docs/userguide.html#command_criteria
 enum class I3ScopeType
 {
     none,

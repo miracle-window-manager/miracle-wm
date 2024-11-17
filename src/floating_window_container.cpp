@@ -274,7 +274,7 @@ void FloatingWindowContainer::animation_handle(uint32_t handle)
 
 bool FloatingWindowContainer::is_focused() const
 {
-    return state.active.get() == this;
+    return state.active().get() == this;
 }
 
 bool FloatingWindowContainer::is_fullscreen() const

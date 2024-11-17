@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef MIRACLEWM_I_3_COMMAND_EXECUTOR_H
 #define MIRACLEWM_I_3_COMMAND_EXECUTOR_H
 
+#include "compositor_state.h"
 #include "i3_command.h"
 #include <mir/glib_main_loop.h>
 
@@ -37,7 +38,7 @@ public:
     I3CommandExecutor(
         Policy&,
         WorkspaceManager&,
-        miral::WindowManagerTools const&,
+        CompositorState const&,
         AutoRestartingLauncher&,
         WindowController&);
     void process(I3ScopedCommandList const&);
@@ -45,7 +46,7 @@ public:
 private:
     Policy& policy;
     WorkspaceManager& workspace_manager;
-    miral::WindowManagerTools tools;
+    CompositorState const& state;
     AutoRestartingLauncher& launcher;
     WindowController& window_controller;
 

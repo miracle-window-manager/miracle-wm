@@ -15,6 +15,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
+#define MIR_LOG_COMPONENT "miracle::i3_command"
+
 #include "i3_command.h"
 #include "jpcre2.h"
 #include "string_extensions.h"
@@ -22,9 +24,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "window_helpers.h"
 
 #include <cstring>
-#include <ranges>
-#define MIR_LOG_COMPONENT "miracle::i3_command"
 #include <mir/log.h>
+#include <miral/application.h>
+#include <miral/application_info.h>
+#include <ranges>
 
 using namespace miracle;
 
@@ -171,12 +174,19 @@ bool I3ScopedCommandList::meets_criteria(miral::Window const& window, WindowCont
         switch (criteria.type)
         {
         case I3ScopeType::all:
-            break;
+            return true;
         case I3ScopeType::title:
         {
             auto& info = window_controller.info_for(window);
             jp::Regex re(criteria.regex.value());
             auto const& name = info.name();
+            return re.match(name);
+        }
+        case I3ScopeType::class_:
+        {
+            auto& info = window_controller.app_info(window);
+            jp::Regex re(criteria.regex.value());
+            auto const& name = miral::name_of(info.application());
             return re.match(name);
         }
         default:
