@@ -368,7 +368,7 @@ std::string Workspace::display_name() const
     else if (name_)
         return name_.value();
     else if (num_)
-        ss << num_.value();
+        return std::to_string(num_.value());
     else
         ss << "Unknown #" << id_;
 
