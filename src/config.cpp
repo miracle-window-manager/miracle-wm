@@ -543,7 +543,9 @@ void FilesystemConfiguration::read_workspaces(YAML::Node const& workspaces)
         if (!try_parse_value(workspace, "name", name, true))
             continue;
 
-        options.workspace_configs.push_back({ num, type, name });
+        options.workspace_configs.push_back({ num,
+            type,
+            name.empty() ? std::optional<std::string>(std::nullopt) : name });
     }
 }
 

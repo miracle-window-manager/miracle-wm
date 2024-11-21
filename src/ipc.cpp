@@ -526,6 +526,7 @@ void Ipc::handle_command(miracle::Ipc::IpcClient& client, uint32_t payload_lengt
     {
     case IPC_COMMAND:
     {
+        mir::log_debug("Processing i3_command: %s", buf);
         auto result = parse_i3_command(std::string_view(buf));
         if (result)
         {
