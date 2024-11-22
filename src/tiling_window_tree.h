@@ -124,7 +124,8 @@ public:
         MirWindowState new_state,
         mir::geometry::Rectangle& new_placement);
 
-    void foreach_node(std::function<void(std::shared_ptr<Container>)> const&);
+    void foreach_node(std::function<void(std::shared_ptr<Container> const&)> const&);
+    bool foreach_node_pred(std::function<bool(std::shared_ptr<Container> const&)> const&);
 
     /// Shows the containers in this tree and returns a fullscreen container, if any
     std::shared_ptr<LeafContainer> show();

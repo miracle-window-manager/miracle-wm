@@ -75,12 +75,15 @@ public:
     void for_each_window(std::function<void(std::shared_ptr<Container>)> const&) const;
     bool has_floating_window(std::shared_ptr<Container> const&);
     std::shared_ptr<FloatingWindowContainer> add_floating_window(miral::Window const&);
+    void advise_focus_gained(std::shared_ptr<Container> const& container);
 
     /// A hack to remove floating windows immediately from the list
     /// without notifying the window manager. Note that this is a tad
     /// weird, but it is useful for the scratchpad. Some of this may
     /// need to be rethought later.
     void remove_floating_hack(std::shared_ptr<Container> const&);
+
+    void select_first_window();
 
     Output* get_output() const;
     void trigger_rerender();
@@ -107,6 +110,7 @@ private:
     CompositorState const& state;
     std::shared_ptr<Config> config;
     std::shared_ptr<MinimalWindowManager> floating_window_manager;
+    std::weak_ptr<Container> last_selected_container;
 
     /// Retrieves the container that is currently being used for layout
     std::shared_ptr<ParentContainer> get_layout_container();

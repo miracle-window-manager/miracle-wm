@@ -47,10 +47,6 @@ bool WorkspaceManager::focus_existing(Workspace const* existing, bool back_and_f
     {
         if (last_selected)
         {
-            // If we reselect the same workspace and we have a previously selected
-            // workspace, let's reselect it.
-            auto last_output = last_selected.value()->get_output();
-
             /// If back_and_forth isn't true and we have a last_output, don't visit it.
             if (!back_and_forth)
                 return false;
@@ -242,13 +238,16 @@ bool WorkspaceManager::request_focus(uint32_t id)
     else
         last_selected = nullptr;
 
-    existing->get_output()->advise_workspace_active(id);
-
+    // Note: it is important that this is sent before the workspace
+    // is activated because 'advise_workspace-active' might remove
+    // the workspace if it is empty
     if (active_screen != nullptr)
         registry.advise_focused(last_selected.value()->id(), id);
     else
         registry.advise_focused(std::nullopt, id);
 
+    existing->get_output()->advise_workspace_active(id);
+    existing->select_first_window();
     return true;
 }
 

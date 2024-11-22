@@ -46,6 +46,42 @@ namespace
 const int MODIFIER_MASK = mir_input_event_modifier_alt | mir_input_event_modifier_shift | mir_input_event_modifier_sym | mir_input_event_modifier_ctrl | mir_input_event_modifier_meta;
 }
 
+class Policy::Self : public WorkspaceObserver
+{
+public:
+    explicit Self(Policy& policy) :
+        policy { policy }
+    {
+    }
+
+    void on_created(uint32_t) override { }
+    void on_removed(uint32_t) override { }
+    void on_focused(std::optional<uint32_t> old, uint32_t next) override
+    {
+        if (old)
+        {
+            auto const& last_workspace = policy.workspace_manager.workspace(old.value());
+            if (!last_workspace)
+            {
+                mir::log_error("Policy::Self::on_focused missing last workspace");
+                return;
+            }
+
+            auto const& next_workspace = policy.workspace_manager.workspace(next);
+            if (!next_workspace)
+            {
+                mir::log_error("Policy::Self::on_focused missing next workspace");
+                return;
+            }
+
+            if (last_workspace->get_output() != next_workspace->get_output())
+                policy.move_cursor_to_output(*next_workspace->get_output());
+        }
+    }
+
+    Policy& policy;
+};
+
 Policy::Policy(
     miral::WindowManagerTools const& tools,
     AutoRestartingLauncher& external_client_launcher,
@@ -74,10 +110,12 @@ Policy::Policy(
     i3_command_executor(*this, workspace_manager, compositor_state, external_client_launcher, window_controller),
     surface_tracker { surface_tracker },
     ipc { std::make_shared<Ipc>(runner, workspace_manager, *this, server.the_main_loop(), i3_command_executor, config) },
-    scratchpad_(window_controller, state)
+    scratchpad_(window_controller, state),
+    self { std::make_shared<Self>(*this) }
 {
     animator.start();
     workspace_observer_registrar.register_interest(ipc);
+    workspace_observer_registrar.register_interest(self);
     mode_observer_registrar.register_interest(ipc);
     window_tools_accessor->set_tools(tools);
 }
@@ -85,6 +123,7 @@ Policy::Policy(
 Policy::~Policy()
 {
     workspace_observer_registrar.unregister_interest(ipc.get());
+    workspace_observer_registrar.unregister_interest(self.get());
     mode_observer_registrar.unregister_interest(ipc.get());
 }
 
@@ -391,12 +430,14 @@ void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
         break;
     default:
     {
-        auto const* workspace = container->get_workspace();
-        if (workspace && workspace != state.active_output->active())
-            return;
-
+        auto* workspace = container->get_workspace();
         state.focus(container);
         container->on_focus_gained();
+        if (workspace && workspace != state.active_output->active())
+            workspace_manager.request_focus(workspace->id());
+
+        if (workspace)
+            workspace->advise_focus_gained(container);
         break;
     }
     }
@@ -943,6 +984,8 @@ bool Policy::move_active_to_workspace(int number, bool back_and_forth)
             state.active_output.get(), number, back_and_forth))
     {
         state.active_output->graft(container);
+        if (container->window().value())
+            window_controller.select_active_window(container->window().value());
         return true;
     }
 
@@ -1204,9 +1247,9 @@ bool Policy::set_layout_default()
     return state.active()->set_layout(config->get_default_layout_scheme());
 }
 
-void Policy::move_cursor_to_output(std::shared_ptr<Output> const& output)
+void Policy::move_cursor_to_output(Output const& output)
 {
-    auto const& extents = output->get_output().extents();
+    auto const& extents = output.get_output().extents();
     window_manager_tools.move_cursor_to({ extents.top_left.x.as_int() + extents.size.width.as_int() / 2.f,
         extents.top_left.y.as_int() + extents.size.height.as_int() / 2.f });
 }
@@ -1221,7 +1264,7 @@ bool Policy::try_select_next_output()
             if (j == output_list.size())
                 j = 0;
 
-            move_cursor_to_output(output_list[j]);
+            move_cursor_to_output(*output_list[j]);
             return true;
         }
     }
@@ -1239,7 +1282,7 @@ bool Policy::try_select_prev_output()
             if (j < 0)
                 j = output_list.size() - 1;
 
-            move_cursor_to_output(output_list[j]);
+            move_cursor_to_output(*output_list[j]);
             return true;
         }
     }
@@ -1275,7 +1318,7 @@ bool Policy::try_select_output(std::vector<std::string> const& names)
     {
         if (output->get_output().name() == names[next])
         {
-            move_cursor_to_output(output);
+            move_cursor_to_output(*output);
             return true;
         }
     }
