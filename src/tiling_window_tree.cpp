@@ -717,7 +717,7 @@ bool TilingWindowTree::constrain(Container& container)
 namespace
 {
 std::shared_ptr<Container> foreach_node_internal(
-    std::function<bool(std::shared_ptr<Container>)> const& f,
+    std::function<bool(std::shared_ptr<Container> const&)> const& f,
     std::shared_ptr<Container> const& parent)
 {
     if (f(parent))
@@ -736,12 +736,21 @@ std::shared_ptr<Container> foreach_node_internal(
 }
 }
 
-void TilingWindowTree::foreach_node(std::function<void(std::shared_ptr<Container>)> const& f)
+void TilingWindowTree::foreach_node(std::function<void(std::shared_ptr<Container> const&)> const& f)
 {
     foreach_node_internal(
         [&](auto const& node)
     { f(node); return false; },
         root_lane);
+}
+
+bool TilingWindowTree::foreach_node_pred(std::function<bool(std::shared_ptr<Container> const&)> const& f)
+{
+    return foreach_node_internal(
+               [&](auto const& node)
+    { return f(node); },
+               root_lane)
+        != nullptr;
 }
 
 void TilingWindowTree::hide()

@@ -181,8 +181,8 @@ bool Output::advise_workspace_active(uint32_t id)
 
         auto to_rectangle = get_workspace_rectangle(to_index);
         set_position(glm::vec2(
-            to_rectangle.top_left.x.as_int(),
-            to_rectangle.top_left.y.as_int()));
+            -to_rectangle.top_left.x.as_int(),
+            -to_rectangle.top_left.y.as_int()));
         to->trigger_rerender();
         return true;
     }

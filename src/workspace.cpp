@@ -205,6 +205,11 @@ void Workspace::delete_container(std::shared_ptr<Container> const& container)
     }
 }
 
+void Workspace::advise_focus_gained(std::shared_ptr<Container> const& container)
+{
+    last_selected_container = container;
+}
+
 void Workspace::show()
 {
     auto fullscreen_node = tree->show();
@@ -295,6 +300,70 @@ void Workspace::remove_floating_hack(std::shared_ptr<Container> const& container
     Container::as_floating(container)->set_workspace(nullptr);
     floating_windows.erase(
         std::remove(floating_windows.begin(), floating_windows.end(), container), floating_windows.end());
+}
+
+void Workspace::select_first_window()
+{
+    // Check if the selected container is already on this workspace
+    if (state.active() && state.active()->get_workspace() == this)
+        return;
+
+    // First, try and select the previously selected container if it is still around
+    if (!last_selected_container.expired())
+    {
+        auto last_selected = last_selected_container.lock();
+        if (last_selected->get_type() == ContainerType::leaf)
+        {
+            auto found = tree->foreach_node_pred([&](std::shared_ptr<Container> const& container)
+            {
+                if (container == last_selected)
+                {
+                    window_controller.select_active_window(container->window().value());
+                    return true;
+                }
+
+                return false;
+            });
+
+            if (found)
+                return;
+        }
+        else if (last_selected->get_type() == ContainerType::floating_window)
+        {
+            for (auto const& floating : floating_windows)
+            {
+                if (floating == last_selected)
+                {
+                    window_controller.select_active_window(floating->window().value());
+                    return;
+                }
+            }
+        }
+    }
+
+    // Otherwise, select the first available tiling window followed by floating windows
+    auto found = tree->foreach_node_pred([&](std::shared_ptr<Container> const& container)
+    {
+        if (Container::as_leaf(container))
+        {
+            window_controller.select_active_window(container->window().value());
+            return true;
+        }
+
+        return false;
+    });
+
+    if (found)
+        return;
+
+    if (!floating_windows.empty())
+    {
+        window_controller.select_active_window(floating_windows[0]->window().value());
+        return;
+    }
+
+    // If all fails, select nothing
+    window_controller.select_active_window(miral::Window {});
 }
 
 Output* Workspace::get_output() const

@@ -138,7 +138,7 @@ public:
     bool toggle_stacking();
     bool set_layout(LayoutScheme scheme);
     bool set_layout_default();
-    void move_cursor_to_output(std::shared_ptr<Output> const&);
+    void move_cursor_to_output(Output const&);
     bool try_select_next_output();
     bool try_select_prev_output();
     bool try_select_output(Direction direction);
@@ -152,6 +152,8 @@ public:
     [[nodiscard]] CompositorState const& get_state() const { return state; }
 
 private:
+    class Self;
+
     bool can_move_container() const;
     bool can_set_layout() const;
     std::shared_ptr<Container> toggle_floating_internal(std::shared_ptr<Container> const& container);
@@ -176,6 +178,7 @@ private:
     SurfaceTracker& surface_tracker;
     std::shared_ptr<ContainerGroupContainer> group_selection;
     Scratchpad scratchpad_;
+    std::shared_ptr<Self> self;
 };
 }
 
