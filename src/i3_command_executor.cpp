@@ -204,7 +204,7 @@ void I3CommandExecutor::process_focus(I3Command const& command, I3ScopedCommandL
     else if (arg == "parent")
         policy.try_select_parent();
     else if (arg == "child")
-        mir::log_warning("'focus child' is not supported, see https://github.com/mattkae/miracle-wm/issues/117"); // TODO
+        policy.try_select_child();
     else if (arg == "prev")
     {
         auto container = state.active();
