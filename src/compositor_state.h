@@ -53,7 +53,10 @@ public:
     bool has_clicked_floating_window = false;
 
     [[nodiscard]] std::shared_ptr<Container> active() const;
-    void focus(std::shared_ptr<Container> const& container);
+
+    /// Focuses the provided container. If [is_anonymous] is true, the container
+    /// will be focused even if it does not exist in the list.
+    void focus(std::shared_ptr<Container> const&, bool is_anonymous = false);
     void unfocus(std::shared_ptr<Container> const& container);
     void add(std::shared_ptr<Container> const& container);
     void remove(std::shared_ptr<Container> const& container);

@@ -27,8 +27,14 @@ using namespace miracle;
     return nullptr;
 }
 
-void CompositorState::focus(std::shared_ptr<Container> const& container)
+void CompositorState::focus(std::shared_ptr<Container> const& container, bool is_anonymous)
 {
+    if (is_anonymous)
+    {
+        focused = container;
+        return;
+    }
+
     auto it = std::find_if(focus_order.begin(), focus_order.end(), [&](auto const& element)
     {
         return !element.expired() && element.lock() == container;

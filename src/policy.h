@@ -111,6 +111,7 @@ public:
     bool try_move_to(int x, int y);
     bool try_select(Direction direction);
     bool try_select_parent();
+    bool try_select_child();
     bool try_select_floating();
     bool try_select_tiling();
     bool try_select_toggle();
@@ -157,6 +158,9 @@ private:
     bool can_move_container() const;
     bool can_set_layout() const;
     std::shared_ptr<Container> toggle_floating_internal(std::shared_ptr<Container> const& container);
+
+    /// Selects any type of container, including those that do not directly reference a window.
+    void select_container(std::shared_ptr<Container> const&);
 
     bool is_starting_ = true;
     CompositorState& state;

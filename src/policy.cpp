@@ -795,6 +795,17 @@ bool Policy::try_move_to(int x, int y)
     return state.active()->move_to(x, y);
 }
 
+void Policy::select_container(std::shared_ptr<Container> const& container)
+{
+    if (container->window())
+        window_controller.select_active_window(container->window().value());
+    else
+    {
+        window_controller.select_active_window(miral::Window {});
+        state.focus(container, true);
+    }
+}
+
 bool Policy::try_select(miracle::Direction direction)
 {
     if (state.mode == WindowManagerMode::resizing)
@@ -813,6 +824,45 @@ bool Policy::try_select_parent()
 
     if (!state.active())
         return false;
+
+    if (!state.active()->get_parent().expired())
+    {
+        select_container(state.active()->get_parent().lock());
+        return true;
+    }
+    else
+    {
+        mir::log_error("try_select_parent: no parent to select");
+        return false;
+    }
+}
+
+bool Policy::try_select_child()
+{
+    if (state.mode != WindowManagerMode::normal)
+        return false;
+
+    if (!state.active())
+        return false;
+
+    if (state.active()->get_type() != ContainerType::parent)
+    {
+        mir::log_info("Policy::try_select_child: parent is not selected");
+        return false;
+    }
+
+    for (auto const& container : state.containers())
+    {
+        if (!container.expired())
+        {
+            auto const lock_container = container.lock();
+            if (lock_container->get_parent().expired())
+                continue;
+
+            if (lock_container->get_parent().lock() == state.active())
+                select_container(lock_container);
+        }
+    }
 
     if (!state.active()->get_parent().expired())
     {
