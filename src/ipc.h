@@ -18,8 +18,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef MIRACLEWM_IPC_H
 #define MIRACLEWM_IPC_H
 
-#include "i3_command.h"
-#include "i3_command_executor.h"
+#include "ipc_command.h"
+#include "ipc_command_executor.h"
 #include "mode_observer.h"
 #include "workspace_manager.h"
 #include "workspace_observer.h"
@@ -38,7 +38,7 @@ class Policy;
 class Config;
 
 /// This it taken directly from SWAY
-enum IpcCommandType
+enum IpcType
 {
     // i3 command types - see i3's I3_REPLY_TYPE constants
     IPC_COMMAND = 0,
@@ -101,7 +101,7 @@ private:
         mir::Fd client_fd;
         std::unique_ptr<miral::FdHandle> handle;
         uint32_t pending_read_length = 0;
-        IpcCommandType pending_type;
+        IpcType pending_type;
         std::vector<char> buffer;
         int write_buffer_len = 0;
         int subscribed_events = 0;
@@ -113,7 +113,7 @@ private:
     std::unique_ptr<miral::FdHandle> socket_handle;
     sockaddr_un* ipc_sockaddr = nullptr;
     std::vector<IpcClient> clients;
-    std::vector<I3ScopedCommandList> pending_commands;
+    std::vector<IpcParseResult> pending_commands;
     mutable std::shared_mutex pending_commands_mutex;
     std::shared_ptr<mir::ServerActionQueue> queue;
     I3CommandExecutor& executor;
@@ -121,10 +121,10 @@ private:
 
     void disconnect(IpcClient& client);
     IpcClient& get_client(int fd);
-    void handle_command(IpcClient& client, uint32_t payload_length, IpcCommandType payload_type);
-    void send_reply(IpcClient& client, IpcCommandType command_type, std::string const& payload);
+    void handle_command(IpcClient& client, uint32_t payload_length, IpcType payload_type);
+    void send_reply(IpcClient& client, IpcType command_type, std::string const& payload);
     void handle_writeable(IpcClient& client);
-    bool parse_i3_command(std::string_view const& command);
+    bool parse_i3_command(const char* command);
 };
 }
 

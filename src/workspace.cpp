@@ -433,7 +433,7 @@ std::string Workspace::display_name() const
 {
     std::stringstream ss;
     if (num_ && name_)
-        ss << num_.value() << ": " << name_.value();
+        ss << num_.value() << ":" << name_.value();
     else if (name_)
         return name_.value();
     else if (num_)

@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "ipc.h"
 #include "config.h"
-#include "i3_command_executor.h"
+#include "ipc_command_executor.h"
 #include "output.h"
 #include "policy.h"
 #include "version.h"
@@ -324,7 +324,7 @@ Ipc::Ipc(miral::MirRunner& runner,
                 {
                     // Reset pending values.
                     uint32_t pending_length = client.pending_read_length;
-                    IpcCommandType pending_type = client.pending_type;
+                    IpcType pending_type = client.pending_type;
                     client.pending_read_length = 0;
                     handle_command(client, pending_length, pending_type);
                 }
@@ -361,7 +361,7 @@ Ipc::Ipc(miral::MirRunner& runner,
             {
                 // Reset pending values.
                 uint32_t pending_length = client.pending_read_length;
-                IpcCommandType pending_type = client.pending_type;
+                IpcType pending_type = client.pending_type;
                 client.pending_read_length = 0;
                 handle_command(client, pending_length, pending_type);
             }
@@ -498,7 +498,7 @@ void Ipc::disconnect(Ipc::IpcClient& client)
     }
 }
 
-void Ipc::handle_command(miracle::Ipc::IpcClient& client, uint32_t payload_length, miracle::IpcCommandType payload_type)
+void Ipc::handle_command(miracle::Ipc::IpcClient& client, uint32_t payload_length, miracle::IpcType payload_type)
 {
     char* buf = (char*)malloc(payload_length + 1);
     if (!buf)
@@ -527,7 +527,7 @@ void Ipc::handle_command(miracle::Ipc::IpcClient& client, uint32_t payload_lengt
     case IPC_COMMAND:
     {
         mir::log_debug("Processing i3_command: %s", buf);
-        auto result = parse_i3_command(std::string_view(buf));
+        auto result = parse_i3_command(buf);
         if (result)
         {
             const std::string msg = "[{\"success\": true}]";
@@ -671,7 +671,7 @@ void Ipc::handle_command(miracle::Ipc::IpcClient& client, uint32_t payload_lengt
     }
 }
 
-void Ipc::send_reply(miracle::Ipc::IpcClient& client, miracle::IpcCommandType command_type, const std::string& payload)
+void Ipc::send_reply(miracle::Ipc::IpcClient& client, miracle::IpcType command_type, const std::string& payload)
 {
     if (!fd_is_valid(client.client_fd.operator int()))
     {
@@ -759,11 +759,12 @@ void Ipc::handle_writeable(miracle::Ipc::IpcClient& client)
     client.write_buffer_len = 0;
 }
 
-bool Ipc::parse_i3_command(std::string_view const& command)
+bool Ipc::parse_i3_command(const char* command)
 {
     {
         std::unique_lock lock(pending_commands_mutex);
-        pending_commands = I3ScopedCommandList::parse(command);
+        IpcCommandParser parser(command);
+        pending_commands.push_back(parser.parse());
     }
 
     queue->enqueue(this, [&]()
