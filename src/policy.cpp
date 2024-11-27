@@ -1384,5 +1384,5 @@ bool Policy::can_set_layout() const
     if (!state.active())
         return false;
 
-    return true;
+    return !state.active()->is_fullscreen();
 }

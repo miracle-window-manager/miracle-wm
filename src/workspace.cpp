@@ -177,7 +177,7 @@ void Workspace::handle_ready_hack(LeafContainer& container)
     for (auto const& window : floating_windows)
         window_controller.raise(window->window().value());
 
-    if (tree->has_fullscreen_window())
+    if (state.active() && state.active()->is_fullscreen())
         window_controller.raise(state.active()->window().value());
 }
 
