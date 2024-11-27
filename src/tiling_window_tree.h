@@ -83,8 +83,6 @@ public:
     /// Toggle the active window between fullscreen and not fullscreen
     bool toggle_fullscreen(LeafContainer&);
 
-    bool has_fullscreen_window() const { return is_active_window_fullscreen; }
-
     void request_layout(Container&, LayoutScheme);
 
     /// Request a change to vertical window placement
@@ -112,8 +110,6 @@ public:
     void set_area(geom::Rectangle const& new_area);
 
     geom::Rectangle get_area() const;
-
-    std::shared_ptr<LeafContainer> select_window_from_point(int x, int y);
 
     bool advise_fullscreen_container(LeafContainer&);
     bool advise_restored_container(LeafContainer&);
@@ -159,7 +155,6 @@ private:
     std::shared_ptr<ParentContainer> root_lane;
     std::unique_ptr<TilingWindowTreeInterface> tree_interface;
 
-    bool is_active_window_fullscreen = false;
     bool is_hidden = false;
     int config_handle = 0;
 
@@ -187,8 +182,6 @@ private:
     /// Selects the next node in the provided direction
     /// @returns The next selectable window or nullptr if none is found
     static std::shared_ptr<LeafContainer> handle_select(Container& from, Direction direction);
-
-    std::shared_ptr<LeafContainer> active_container() const;
 };
 
 }

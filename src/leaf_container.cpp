@@ -140,7 +140,6 @@ void LeafContainer::handle_ready()
 {
     tree->handle_container_ready(*this);
     get_workspace()->handle_ready_hack(*this);
-    auto const& info = window_controller.info_for(window_);
     if (window_controller.is_fullscreen(window_))
         toggle_fullscreen();
 }

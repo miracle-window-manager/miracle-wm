@@ -106,12 +106,6 @@ void TilingWindowTree::graft(std::shared_ptr<LeafContainer> const& leaf)
 
 bool TilingWindowTree::resize_container(miracle::Direction direction, Container& container)
 {
-    if (is_active_window_fullscreen)
-    {
-        mir::log_warning("Unable to resize the next window: fullscreened");
-        return false;
-    }
-
     handle_resize(container, direction, config->get_resize_jump());
     return true;
 }
@@ -119,12 +113,6 @@ bool TilingWindowTree::resize_container(miracle::Direction direction, Container&
 bool TilingWindowTree::select_next(
     miracle::Direction direction, Container& container)
 {
-    if (is_active_window_fullscreen)
-    {
-        mir::log_warning("Unable to select the next window: fullscreened");
-        return false;
-    }
-
     auto node = handle_select(container, direction);
     if (!node)
     {
@@ -138,10 +126,10 @@ bool TilingWindowTree::select_next(
 
 bool TilingWindowTree::toggle_fullscreen(LeafContainer& container)
 {
-    if (is_active_window_fullscreen)
-        advise_restored_container(container);
-    else
+    if (container.is_fullscreen())
         advise_fullscreen_container(container);
+    else
+        advise_restored_container(container);
     return true;
 }
 
@@ -156,27 +144,8 @@ geom::Rectangle TilingWindowTree::get_area() const
     return root_lane->get_logical_area();
 }
 
-std::shared_ptr<LeafContainer> TilingWindowTree::select_window_from_point(int x, int y)
-{
-    if (is_active_window_fullscreen)
-        return active_container();
-
-    auto node = root_lane->find_where([&](std::shared_ptr<Container> const& node)
-    {
-        return node->is_leaf() && node->get_logical_area().contains(geom::Point(x, y));
-    });
-
-    return Container::as_leaf(node);
-}
-
 bool TilingWindowTree::move_container(miracle::Direction direction, Container& container)
 {
-    if (is_active_window_fullscreen)
-    {
-        mir::log_warning("Unable to move active window: fullscreen");
-        return false;
-    }
-
     auto traversal_result = handle_move(container, direction);
     switch (traversal_result.traversal_type)
     {
@@ -286,12 +255,6 @@ void TilingWindowTree::toggle_layout(Container& container, bool cycle_thru_all)
 
 void TilingWindowTree::handle_layout_scheme(LayoutScheme scheme, Container& container)
 {
-    if (is_active_window_fullscreen)
-    {
-        mir::log_warning("Unable to handle direction request: fullscreen");
-        return;
-    }
-
     auto parent = container.get_parent().lock();
     if (!parent)
     {
@@ -312,7 +275,7 @@ void TilingWindowTree::handle_layout_scheme(LayoutScheme scheme, Container& cont
 
 void TilingWindowTree::advise_focus_gained(LeafContainer& container)
 {
-    if (is_active_window_fullscreen)
+    if (container.is_fullscreen())
         window_controller.raise(container.window().value());
     else if (auto const& parent = container.get_parent().lock())
         parent->on_focus_gained();
@@ -320,13 +283,6 @@ void TilingWindowTree::advise_focus_gained(LeafContainer& container)
 
 void TilingWindowTree::advise_delete_window(std::shared_ptr<Container> const& container)
 {
-    auto active = active_container();
-    if (active == container)
-    {
-        if (is_active_window_fullscreen)
-            is_active_window_fullscreen = false;
-    }
-
     auto parent = handle_remove(container);
     parent->commit_changes();
 }
@@ -650,16 +606,14 @@ bool TilingWindowTree::advise_fullscreen_container(LeafContainer& container)
     auto window = container.window().value();
     window_controller.select_active_window(window);
     window_controller.raise(window);
-    is_active_window_fullscreen = true;
     return true;
 }
 
 bool TilingWindowTree::advise_restored_container(LeafContainer& container)
 {
-    auto active = active_container();
-    if (active && active->window() == container.window().value() && is_active_window_fullscreen)
+    auto active = state.active();
+    if (active && active->window() == container.window().value())
     {
-        is_active_window_fullscreen = false;
         container.set_logical_area(container.get_logical_area());
         container.commit_changes();
     }
@@ -670,7 +624,7 @@ bool TilingWindowTree::advise_restored_container(LeafContainer& container)
 bool TilingWindowTree::handle_container_ready(LeafContainer& container)
 {
     constrain(container);
-    if (is_active_window_fullscreen)
+    if (state.active() && state.active()->is_fullscreen())
         return true;
 
     auto window = container.window().value();
@@ -795,9 +749,4 @@ bool TilingWindowTree::is_empty()
 Workspace* TilingWindowTree::get_workspace() const
 {
     return tree_interface->get_workspace();
-}
-
-std::shared_ptr<LeafContainer> TilingWindowTree::active_container() const
-{
-    return Container::as_leaf(state.active());
 }
