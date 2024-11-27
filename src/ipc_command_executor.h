@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MIRACLEWM_I_3_COMMAND_EXECUTOR_H
 
 #include "compositor_state.h"
-#include "i3_command.h"
+#include "ipc_command.h"
 #include <mir/glib_main_loop.h>
 
 namespace miracle
@@ -41,7 +41,7 @@ public:
         CompositorState const&,
         AutoRestartingLauncher&,
         WindowController&);
-    void process(I3ScopedCommandList const&);
+    void process(IpcParseResult const&);
 
 private:
     Policy& policy;
@@ -50,16 +50,16 @@ private:
     AutoRestartingLauncher& launcher;
     WindowController& window_controller;
 
-    miral::Window get_window_meeting_criteria(I3ScopedCommandList const&);
-    void process_exec(I3Command const&, I3ScopedCommandList const&);
-    void process_split(I3Command const&, I3ScopedCommandList const&);
-    void process_focus(I3Command const&, I3ScopedCommandList const&);
-    void process_move(I3Command const&, I3ScopedCommandList const&);
-    void process_sticky(I3Command const&, I3ScopedCommandList const&);
-    void process_input(I3Command const&, I3ScopedCommandList const&);
-    void process_workspace(I3Command const&, I3ScopedCommandList const&);
-    void process_layout(I3Command const&, I3ScopedCommandList const&);
-    void process_scratchpad(I3Command const&, I3ScopedCommandList const&);
+    miral::Window get_window_meeting_criteria(IpcParseResult const&);
+    void process_exec(IpcCommand const&, IpcParseResult const&);
+    void process_split(IpcCommand const&, IpcParseResult const&);
+    void process_focus(IpcCommand const&, IpcParseResult const&);
+    void process_move(IpcCommand const&, IpcParseResult const&);
+    void process_sticky(IpcCommand const&, IpcParseResult const&);
+    void process_input(IpcCommand const&, IpcParseResult const&);
+    void process_workspace(IpcCommand const&, IpcParseResult const&);
+    void process_layout(IpcCommand const&, IpcParseResult const&);
+    void process_scratchpad(IpcCommand const&, IpcParseResult const&);
 };
 
 } // miracle

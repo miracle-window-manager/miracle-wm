@@ -28,7 +28,7 @@ namespace miracle
 {
 class WindowController;
 
-enum class I3CommandType
+enum class IpcCommandType
 {
     none,
     exec,
@@ -56,7 +56,7 @@ enum class I3CommandType
 };
 
 // https://i3wm.org/docs/userguide.html#command_criteria
-enum class I3ScopeType
+enum class IpcScopeType
 {
     none,
     all,
@@ -83,31 +83,48 @@ enum class I3ScopeType
     id,
 };
 
-struct I3Scope
+struct IpcScope
 {
-    I3ScopeType type = I3ScopeType::none;
-    std::optional<std::string> regex;
-
-    /// Assumes that the provided string_view is in [] brackets
-    static std::vector<I3Scope> parse(std::string_view const&, int& ptr);
+    IpcScopeType type;
+    std::string value;
 };
 
-struct I3Command
+struct IpcCommand
 {
-    I3CommandType type = I3CommandType::none;
-    std::vector<std::string> arguments;
-    /// Anything in the command that starts with "--"
+    IpcCommandType type;
     std::vector<std::string> options;
+    std::vector<std::string> arguments;
 };
 
-struct I3ScopedCommandList
+struct IpcParseResult
 {
-    std::vector<I3Command> commands;
-    std::vector<I3Scope> scope;
+    std::vector<IpcScope> scope;
+    std::vector<IpcCommand> commands;
+};
 
-    bool meets_criteria(miral::Window const&, WindowController&) const;
+class IpcCommandParser
+{
+public:
+    explicit IpcCommandParser(const char*);
+    IpcParseResult parse();
 
-    static std::vector<I3ScopedCommandList> parse(std::string_view const&);
+private:
+    enum class ParseState
+    {
+        root,
+        scope_key,
+        scope_value,
+        literal,
+        command,
+        option,
+        argument
+    };
+
+    std::string data;
+    std::vector<ParseState> stack = { ParseState::root };
+    size_t index = 0;
+    bool has_parsed_command = false;
+    bool can_parse_options = true;
 };
 }
 

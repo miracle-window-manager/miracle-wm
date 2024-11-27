@@ -15,10 +15,10 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#include "i3_command_executor.h"
+#include "ipc_command_executor.h"
 #include "auto_restarting_launcher.h"
 #include "direction.h"
-#include "i3_command.h"
+#include "ipc_command.h"
 #include "leaf_container.h"
 #include "parent_container.h"
 #include "policy.h"
@@ -46,40 +46,40 @@ I3CommandExecutor::I3CommandExecutor(
 {
 }
 
-void I3CommandExecutor::process(miracle::I3ScopedCommandList const& command_list)
+void I3CommandExecutor::process(miracle::IpcParseResult const& command_list)
 {
     for (auto const& command : command_list.commands)
     {
         switch (command.type)
         {
-        case I3CommandType::exec:
+        case IpcCommandType::exec:
             process_exec(command, command_list);
             break;
-        case I3CommandType::split:
+        case IpcCommandType::split:
             process_split(command, command_list);
             break;
-        case I3CommandType::focus:
+        case IpcCommandType::focus:
             process_focus(command, command_list);
             break;
-        case I3CommandType::move:
+        case IpcCommandType::move:
             process_move(command, command_list);
             break;
-        case I3CommandType::sticky:
+        case IpcCommandType::sticky:
             process_sticky(command, command_list);
             break;
-        case I3CommandType::exit:
+        case IpcCommandType::exit:
             policy.quit();
             break;
-        case I3CommandType::input:
+        case IpcCommandType::input:
             process_input(command, command_list);
             break;
-        case I3CommandType::workspace:
+        case IpcCommandType::workspace:
             process_workspace(command, command_list);
             break;
-        case I3CommandType::layout:
+        case IpcCommandType::layout:
             process_layout(command, command_list);
             break;
-        case I3CommandType::scratchpad:
+        case IpcCommandType::scratchpad:
             process_scratchpad(command, command_list);
             break;
         default:
@@ -88,7 +88,7 @@ void I3CommandExecutor::process(miracle::I3ScopedCommandList const& command_list
     }
 }
 
-miral::Window I3CommandExecutor::get_window_meeting_criteria(I3ScopedCommandList const& command_list)
+miral::Window I3CommandExecutor::get_window_meeting_criteria(IpcParseResult const& command_list)
 {
     for (auto const& container : state.containers())
     {
@@ -98,15 +98,15 @@ miral::Window I3CommandExecutor::get_window_meeting_criteria(I3ScopedCommandList
         auto window = container.lock()->window();
         if (auto const& w = window.value())
         {
-            if (command_list.meets_criteria(w, window_controller))
-                return window.value();
+            // if (command_list.meets_criteria(w, window_controller))
+            return window.value();
         }
     }
 
     return miral::Window {};
 }
 
-void I3CommandExecutor::process_exec(miracle::I3Command const& command, miracle::I3ScopedCommandList const& command_list)
+void I3CommandExecutor::process_exec(miracle::IpcCommand const& command, miracle::IpcParseResult const& command_list)
 {
     if (command.arguments.empty())
     {
@@ -134,7 +134,7 @@ void I3CommandExecutor::process_exec(miracle::I3Command const& command, miracle:
     launcher.launch(app);
 }
 
-void I3CommandExecutor::process_split(miracle::I3Command const& command, miracle::I3ScopedCommandList const& command_list)
+void I3CommandExecutor::process_split(miracle::IpcCommand const& command, miracle::IpcParseResult const& command_list)
 {
     if (command.arguments.empty())
     {
@@ -161,7 +161,7 @@ void I3CommandExecutor::process_split(miracle::I3Command const& command, miracle
     }
 }
 
-void I3CommandExecutor::process_focus(I3Command const& command, I3ScopedCommandList const& command_list)
+void I3CommandExecutor::process_focus(IpcCommand const& command, IpcParseResult const& command_list)
 {
     // https://i3wm.org/docs/userguide.html#_focusing_moving_containers
     if (command.arguments.empty())
@@ -315,7 +315,7 @@ bool parse_move_distance(std::vector<std::string> const& arguments, int& index, 
 }
 }
 
-void I3CommandExecutor::process_move(I3Command const& command, I3ScopedCommandList const& command_list)
+void I3CommandExecutor::process_move(IpcCommand const& command, IpcParseResult const& command_list)
 {
     auto active_output = policy.get_active_output();
     if (!active_output)
@@ -498,7 +498,7 @@ void I3CommandExecutor::process_move(I3Command const& command, I3ScopedCommandLi
     }
 }
 
-void I3CommandExecutor::process_sticky(I3Command const& command, I3ScopedCommandList const& command_list)
+void I3CommandExecutor::process_sticky(IpcCommand const& command, IpcParseResult const& command_list)
 {
     if (command.arguments.empty())
     {
@@ -518,7 +518,7 @@ void I3CommandExecutor::process_sticky(I3Command const& command, I3ScopedCommand
 }
 
 // This command will be
-void I3CommandExecutor::process_input(I3Command const& command, I3ScopedCommandList const& command_list)
+void I3CommandExecutor::process_input(IpcCommand const& command, IpcParseResult const& command_list)
 {
     // Payloads appear in the following format:
     //    [type:X, xkb_Y, Z]
@@ -575,7 +575,7 @@ void I3CommandExecutor::process_input(I3Command const& command, I3ScopedCommandL
     }
 }
 
-void I3CommandExecutor::process_workspace(I3Command const& command, I3ScopedCommandList const& command_list)
+void I3CommandExecutor::process_workspace(IpcCommand const& command, IpcParseResult const& command_list)
 {
     if (command.arguments.empty())
     {
@@ -633,7 +633,7 @@ void I3CommandExecutor::process_workspace(I3Command const& command, I3ScopedComm
     }
 }
 
-void I3CommandExecutor::process_layout(I3Command const& command, I3ScopedCommandList const& command_list)
+void I3CommandExecutor::process_layout(IpcCommand const& command, IpcParseResult const& command_list)
 {
     // https://i3wm.org/docs/userguide.html#manipulating_layout
     std::string const& arg0 = command.arguments[0];
@@ -742,7 +742,7 @@ void I3CommandExecutor::process_layout(I3Command const& command, I3ScopedCommand
     }
 }
 
-void I3CommandExecutor::process_scratchpad(I3Command const& command, I3ScopedCommandList const& command_list)
+void I3CommandExecutor::process_scratchpad(IpcCommand const& command, IpcParseResult const& command_list)
 {
     if (command.arguments.empty())
     {
