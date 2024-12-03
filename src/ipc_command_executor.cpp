@@ -443,43 +443,77 @@ void I3CommandExecutor::process_move(IpcCommand const& command, IpcParseResult c
         }
 
         auto const& arg2 = command.arguments[index++];
-        if (arg2 != "workspace")
+        if (arg2 == "workspace")
         {
-            mir::log_error("process_move: expected 'workspace' after 'move window/container to...'");
-            return;
-        }
+            if (command.arguments.size() <= 3)
+            {
+                mir::log_error("process_move: expected another argument after 'move container/window to output...'");
+                return;
+            }
 
-        auto const& arg3 = command.arguments[index++];
-        int number = -1;
-        if (try_get_number(arg3, number))
-        {
-            // TODO: Do we need to care about the name here?
-            policy.move_active_to_workspace(number, back_and_forth);
-            return;
+            auto const& arg3 = command.arguments[index++];
+            int number = -1;
+            if (try_get_number(arg3, number))
+            {
+                // TODO: Do we need to care about the name here?
+                policy.move_active_to_workspace(number, back_and_forth);
+                return;
+            }
+            else if (arg3 == "next")
+            {
+                policy.move_active_to_next_workspace();
+                return;
+            }
+            else if (arg3 == "prev")
+            {
+                policy.move_active_to_prev_workspace();
+                return;
+            }
+            else if (arg3 == "current")
+            {
+                // TODO: Support window selection
+            }
+            else if (arg3 == "back_and_forth")
+            {
+                policy.move_active_to_back_and_forth();
+                return;
+            }
+            else
+            {
+                policy.move_active_to_workspace_named(arg3, back_and_forth);
+                return;
+            }
         }
-        else if (arg3 == "next")
+        else if (arg2 == "output")
         {
-            policy.move_active_to_next();
-            return;
-        }
-        else if (arg3 == "prev")
-        {
-            policy.move_active_to_prev();
-            return;
-        }
-        else if (arg3 == "current")
-        {
-            // TODO: Support window selection
-        }
-        else if (arg3 == "back_and_forth")
-        {
-            policy.move_active_to_back_and_forth();
-            return;
-        }
-        else
-        {
-            policy.move_active_to_workspace_named(arg3, back_and_forth);
-            return;
+            if (command.arguments.size() <= 3)
+            {
+                mir::log_error("process_move: expected another argument after 'move container/window to output...'");
+                return;
+            }
+
+            auto const& arg3 = command.arguments[index++];
+            if (arg3 == "left")
+                policy.try_move_active_to_output(Direction::left);
+            else if (arg3 == "right")
+                policy.try_move_active_to_output(Direction::right);
+            else if (arg3 == "down")
+                policy.try_move_active_to_output(Direction::down);
+            else if (arg3 == "up")
+                policy.try_move_active_to_output(Direction::up);
+            else if (arg3 == "current")
+                policy.try_move_active_to_current();
+            else if (arg3 == "primary")
+                policy.try_move_active_to_primary();
+            else if (arg3 == "nonprimary")
+                policy.try_move_active_to_nonprimary();
+            else if (arg3 == "next")
+                policy.try_move_active_to_next();
+            else
+            {
+                auto names = std::vector<std::string>(command.arguments.begin() + index, command.arguments.end());
+                policy.try_move_active(names);
+            }
         }
     }
     else if (arg0 == "scratchpad")
