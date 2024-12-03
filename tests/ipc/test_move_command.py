@@ -70,9 +70,3 @@ class TestMoveCommand:
         workspace = output.nodes[0]
         assert workspace.num == 1
         assert len(workspace.nodes) == 2
-
-    def test_move_to_next_output(self, multi_win_server):
-        pass
-
-    def test_move_to_prev_output(self, multi_win_server):
-        pass
