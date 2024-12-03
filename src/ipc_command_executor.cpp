@@ -511,7 +511,7 @@ void I3CommandExecutor::process_move(IpcCommand const& command, IpcParseResult c
                 policy.try_move_active_to_next();
             else
             {
-                auto names = std::vector<std::string>(command.arguments.begin() + index, command.arguments.end());
+                auto names = std::vector<std::string>(command.arguments.begin() + index - 1, command.arguments.end());
                 policy.try_move_active(names);
             }
         }
