@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "window_helpers.h"
 #include "window_tools_accessor.h"
 #include "workspace_manager.h"
+#include "math_helpers.h"
 
 #include <iostream>
 #include <mir/geometry/rectangle.h>
@@ -1060,7 +1061,7 @@ bool Policy::move_active_to_workspace_named(std::string const& name, bool back_a
     return false;
 }
 
-bool Policy::move_active_to_next()
+bool Policy::move_active_to_next_workspace()
 {
     if (!can_move_container())
         return false;
@@ -1078,7 +1079,7 @@ bool Policy::move_active_to_next()
     return false;
 }
 
-bool Policy::move_active_to_prev()
+bool Policy::move_active_to_prev_workspace()
 {
     if (!can_move_container())
         return false;
@@ -1340,16 +1341,79 @@ bool Policy::try_select_prev_output()
     return false;
 }
 
+std::shared_ptr<Output> const& Policy::_next_output_in_direction(Direction direction)
+{
+    auto const& active = state.active_output;
+    auto const& active_area = active->get_area();
+    for (auto const& output : output_list)
+    {
+        if (output == state.active_output)
+            continue;
+
+        auto const& other_area = output->get_area();
+        switch (direction)
+        {
+        case Direction::left:
+        {
+            if (active_area.top_left.x.as_int() ==
+                (other_area.top_left.x.as_int() + other_area.size.width.as_int()))
+            {
+                return output;
+            }
+            break;
+        }
+        case Direction::right:
+        {
+            if (active_area.top_left.x.as_int() + active_area.size.width.as_int() ==
+                    other_area.top_left.x.as_int())
+            {
+                return output;
+            }
+            break;
+        }
+        case Direction::up:
+        {
+            if (active_area.top_left.y.as_int() ==
+                (other_area.top_left.y.as_int() + other_area.size.height.as_int()))
+            {
+                return output;
+            }
+            break;
+        }
+        case Direction::down:
+        {
+            if (active_area.top_left.y.as_int() + active_area.size.height.as_int() ==
+                other_area.top_left.y.as_int())
+            {
+                return output;
+            }
+            break;
+        }
+        default:
+            return active;
+        }
+    }
+
+    return active;
+}
+
 bool Policy::try_select_output(Direction direction)
 {
+    auto const& next = _next_output_in_direction(direction);
+    if (next != state.active_output)
+    {
+        move_cursor_to_output(*next);
+        return true;
+    }
+
     return false;
 }
 
-bool Policy::try_select_output(std::vector<std::string> const& names)
+std::shared_ptr<Output> const& Policy::_next_output_in_list(std::vector<std::string> const& names)
 {
-    if (!state.active_output)
-        return false;
-
+    if (names.empty())
+        return state.active_output;
+    
     auto current_name = state.active_output->get_output().name();
     size_t next = 0;
     for (size_t i = 0; i < names.size(); i++)
@@ -1367,13 +1431,161 @@ bool Policy::try_select_output(std::vector<std::string> const& names)
     for (auto const& output : output_list)
     {
         if (output->get_output().name() == names[next])
-        {
-            move_cursor_to_output(*output);
-            return true;
-        }
+            return output;
+    }
+
+    return state.active_output;
+}
+
+bool Policy::try_select_output(std::vector<std::string> const& names)
+{
+    if (!state.active_output)
+        return false;
+
+    auto const& output = _next_output_in_list(names);
+    if (output != state.active_output)
+        move_cursor_to_output(*output);
+    return true;
+}
+
+bool Policy::try_move_active_to_output(miracle::Direction direction)
+{
+    if (!state.active_output)
+        return false;
+
+    if (!can_move_container())
+        return false;
+
+    auto const& next = _next_output_in_direction(direction);
+    if (next != state.active_output)
+    {
+        auto container = state.active();
+        container->get_output()->delete_container(container);
+        state.unfocus(container);
+
+        next->graft(container);
+        if (container->window().value())
+            window_controller.select_active_window(container->window().value());
+        return true;
     }
 
     return false;
+}
+
+bool Policy::try_move_active_to_current()
+{
+    if (!state.active_output)
+        return false;
+
+    if (!can_move_container())
+        return false;
+
+    if (state.active()->get_output() == state.active_output.get())
+        return false;
+
+    auto container = state.active();
+    container->get_output()->delete_container(container);
+    state.unfocus(container);
+
+    state.active_output->graft(container);
+    if (container->window().value())
+        window_controller.select_active_window(container->window().value());
+    return true;
+}
+
+bool Policy::try_move_active_to_primary()
+{
+    if (output_list.empty())
+        return false;
+
+    if (!can_move_container())
+        return false;
+
+    if (state.active()->get_output() == output_list[0].get())
+        return false;
+
+    auto container = state.active();
+    container->get_output()->delete_container(container);
+    state.unfocus(container);
+
+    output_list[0]->graft(container);
+    if (container->window().value())
+        window_controller.select_active_window(container->window().value());
+    return true;
+}
+
+bool Policy::try_move_active_to_nonprimary()
+{
+    constexpr int MIN_SIZE_TO_HAVE_NONPRIMARY_OUTPUT = 2;
+    if (output_list.size() < MIN_SIZE_TO_HAVE_NONPRIMARY_OUTPUT)
+        return false;
+
+    if (!can_move_container())
+        return false;
+
+    if (state.active_output != output_list[0])
+        return false;
+
+    auto container = state.active();
+    container->get_output()->delete_container(container);
+    state.unfocus(container);
+
+    output_list[1]->graft(container);
+    if (container->window().value())
+        window_controller.select_active_window(container->window().value());
+    return true;
+}
+
+bool Policy::try_move_active_to_next()
+{
+    if (!can_move_container())
+        return false;
+
+    auto it = std::find(output_list.begin(), output_list.end(), state.active_output);
+    if (it == output_list.end())
+    {
+        mir::log_error("Policy::try_move_active_to_next: cannot find active output in list");
+        return false;
+    }
+
+    it++;
+    if (it == output_list.end())
+        it = output_list.begin();
+
+    if (*it == state.active_output)
+        return false;
+
+    if ((*it).get() == state.active()->get_output())
+        return false;
+
+    auto container = state.active();
+    container->get_output()->delete_container(container);
+    state.unfocus(container);
+
+    (*it)->graft(container);
+    if (container->window().value())
+        window_controller.select_active_window(container->window().value());
+    return true;
+}
+
+bool Policy::try_move_active(std::vector<std::string> const& names)
+{
+    if (!can_move_container())
+        return false;
+
+    auto const& output = _next_output_in_list(names);
+    if (output.get() != state.active()->get_output())
+    {
+        auto container = state.active();
+        container->get_output()->delete_container(container);
+        state.unfocus(container);
+
+        output->graft(container);
+        if (container->window().value())
+            window_controller.select_active_window(container->window().value());
+    }
+
+    return true;
 }
 
 bool Policy::can_set_layout() const

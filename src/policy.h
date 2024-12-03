@@ -127,8 +127,8 @@ public:
     bool prev_workspace_on_output(Output const&);
     bool move_active_to_workspace(int number, bool back_and_forth = true);
     bool move_active_to_workspace_named(std::string const&, bool back_and_forth);
-    bool move_active_to_next();
-    bool move_active_to_prev();
+    bool move_active_to_next_workspace();
+    bool move_active_to_prev_workspace();
     bool move_active_to_back_and_forth();
     bool move_to_scratchpad();
     bool show_scratchpad();
@@ -144,6 +144,12 @@ public:
     bool try_select_prev_output();
     bool try_select_output(Direction direction);
     bool try_select_output(std::vector<std::string> const& names);
+    bool try_move_active_to_output(Direction direction);
+    bool try_move_active_to_current();
+    bool try_move_active_to_primary();
+    bool try_move_active_to_nonprimary();
+    bool try_move_active_to_next();
+    bool try_move_active(std::vector<std::string> const& names);
 
     // Getters
 
@@ -161,6 +167,8 @@ private:
 
     /// Selects any type of container, including those that do not directly reference a window.
     void select_container(std::shared_ptr<Container> const&);
+    std::shared_ptr<Output> const& _next_output_in_list(std::vector<std::string> const& names);
+    std::shared_ptr<Output> const& _next_output_in_direction(Direction direction);
 
     bool is_starting_ = true;
     CompositorState& state;
