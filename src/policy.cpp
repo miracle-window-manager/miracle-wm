@@ -434,8 +434,11 @@ void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
         auto* workspace = container->get_workspace();
         state.focus(container);
         container->on_focus_gained();
-        if (workspace && workspace != state.active_output->active())
-            workspace_manager.request_focus(workspace->id());
+
+        // TODO: This logic was put in place to navigate to the focused
+        //  workspace.
+        // if (workspace && workspace != state.active_output->active())
+        //    workspace_manager.request_focus(workspace->id());
 
         if (workspace)
             workspace->advise_focus_gained(container);
