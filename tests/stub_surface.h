@@ -24,8 +24,8 @@ namespace miracle::test
 class StubSurface : public mir::scene::Surface
 {
 public:
-    void initial_placement_done() override {}
-    
+    void initial_placement_done() override { }
+
     auto content_offset() const -> mir::geometry::Displacement override
     {
         return mir::geometry::Displacement();

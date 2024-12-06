@@ -22,12 +22,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "container_group_container.h"
 #include "feature_flags.h"
 #include "floating_tree_container.h"
+#include "math_helpers.h"
 #include "parent_container.h"
 #include "shell_component_container.h"
 #include "window_helpers.h"
 #include "window_tools_accessor.h"
 #include "workspace_manager.h"
-#include "math_helpers.h"
 
 #include <iostream>
 #include <mir/geometry/rectangle.h>
@@ -164,13 +164,13 @@ bool Policy::handle_keyboard_event(MirKeyboardEvent const* event)
             try_toggle_resize_mode();
             return true;
         case DefaultKeyCommand::ResizeUp:
-            return try_resize(Direction::up);
+            return state.mode == WindowManagerMode::resizing && try_resize(Direction::up, config->get_resize_jump());
         case DefaultKeyCommand::ResizeDown:
-            return try_resize(Direction::down);
+            return state.mode == WindowManagerMode::resizing && try_resize(Direction::down, config->get_resize_jump());
         case DefaultKeyCommand::ResizeLeft:
-            return try_resize(Direction::left);
+            return state.mode == WindowManagerMode::resizing && try_resize(Direction::left, config->get_resize_jump());
         case DefaultKeyCommand::ResizeRight:
-            return try_resize(Direction::right);
+            return state.mode == WindowManagerMode::resizing && try_resize(Direction::right, config->get_resize_jump());
         case DefaultKeyCommand::MoveUp:
             return try_move(Direction::up);
         case DefaultKeyCommand::MoveDown:
@@ -755,15 +755,20 @@ bool Policy::try_request_horizontal()
     return true;
 }
 
-bool Policy::try_resize(miracle::Direction direction)
+bool Policy::try_resize(miracle::Direction direction, int pixels)
 {
-    if (state.mode != WindowManagerMode::resizing)
-        return false;
-
     if (!state.active())
         return false;
 
-    return state.active()->resize(direction);
+    return state.active()->resize(direction, pixels);
+}
+
+bool Policy::try_set_size(std::optional<int> const& width, std::optional<int> const& height)
+{
+    if (!state.active())
+        return false;
+
+    return state.active()->set_size(width, height);
 }
 
 bool Policy::try_move(miracle::Direction direction)
@@ -1358,8 +1363,7 @@ std::shared_ptr<Output> const& Policy::_next_output_in_direction(Direction direc
         {
         case Direction::left:
         {
-            if (active_area.top_left.x.as_int() ==
-                (other_area.top_left.x.as_int() + other_area.size.width.as_int()))
+            if (active_area.top_left.x.as_int() == (other_area.top_left.x.as_int() + other_area.size.width.as_int()))
             {
                 return output;
             }
@@ -1367,8 +1371,7 @@ std::shared_ptr<Output> const& Policy::_next_output_in_direction(Direction direc
         }
         case Direction::right:
         {
-            if (active_area.top_left.x.as_int() + active_area.size.width.as_int() ==
-                    other_area.top_left.x.as_int())
+            if (active_area.top_left.x.as_int() + active_area.size.width.as_int() == other_area.top_left.x.as_int())
             {
                 return output;
             }
@@ -1376,8 +1379,7 @@ std::shared_ptr<Output> const& Policy::_next_output_in_direction(Direction direc
         }
         case Direction::up:
         {
-            if (active_area.top_left.y.as_int() ==
-                (other_area.top_left.y.as_int() + other_area.size.height.as_int()))
+            if (active_area.top_left.y.as_int() == (other_area.top_left.y.as_int() + other_area.size.height.as_int()))
             {
                 return output;
             }
@@ -1385,8 +1387,7 @@ std::shared_ptr<Output> const& Policy::_next_output_in_direction(Direction direc
         }
         case Direction::down:
         {
-            if (active_area.top_left.y.as_int() + active_area.size.height.as_int() ==
-                other_area.top_left.y.as_int())
+            if (active_area.top_left.y.as_int() + active_area.size.height.as_int() == other_area.top_left.y.as_int())
             {
                 return output;
             }
@@ -1416,7 +1417,7 @@ std::shared_ptr<Output> const& Policy::_next_output_in_list(std::vector<std::str
 {
     if (names.empty())
         return state.active_output;
-    
+
     auto current_name = state.active_output->get_output().name();
     size_t next = 0;
     for (size_t i = 0; i < names.size(); i++)

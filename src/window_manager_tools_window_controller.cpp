@@ -134,7 +134,7 @@ void WindowManagerToolsWindowController::select_active_window(miral::Window cons
 
 std::shared_ptr<Container> WindowManagerToolsWindowController::get_container(miral::Window const& window)
 {
-    if (window == miral::Window{})
+    if (window == miral::Window {})
         return nullptr;
 
     auto& info = tools.info_for(window);

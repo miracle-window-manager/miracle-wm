@@ -72,7 +72,9 @@ public:
     void graft(std::shared_ptr<LeafContainer> const&);
 
     /// Try to resize the current active window in the provided direction
-    bool resize_container(Direction direction, Container&);
+    bool resize_container(Direction direction, int pixels, Container&);
+
+    bool set_size(std::optional<int> const& width, std::optional<int> const& height, Container&);
 
     /// Move the active window in the provided direction
     bool move_container(Direction direction, Container&);

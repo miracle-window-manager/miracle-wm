@@ -171,13 +171,24 @@ void ContainerGroupContainer::handle_raise()
     }
 }
 
-bool ContainerGroupContainer::resize(Direction direction)
+bool ContainerGroupContainer::resize(Direction direction, int pixels)
 {
     bool result = true;
     for (auto const& container : containers)
     {
         if (auto c = container.lock())
-            result &= c->resize(direction);
+            result &= c->resize(direction, pixels);
+    }
+    return result;
+}
+
+bool ContainerGroupContainer::set_size(std::optional<int> const& width, std::optional<int> const& height)
+{
+    bool result = true;
+    for (auto const& container : containers)
+    {
+        if (auto c = container.lock())
+            result &= c->set_size(width, height);
     }
     return result;
 }

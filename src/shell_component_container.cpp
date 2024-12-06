@@ -106,7 +106,12 @@ void ShellComponentContainer::handle_raise()
     window_controller.select_active_window(window_);
 }
 
-bool ShellComponentContainer::resize(Direction direction)
+bool ShellComponentContainer::resize(Direction direction, int pixels)
+{
+    return false;
+}
+
+bool ShellComponentContainer::set_size(std::optional<int> const& width, std::optional<int> const& height)
 {
     return false;
 }

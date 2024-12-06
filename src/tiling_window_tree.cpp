@@ -104,9 +104,30 @@ void TilingWindowTree::graft(std::shared_ptr<LeafContainer> const& leaf)
     root_lane->commit_changes();
 }
 
-bool TilingWindowTree::resize_container(miracle::Direction direction, Container& container)
+bool TilingWindowTree::resize_container(miracle::Direction direction, int pixels, Container& container)
 {
-    handle_resize(container, direction, config->get_resize_jump());
+    handle_resize(container, direction, pixels);
+    return true;
+}
+
+bool TilingWindowTree::set_size(std::optional<int> const& width, std::optional<int> const& height, Container& container)
+{
+    auto const& rectangle = container.get_visible_area();
+    int new_width = width ? width.value() : rectangle.size.width.as_int();
+    int new_height = height ? height.value() : rectangle.size.height.as_int();
+    int diff_x = new_width - rectangle.size.width.as_int();
+    int diff_y = new_height - rectangle.size.height.as_int();
+
+    if (diff_x < 0)
+        handle_resize(container, Direction::left, -diff_x);
+    else
+        handle_resize(container, Direction::right, diff_x);
+
+    if (diff_y < 0)
+        handle_resize(container, Direction::up, -diff_y);
+    else
+        handle_resize(container, Direction::down, diff_y);
+
     return true;
 }
 

@@ -145,7 +145,13 @@ void FloatingTreeContainer::handle_raise()
 {
 }
 
-bool FloatingTreeContainer::resize(Direction direction)
+bool FloatingTreeContainer::resize(Direction direction, int pixels)
+{
+    // TODO
+    return false;
+}
+
+bool FloatingTreeContainer::set_size(std::optional<int> const& width, std::optional<int> const& height)
 {
     // TODO
     return false;
