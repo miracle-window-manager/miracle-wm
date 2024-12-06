@@ -177,9 +177,14 @@ void LeafContainer::handle_raise()
     window_controller.select_active_window(window_);
 }
 
-bool LeafContainer::resize(miracle::Direction direction)
+bool LeafContainer::resize(miracle::Direction direction, int pixels)
 {
-    return tree->resize_container(direction, *this);
+    return tree->resize_container(direction, pixels, *this);
+}
+
+bool LeafContainer::set_size(std::optional<int> const& width, std::optional<int> const& height)
+{
+    return tree->set_size(width, height, *this);
 }
 
 void LeafContainer::show()

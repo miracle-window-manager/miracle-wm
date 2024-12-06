@@ -32,10 +32,10 @@ class WindowController;
 
 /// Processes all commands coming from i3 IPC. This class is mostly for organizational
 /// purposes, as a lot of logic is associated with processing these operations.
-class I3CommandExecutor
+class IpcCommandExecutor
 {
 public:
-    I3CommandExecutor(
+    IpcCommandExecutor(
         Policy&,
         WorkspaceManager&,
         CompositorState const&,
@@ -60,6 +60,7 @@ private:
     void process_workspace(IpcCommand const&, IpcParseResult const&);
     void process_layout(IpcCommand const&, IpcParseResult const&);
     void process_scratchpad(IpcCommand const&, IpcParseResult const&);
+    void process_resize(IpcCommand const&, IpcParseResult const&);
 };
 
 } // miracle

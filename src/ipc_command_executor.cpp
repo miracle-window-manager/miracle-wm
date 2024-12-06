@@ -32,7 +32,74 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace miracle;
 
-I3CommandExecutor::I3CommandExecutor(
+namespace
+{
+class ArgumentsIndexer
+{
+public:
+    explicit ArgumentsIndexer(IpcCommand const& command) :
+        command { command }
+    {
+    }
+
+    bool next()
+    {
+        index++;
+        return index < command.arguments.size();
+    }
+
+    bool prev()
+    {
+        index--;
+        return index < command.arguments.size();
+    }
+
+    [[nodiscard]] std::string const& current() const
+    {
+        return command.arguments[index];
+    }
+
+    bool parse_move_distance(int available_area, int& out)
+    {
+        if (!next())
+            return false;
+
+        try
+        {
+            out = std::stoi(current());
+            if (next())
+            {
+                // We default to assuming the value is in pixels
+                if (current() == "ppt")
+                {
+                    float ppt = static_cast<float>(out) / 100.f;
+                    out = static_cast<float>(available_area) * ppt;
+                    return true;
+                }
+                else if (current() == "px")
+                {
+                    return true;
+                }
+            }
+
+            // The 'next' item wasn't ppt or px, so let's pop out of it.
+            prev();
+            return true;
+        }
+        catch (std::invalid_argument const& e)
+        {
+            mir::log_error("Invalid argument: %s", command.arguments[index].c_str());
+            return false;
+        }
+    }
+
+protected:
+    IpcCommand const& command;
+    size_t index = 0;
+};
+}
+
+IpcCommandExecutor::IpcCommandExecutor(
     miracle::Policy& policy,
     WorkspaceManager& workspace_manager,
     CompositorState const& state,
@@ -46,7 +113,7 @@ I3CommandExecutor::I3CommandExecutor(
 {
 }
 
-void I3CommandExecutor::process(miracle::IpcParseResult const& command_list)
+void IpcCommandExecutor::process(miracle::IpcParseResult const& command_list)
 {
     for (auto const& command : command_list.commands)
     {
@@ -82,13 +149,16 @@ void I3CommandExecutor::process(miracle::IpcParseResult const& command_list)
         case IpcCommandType::scratchpad:
             process_scratchpad(command, command_list);
             break;
+        case IpcCommandType::resize:
+            process_resize(command, command_list);
+            break;
         default:
             break;
         }
     }
 }
 
-miral::Window I3CommandExecutor::get_window_meeting_criteria(IpcParseResult const& command_list)
+miral::Window IpcCommandExecutor::get_window_meeting_criteria(IpcParseResult const& command_list)
 {
     for (auto const& container : state.containers())
     {
@@ -106,7 +176,7 @@ miral::Window I3CommandExecutor::get_window_meeting_criteria(IpcParseResult cons
     return miral::Window {};
 }
 
-void I3CommandExecutor::process_exec(miracle::IpcCommand const& command, miracle::IpcParseResult const& command_list)
+void IpcCommandExecutor::process_exec(miracle::IpcCommand const& command, miracle::IpcParseResult const& command_list)
 {
     if (command.arguments.empty())
     {
@@ -134,7 +204,7 @@ void I3CommandExecutor::process_exec(miracle::IpcCommand const& command, miracle
     launcher.launch(app);
 }
 
-void I3CommandExecutor::process_split(miracle::IpcCommand const& command, miracle::IpcParseResult const& command_list)
+void IpcCommandExecutor::process_split(miracle::IpcCommand const& command, miracle::IpcParseResult const& command_list)
 {
     if (command.arguments.empty())
     {
@@ -161,7 +231,7 @@ void I3CommandExecutor::process_split(miracle::IpcCommand const& command, miracl
     }
 }
 
-void I3CommandExecutor::process_focus(IpcCommand const& command, IpcParseResult const& command_list)
+void IpcCommandExecutor::process_focus(IpcCommand const& command, IpcParseResult const& command_list)
 {
     // https://i3wm.org/docs/userguide.html#_focusing_moving_containers
     if (command.arguments.empty())
@@ -315,7 +385,7 @@ bool parse_move_distance(std::vector<std::string> const& arguments, int& index, 
 }
 }
 
-void I3CommandExecutor::process_move(IpcCommand const& command, IpcParseResult const& command_list)
+void IpcCommandExecutor::process_move(IpcCommand const& command, IpcParseResult const& command_list)
 {
     auto active_output = policy.get_active_output();
     if (!active_output)
@@ -532,7 +602,7 @@ void I3CommandExecutor::process_move(IpcCommand const& command, IpcParseResult c
     }
 }
 
-void I3CommandExecutor::process_sticky(IpcCommand const& command, IpcParseResult const& command_list)
+void IpcCommandExecutor::process_sticky(IpcCommand const& command, IpcParseResult const& command_list)
 {
     if (command.arguments.empty())
     {
@@ -552,7 +622,7 @@ void I3CommandExecutor::process_sticky(IpcCommand const& command, IpcParseResult
 }
 
 // This command will be
-void I3CommandExecutor::process_input(IpcCommand const& command, IpcParseResult const& command_list)
+void IpcCommandExecutor::process_input(IpcCommand const& command, IpcParseResult const& command_list)
 {
     // Payloads appear in the following format:
     //    [type:X, xkb_Y, Z]
@@ -609,7 +679,7 @@ void I3CommandExecutor::process_input(IpcCommand const& command, IpcParseResult 
     }
 }
 
-void I3CommandExecutor::process_workspace(IpcCommand const& command, IpcParseResult const& command_list)
+void IpcCommandExecutor::process_workspace(IpcCommand const& command, IpcParseResult const& command_list)
 {
     if (command.arguments.empty())
     {
@@ -667,7 +737,7 @@ void I3CommandExecutor::process_workspace(IpcCommand const& command, IpcParseRes
     }
 }
 
-void I3CommandExecutor::process_layout(IpcCommand const& command, IpcParseResult const& command_list)
+void IpcCommandExecutor::process_layout(IpcCommand const& command, IpcParseResult const& command_list)
 {
     // https://i3wm.org/docs/userguide.html#manipulating_layout
     std::string const& arg0 = command.arguments[0];
@@ -776,7 +846,7 @@ void I3CommandExecutor::process_layout(IpcCommand const& command, IpcParseResult
     }
 }
 
-void I3CommandExecutor::process_scratchpad(IpcCommand const& command, IpcParseResult const& command_list)
+void IpcCommandExecutor::process_scratchpad(IpcCommand const& command, IpcParseResult const& command_list)
 {
     if (command.arguments.empty())
     {
@@ -792,4 +862,171 @@ void I3CommandExecutor::process_scratchpad(IpcCommand const& command, IpcParseRe
     }
 
     policy.show_scratchpad();
+}
+
+namespace
+{
+struct ResizeAdjust
+{
+    bool success = true;
+    Direction direction = Direction::MAX;
+    int first = 0;
+    int second = 0;
+};
+
+ResizeAdjust parse_resize(CompositorState const& state, ArgumentsIndexer& indexer, int multiplier)
+{
+    if (!indexer.next())
+    {
+        mir::log_error("process_resize: expected argument after 'resize grow'");
+        return { false };
+    }
+
+    auto const& container = state.active();
+    if (!container)
+        return { .success = false };
+
+    ResizeAdjust result;
+    if (indexer.current() == "width" || indexer.current() == "horizontal")
+    {
+        result.direction = Direction::right;
+    }
+    else if (indexer.current() == "height" || indexer.current() == "vertical")
+    {
+        result.direction = Direction::down;
+    }
+    else if (indexer.current() == "up")
+    {
+        result.direction = Direction::up;
+    }
+    else if (indexer.current() == "down")
+    {
+        result.direction = Direction::down;
+    }
+    else if (indexer.current() == "left")
+    {
+        result.direction = Direction::left;
+    }
+    else if (indexer.current() == "right")
+    {
+        result.direction = Direction::right;
+    }
+    else
+    {
+        mir::log_error("Unknown direction value: %s", indexer.current().c_str());
+        result.success = false;
+        return result;
+    }
+
+    int available_space = 0;
+    switch (result.direction)
+    {
+    case Direction::up:
+    case Direction::down:
+        available_space = container->get_output()->get_area().size.height.as_value();
+        break;
+    default:
+        available_space = container->get_output()->get_area().size.width.as_value();
+        break;
+    }
+
+    int first = 0;
+    if (!indexer.parse_move_distance(available_space, first))
+    {
+        result.success = false;
+        return result;
+    }
+
+    if (indexer.next())
+    {
+        if (indexer.current() != "or")
+        {
+            mir::log_error("parse_resize: expected 'or'");
+            result.success = false;
+            return result;
+        }
+    }
+
+    int second = 0;
+    indexer.parse_move_distance(available_space, second);
+    result.first = first * multiplier;
+    result.second = second * multiplier;
+    return result;
+}
+
+struct SetResizeResult
+{
+    bool success = true;
+    std::optional<int> width;
+    std::optional<int> height;
+};
+
+SetResizeResult parse_set_resize(CompositorState const& state, ArgumentsIndexer& indexer)
+{
+    auto const& container = state.active();
+    if (!container)
+        return { .success = false };
+
+    SetResizeResult result;
+    int width = 0, height = 0;
+    if (!indexer.parse_move_distance(container->get_output()->get_area().size.width.as_value(), width))
+    {
+        mir::log_error("parse_set_resize: invalid width");
+        return { .success = false };
+    }
+
+    if (!indexer.parse_move_distance(container->get_output()->get_area().size.height.as_value(), height))
+    {
+        mir::log_error("parse_set_resize: invalid height");
+        return { .success = false };
+    }
+
+    if (width != 0)
+        result.width = width;
+    if (height != 0)
+        result.height = height;
+
+    return result;
+}
+}
+
+void IpcCommandExecutor::process_resize(IpcCommand const& command, IpcParseResult const& command_list)
+{
+    if (command.arguments.empty())
+    {
+        mir::log_error("process_resize: no arguments provided");
+        return;
+    }
+
+    ArgumentsIndexer indexer(command);
+    auto const& arg0 = indexer.current();
+    if (arg0 == "grow")
+    {
+        auto adjust = parse_resize(state, indexer, 1);
+        if (!adjust.success)
+            return;
+
+        policy.try_resize(adjust.direction, adjust.first);
+    }
+    else if (arg0 == "shrink")
+    {
+        auto adjust = parse_resize(state, indexer, -1);
+        if (!adjust.success)
+            return;
+
+        policy.try_resize(adjust.direction, adjust.first);
+    }
+    else if (arg0 == "set")
+    {
+        auto result = parse_set_resize(state, indexer);
+        if (!result.success)
+            return;
+
+        policy.try_set_size(result.width, result.height);
+    }
+    else
+    {
+        mir::log_error("process_resize: unexpected argument: %s", arg0.c_str());
+        return;
+    }
 }

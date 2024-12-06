@@ -226,7 +226,7 @@ Ipc::Ipc(miral::MirRunner& runner,
     miracle::WorkspaceManager& workspace_manager,
     Policy& policy,
     std::shared_ptr<mir::ServerActionQueue> const& queue,
-    I3CommandExecutor& executor,
+    IpcCommandExecutor& executor,
     std::shared_ptr<Config> const& config) :
     workspace_manager { workspace_manager },
     policy { policy },

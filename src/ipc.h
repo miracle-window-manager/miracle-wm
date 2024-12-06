@@ -85,7 +85,7 @@ public:
         WorkspaceManager&,
         Policy& policy,
         std::shared_ptr<mir::ServerActionQueue> const&,
-        I3CommandExecutor&,
+        IpcCommandExecutor&,
         std::shared_ptr<Config> const&);
     ~Ipc();
 
@@ -116,7 +116,7 @@ private:
     std::vector<IpcParseResult> pending_commands;
     mutable std::shared_mutex pending_commands_mutex;
     std::shared_ptr<mir::ServerActionQueue> queue;
-    I3CommandExecutor& executor;
+    IpcCommandExecutor& executor;
     std::shared_ptr<Config> config;
 
     void disconnect(IpcClient& client);

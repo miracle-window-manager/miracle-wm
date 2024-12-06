@@ -184,9 +184,20 @@ std::optional<miral::Window> FloatingWindowContainer::window() const
     return window_;
 }
 
-bool FloatingWindowContainer::resize(Direction direction)
+bool FloatingWindowContainer::resize(Direction direction, int pixels)
 {
     return false;
+}
+
+bool FloatingWindowContainer::set_size(std::optional<int> const& width, std::optional<int> const& height)
+{
+    auto rectangle = get_visible_area();
+    if (width)
+        rectangle.size.width = geom::Width { width.value() };
+    if (height)
+        rectangle.size.height = geom::Height { height.value() };
+    window_controller.set_rectangle(window_, get_visible_area(), rectangle);
+    return true;
 }
 
 bool FloatingWindowContainer::toggle_fullscreen()

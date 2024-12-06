@@ -105,7 +105,8 @@ public:
     bool try_request_vertical();
     bool try_toggle_layout(bool cycle_through_all);
     void try_toggle_resize_mode();
-    bool try_resize(Direction direction);
+    bool try_resize(Direction direction, int pixels);
+    bool try_set_size(std::optional<int> const& width, std::optional<int> const& height);
     bool try_move(Direction direction);
     bool try_move_by(Direction direction, int pixels);
     bool try_move_to(int x, int y);
@@ -186,7 +187,7 @@ private:
     std::shared_ptr<Ipc> ipc;
     Animator animator;
     WindowManagerToolsWindowController window_controller;
-    I3CommandExecutor i3_command_executor;
+    IpcCommandExecutor i3_command_executor;
     SurfaceTracker& surface_tracker;
     std::shared_ptr<ContainerGroupContainer> group_selection;
     Scratchpad scratchpad_;
