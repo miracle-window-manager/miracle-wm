@@ -25,10 +25,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 namespace miracle
 {
 
-class Policy;
+class CommandController;
 class WorkspaceManager;
 class AutoRestartingLauncher;
 class WindowController;
+
+struct IpcValidationResult
+{
+    bool success = true;
+    bool parse_error = false;
+    std::string error;
+};
 
 /// Processes all commands coming from i3 IPC. This class is mostly for organizational
 /// purposes, as a lot of logic is associated with processing these operations.
@@ -36,31 +43,33 @@ class IpcCommandExecutor
 {
 public:
     IpcCommandExecutor(
-        Policy&,
+        CommandController&,
         WorkspaceManager&,
         CompositorState const&,
         AutoRestartingLauncher&,
         WindowController&);
-    void process(IpcParseResult const&);
+    IpcValidationResult process(IpcParseResult const&);
 
 private:
-    Policy& policy;
+    CommandController& policy;
     WorkspaceManager& workspace_manager;
     CompositorState const& state;
     AutoRestartingLauncher& launcher;
     WindowController& window_controller;
 
     miral::Window get_window_meeting_criteria(IpcParseResult const&);
-    void process_exec(IpcCommand const&, IpcParseResult const&);
-    void process_split(IpcCommand const&, IpcParseResult const&);
-    void process_focus(IpcCommand const&, IpcParseResult const&);
-    void process_move(IpcCommand const&, IpcParseResult const&);
-    void process_sticky(IpcCommand const&, IpcParseResult const&);
-    void process_input(IpcCommand const&, IpcParseResult const&);
-    void process_workspace(IpcCommand const&, IpcParseResult const&);
-    void process_layout(IpcCommand const&, IpcParseResult const&);
-    void process_scratchpad(IpcCommand const&, IpcParseResult const&);
-    void process_resize(IpcCommand const&, IpcParseResult const&);
+    IpcValidationResult process_exec(IpcCommand const&, IpcParseResult const&);
+    IpcValidationResult process_split(IpcCommand const&, IpcParseResult const&);
+    IpcValidationResult process_focus(IpcCommand const&, IpcParseResult const&);
+    IpcValidationResult process_move(IpcCommand const&, IpcParseResult const&);
+    IpcValidationResult process_sticky(IpcCommand const&, IpcParseResult const&);
+    IpcValidationResult process_input(IpcCommand const&, IpcParseResult const&);
+    IpcValidationResult process_workspace(IpcCommand const&, IpcParseResult const&);
+    IpcValidationResult process_layout(IpcCommand const&, IpcParseResult const&);
+    IpcValidationResult process_scratchpad(IpcCommand const&, IpcParseResult const&);
+    IpcValidationResult process_resize(IpcCommand const&, IpcParseResult const&);
+
+    IpcValidationResult parse_error(std::string error);
 };
 
 } // miracle

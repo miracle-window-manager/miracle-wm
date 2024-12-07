@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "animator.h"
 #include "auto_restarting_launcher.h"
+#include "command_controller.h"
 #include "compositor_state.h"
 #include "config.h"
 #include "ipc.h"
@@ -49,7 +50,7 @@ class Container;
 class ContainerGroupContainer;
 class WindowToolsAccessor;
 
-class Policy : public miral::WindowManagementPolicy
+class Policy : public miral::WindowManagementPolicy, public CommandController
 {
 public:
     Policy(
@@ -101,61 +102,61 @@ public:
 
     // Requests
 
-    bool try_request_horizontal();
-    bool try_request_vertical();
-    bool try_toggle_layout(bool cycle_through_all);
-    void try_toggle_resize_mode();
-    bool try_resize(Direction direction, int pixels);
-    bool try_set_size(std::optional<int> const& width, std::optional<int> const& height);
-    bool try_move(Direction direction);
-    bool try_move_by(Direction direction, int pixels);
-    bool try_move_to(int x, int y);
-    bool try_select(Direction direction);
-    bool try_select_parent();
-    bool try_select_child();
-    bool try_select_floating();
-    bool try_select_tiling();
-    bool try_select_toggle();
-    bool try_close_window();
-    bool quit();
-    bool try_toggle_fullscreen();
-    bool select_workspace(int number, bool back_and_forth = true);
-    bool select_workspace(std::string const& name, bool back_and_forth);
-    bool next_workspace();
-    bool prev_workspace();
-    bool back_and_forth_workspace();
-    bool next_workspace_on_output(Output const&);
-    bool prev_workspace_on_output(Output const&);
-    bool move_active_to_workspace(int number, bool back_and_forth = true);
-    bool move_active_to_workspace_named(std::string const&, bool back_and_forth);
-    bool move_active_to_next_workspace();
-    bool move_active_to_prev_workspace();
-    bool move_active_to_back_and_forth();
-    bool move_to_scratchpad();
-    bool show_scratchpad();
-    bool toggle_floating();
-    bool toggle_pinned_to_workspace();
-    bool set_is_pinned(bool);
-    bool toggle_tabbing();
-    bool toggle_stacking();
-    bool set_layout(LayoutScheme scheme);
-    bool set_layout_default();
-    void move_cursor_to_output(Output const&);
-    bool try_select_next_output();
-    bool try_select_prev_output();
-    bool try_select_output(Direction direction);
-    bool try_select_output(std::vector<std::string> const& names);
-    bool try_move_active_to_output(Direction direction);
-    bool try_move_active_to_current();
-    bool try_move_active_to_primary();
-    bool try_move_active_to_nonprimary();
-    bool try_move_active_to_next();
-    bool try_move_active(std::vector<std::string> const& names);
+    bool try_request_horizontal() override;
+    bool try_request_vertical() override;
+    bool try_toggle_layout(bool cycle_through_all) override;
+    void try_toggle_resize_mode() override;
+    bool try_resize(Direction direction, int pixels) override;
+    bool try_set_size(std::optional<int> const& width, std::optional<int> const& height) override;
+    bool try_move(Direction direction) override;
+    bool try_move_by(Direction direction, int pixels) override;
+    bool try_move_to(int x, int y) override;
+    bool try_select(Direction direction) override;
+    bool try_select_parent() override;
+    bool try_select_child() override;
+    bool try_select_floating() override;
+    bool try_select_tiling() override;
+    bool try_select_toggle() override;
+    bool try_close_window() override;
+    bool quit() override;
+    bool try_toggle_fullscreen() override;
+    bool select_workspace(int number, bool back_and_forth = true) override;
+    bool select_workspace(std::string const& name, bool back_and_forth) override;
+    bool next_workspace() override;
+    bool prev_workspace() override;
+    bool back_and_forth_workspace() override;
+    bool next_workspace_on_output(Output const&) override;
+    bool prev_workspace_on_output(Output const&) override;
+    bool move_active_to_workspace(int number, bool back_and_forth = true) override;
+    bool move_active_to_workspace_named(std::string const&, bool back_and_forth) override;
+    bool move_active_to_next_workspace() override;
+    bool move_active_to_prev_workspace() override;
+    bool move_active_to_back_and_forth() override;
+    bool move_to_scratchpad() override;
+    bool show_scratchpad() override;
+    bool toggle_floating() override;
+    bool toggle_pinned_to_workspace() override;
+    bool set_is_pinned(bool) override;
+    bool toggle_tabbing() override;
+    bool toggle_stacking() override;
+    bool set_layout(LayoutScheme scheme) override;
+    bool set_layout_default() override;
+    void move_cursor_to_output(Output const&) override;
+    bool try_select_next_output() override;
+    bool try_select_prev_output() override;
+    bool try_select_output(Direction direction) override;
+    bool try_select_output(std::vector<std::string> const& names) override;
+    bool try_move_active_to_output(Direction direction) override;
+    bool try_move_active_to_current() override;
+    bool try_move_active_to_primary() override;
+    bool try_move_active_to_nonprimary() override;
+    bool try_move_active_to_next() override;
+    bool try_move_active(std::vector<std::string> const& names) override;
 
     // Getters
 
     [[nodiscard]] Output const* get_active_output() const { return state.active_output.get(); }
-    [[nodiscard]] std::vector<std::shared_ptr<Output>> const& get_output_list() const { return output_list; }
+    [[nodiscard]] std::vector<std::shared_ptr<Output>> const& get_output_list() const { return state.output_list; }
     [[nodiscard]] geom::Point const& get_cursor_position() const { return state.cursor_position; }
     [[nodiscard]] CompositorState const& get_state() const { return state; }
 
@@ -173,7 +174,6 @@ private:
 
     bool is_starting_ = true;
     CompositorState& state;
-    std::vector<std::shared_ptr<Output>> output_list;
     AllocationHint pending_allocation;
     std::vector<miral::Window> orphaned_window_list;
     miral::WindowManagerTools window_manager_tools;
