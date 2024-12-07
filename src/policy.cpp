@@ -257,7 +257,7 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
     state.cursor_position = { x, y };
 
     // Select the output first
-    for (auto const& output : output_list)
+    for (auto const& output : state.output_list)
     {
         if (output->point_is_in_output(static_cast<int>(x), static_cast<int>(y)))
         {
@@ -360,10 +360,10 @@ void Policy::advise_new_window(miral::WindowInfo const& window_info)
     {
         mir::log_warning("create_container: output unavailable");
         auto window = window_info.window();
-        if (!output_list.empty())
+        if (!state.output_list.empty())
         {
             // Our output is gone! Let's try to add it to a different output
-            output_list.front()->add_immediately(window);
+            state.output_list.front()->add_immediately(window);
         }
         else
         {
@@ -505,7 +505,7 @@ void Policy::advise_output_create(miral::Output const& output)
     auto output_content = std::make_shared<Output>(
         output, workspace_manager, output.extents(), window_manager_tools,
         floating_window_manager, state, config, window_controller, animator);
-    output_list.push_back(output_content);
+    state.output_list.push_back(output_content);
     workspace_manager.request_first_available_workspace(output_content.get());
     if (state.active_output == nullptr)
     {
@@ -527,7 +527,7 @@ void Policy::advise_output_create(miral::Output const& output)
 
 void Policy::advise_output_update(miral::Output const& updated, miral::Output const& original)
 {
-    for (auto& output : output_list)
+    for (auto& output : state.output_list)
     {
         if (output->get_output().is_same_output(original))
         {
@@ -539,7 +539,7 @@ void Policy::advise_output_update(miral::Output const& updated, miral::Output co
 
 void Policy::advise_output_delete(miral::Output const& output)
 {
-    for (auto it = output_list.begin(); it != output_list.end(); it++)
+    for (auto it = state.output_list.begin(); it != state.output_list.end(); it++)
     {
         auto other_output = *it;
         if (other_output->get_output().is_same_output(output))
@@ -556,8 +556,8 @@ void Policy::advise_output_delete(miral::Output const& output)
                     workspace_manager.delete_workspace(w);
             };
 
-            output_list.erase(it);
-            if (output_list.empty())
+            state.output_list.erase(it);
+            if (state.output_list.empty())
             {
                 // All nodes should become orphaned
                 for (auto& window : other_output->collect_all_windows())
@@ -573,7 +573,7 @@ void Policy::advise_output_delete(miral::Output const& output)
             }
             else
             {
-                state.active_output = output_list.front();
+                state.active_output = state.output_list.front();
                 state.active_output->set_is_active(true);
                 for (auto& window : other_output->collect_all_windows())
                 {
@@ -663,7 +663,7 @@ mir::geometry::Rectangle Policy::confirm_inherited_move(
 
 void Policy::advise_application_zone_create(miral::Zone const& application_zone)
 {
-    for (auto const& output : output_list)
+    for (auto const& output : state.output_list)
     {
         output->advise_application_zone_create(application_zone);
     }
@@ -671,7 +671,7 @@ void Policy::advise_application_zone_create(miral::Zone const& application_zone)
 
 void Policy::advise_application_zone_update(miral::Zone const& updated, miral::Zone const& original)
 {
-    for (auto const& output : output_list)
+    for (auto const& output : state.output_list)
     {
         output->advise_application_zone_update(updated, original);
     }
@@ -679,7 +679,7 @@ void Policy::advise_application_zone_update(miral::Zone const& updated, miral::Z
 
 void Policy::advise_application_zone_delete(miral::Zone const& application_zone)
 {
-    for (auto const& output : output_list)
+    for (auto const& output : state.output_list)
     {
         output->advise_application_zone_delete(application_zone);
     }
@@ -1315,15 +1315,15 @@ void Policy::move_cursor_to_output(Output const& output)
 
 bool Policy::try_select_next_output()
 {
-    for (size_t i = 0; i < output_list.size(); i++)
+    for (size_t i = 0; i < state.output_list.size(); i++)
     {
-        if (output_list[i] == state.active_output)
+        if (state.output_list[i] == state.active_output)
         {
             size_t j = i + 1;
-            if (j == output_list.size())
+            if (j == state.output_list.size())
                 j = 0;
 
-            move_cursor_to_output(*output_list[j]);
+            move_cursor_to_output(*state.output_list[j]);
             return true;
         }
     }
@@ -1333,15 +1333,15 @@ bool Policy::try_select_next_output()
 
 bool Policy::try_select_prev_output()
 {
-    for (int i = output_list.size() - 1; i >= 0; i++)
+    for (int i = state.output_list.size() - 1; i >= 0; i++)
     {
-        if (output_list[i] == state.active_output)
+        if (state.output_list[i] == state.active_output)
         {
             size_t j = i - 1;
             if (j < 0)
-                j = output_list.size() - 1;
+                j = state.output_list.size() - 1;
 
-            move_cursor_to_output(*output_list[j]);
+            move_cursor_to_output(*state.output_list[j]);
             return true;
         }
     }
@@ -1353,7 +1353,7 @@ std::shared_ptr<Output> const& Policy::_next_output_in_direction(Direction direc
 {
     auto const& active = state.active_output;
     auto const& active_area = active->get_area();
-    for (auto const& output : output_list)
+    for (auto const& output : state.output_list)
     {
         if (output == state.active_output)
             continue;
@@ -1432,7 +1432,7 @@ std::shared_ptr<Output> const& Policy::_next_output_in_list(std::vector<std::str
     if (next == names.size())
         next = 0;
 
-    for (auto const& output : output_list)
+    for (auto const& output : state.output_list)
     {
         if (output->get_output().name() == names[next])
             return output;
@@ -1499,20 +1499,20 @@ bool Policy::try_move_active_to_current()
 
 bool Policy::try_move_active_to_primary()
 {
-    if (output_list.empty())
+    if (state.output_list.empty())
         return false;
 
     if (!can_move_container())
         return false;
 
-    if (state.active()->get_output() == output_list[0].get())
+    if (state.active()->get_output() == state.output_list[0].get())
         return false;
 
     auto container = state.active();
     container->get_output()->delete_container(container);
     state.unfocus(container);
 
-    output_list[0]->graft(container);
+    state.output_list[0]->graft(container);
     if (container->window().value())
         window_controller.select_active_window(container->window().value());
     return true;
@@ -1521,20 +1521,20 @@ bool Policy::try_move_active_to_primary()
 bool Policy::try_move_active_to_nonprimary()
 {
     constexpr int MIN_SIZE_TO_HAVE_NONPRIMARY_OUTPUT = 2;
-    if (output_list.size() < MIN_SIZE_TO_HAVE_NONPRIMARY_OUTPUT)
+    if (state.output_list.size() < MIN_SIZE_TO_HAVE_NONPRIMARY_OUTPUT)
         return false;
 
     if (!can_move_container())
         return false;
 
-    if (state.active_output != output_list[0])
+    if (state.active_output != state.output_list[0])
         return false;
 
     auto container = state.active();
     container->get_output()->delete_container(container);
     state.unfocus(container);
 
-    output_list[1]->graft(container);
+    state.output_list[1]->graft(container);
     if (container->window().value())
         window_controller.select_active_window(container->window().value());
     return true;
@@ -1545,16 +1545,16 @@ bool Policy::try_move_active_to_next()
     if (!can_move_container())
         return false;
 
-    auto it = std::find(output_list.begin(), output_list.end(), state.active_output);
-    if (it == output_list.end())
+    auto it = std::find(state.output_list.begin(), state.output_list.end(), state.active_output);
+    if (it == state.output_list.end())
     {
         mir::log_error("Policy::try_move_active_to_next: cannot find active output in list");
         return false;
     }
 
     it++;
-    if (it == output_list.end())
-        it = output_list.begin();
+    if (it == state.output_list.end())
+        it = state.output_list.begin();
 
     if (*it == state.active_output)
         return false;

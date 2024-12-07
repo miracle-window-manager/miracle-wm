@@ -77,6 +77,7 @@ add_library(miracle-wm-implementation
     src/scratchpad.h src/scratchpad.cpp
     src/compositor_state.h src/compositor_state.cpp
     src/math_helpers.h
+    src/command_controller.h
 )
 
 add_executable(miracle-wm

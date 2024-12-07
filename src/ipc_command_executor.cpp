@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "window_helpers.h"
 
 #define MIR_LOG_COMPONENT "miracle"
+#include <format>
 #include <mir/log.h>
 #include <miral/application_info.h>
 
@@ -100,7 +101,7 @@ protected:
 }
 
 IpcCommandExecutor::IpcCommandExecutor(
-    miracle::Policy& policy,
+    CommandController& policy,
     WorkspaceManager& workspace_manager,
     CompositorState const& state,
     AutoRestartingLauncher& launcher,
@@ -113,49 +114,57 @@ IpcCommandExecutor::IpcCommandExecutor(
 {
 }
 
-void IpcCommandExecutor::process(miracle::IpcParseResult const& command_list)
+IpcValidationResult IpcCommandExecutor::process(miracle::IpcParseResult const& command_list)
 {
+    IpcValidationResult result;
     for (auto const& command : command_list.commands)
     {
         switch (command.type)
         {
         case IpcCommandType::exec:
-            process_exec(command, command_list);
+            result = process_exec(command, command_list);
             break;
         case IpcCommandType::split:
-            process_split(command, command_list);
+            result = process_split(command, command_list);
             break;
         case IpcCommandType::focus:
-            process_focus(command, command_list);
+            result = process_focus(command, command_list);
             break;
         case IpcCommandType::move:
-            process_move(command, command_list);
+            result = process_move(command, command_list);
             break;
         case IpcCommandType::sticky:
-            process_sticky(command, command_list);
+            result = process_sticky(command, command_list);
             break;
         case IpcCommandType::exit:
             policy.quit();
+            result = {};
             break;
         case IpcCommandType::input:
-            process_input(command, command_list);
+            result = process_input(command, command_list);
             break;
         case IpcCommandType::workspace:
-            process_workspace(command, command_list);
+            result = process_workspace(command, command_list);
             break;
         case IpcCommandType::layout:
-            process_layout(command, command_list);
+            result = process_layout(command, command_list);
             break;
         case IpcCommandType::scratchpad:
-            process_scratchpad(command, command_list);
+            result = process_scratchpad(command, command_list);
             break;
         case IpcCommandType::resize:
-            process_resize(command, command_list);
+            result = process_resize(command, command_list);
             break;
         default:
+            result = parse_error(std::format("Unsupported command type: %d", (int)command.type));
             break;
         }
+
+        if (!result.success)
+            return result;
     }
+
+    return {};
 }
 
 miral::Window IpcCommandExecutor::get_window_meeting_criteria(IpcParseResult const& command_list)
@@ -176,23 +185,27 @@ miral::Window IpcCommandExecutor::get_window_meeting_criteria(IpcParseResult con
     return miral::Window {};
 }
 
-void IpcCommandExecutor::process_exec(miracle::IpcCommand const& command, miracle::IpcParseResult const& command_list)
+IpcValidationResult IpcCommandExecutor::parse_error(std::string error)
+{
+    mir::log_error("Parse Error: %s", error.c_str());
+    return {
+        .success = false,
+        .parse_error = true,
+        .error = std::move(error)
+    };
+}
+
+IpcValidationResult IpcCommandExecutor::process_exec(miracle::IpcCommand const& command, miracle::IpcParseResult const& command_list)
 {
     if (command.arguments.empty())
-    {
-        mir::log_warning("process_exec: no arguments were supplied");
-        return;
-    }
+        return parse_error("process_exec: no arguments were supplied");
 
     bool no_startup_id = false;
     if (!command.options.empty() && command.options[0] == "--no-startup-id")
         no_startup_id = true;
 
     if (command.arguments.empty())
-    {
-        mir::log_warning("process_exec: argument does not have a command to run");
-        return;
-    }
+        return parse_error("process_exec: argument does not have a command to run");
 
     std::string exec_cmd;
     for (auto const& arg : command.arguments)
@@ -202,15 +215,13 @@ void IpcCommandExecutor::process_exec(miracle::IpcCommand const& command, miracl
 
     StartupApp app { exec_cmd, false, no_startup_id };
     launcher.launch(app);
+    return {};
 }
 
-void IpcCommandExecutor::process_split(miracle::IpcCommand const& command, miracle::IpcParseResult const& command_list)
+IpcValidationResult IpcCommandExecutor::process_split(miracle::IpcCommand const& command, miracle::IpcParseResult const& command_list)
 {
     if (command.arguments.empty())
-    {
-        mir::log_warning("process_split: no arguments were supplied");
-        return;
-    }
+        return parse_error("process_split: no arguments were supplied");
 
     if (command.arguments.front() == "vertical")
     {
@@ -226,27 +237,27 @@ void IpcCommandExecutor::process_split(miracle::IpcCommand const& command, mirac
     }
     else
     {
-        mir::log_warning("process_split: unknown argument %s", command.arguments.front().c_str());
-        return;
+        return parse_error(std::format("process_split: unknown argument {}", command.arguments.front().c_str()));
     }
+
+    return {};
 }
 
-void IpcCommandExecutor::process_focus(IpcCommand const& command, IpcParseResult const& command_list)
+IpcValidationResult IpcCommandExecutor::process_focus(IpcCommand const& command, IpcParseResult const& command_list)
 {
     // https://i3wm.org/docs/userguide.html#_focusing_moving_containers
     if (command.arguments.empty())
     {
         if (command_list.scope.empty())
         {
-            mir::log_warning("Focus command expected scope but none was provided");
-            return;
+            return parse_error("Focus command expected scope but none was provided");
         }
 
         auto window = get_window_meeting_criteria(command_list);
         if (window)
             window_controller.select_active_window(window);
 
-        return;
+        return {};
     }
 
     auto const& arg = command.arguments.front();
@@ -254,8 +265,7 @@ void IpcCommandExecutor::process_focus(IpcCommand const& command, IpcParseResult
     {
         if (command_list.scope.empty())
         {
-            mir::log_warning("Focus 'workspace' command expected scope but none was provided");
-            return;
+            return parse_error("Focus 'workspace' command expected scope but none was provided");
         }
 
         auto window = get_window_meeting_criteria(command_list);
@@ -279,13 +289,10 @@ void IpcCommandExecutor::process_focus(IpcCommand const& command, IpcParseResult
     {
         auto container = state.active();
         if (!container)
-            return;
+            return parse_error("Active container does nto exist");
 
         if (container->get_type() != ContainerType::leaf)
-        {
-            mir::log_warning("Cannot focus prev when a tiling window is not selected");
-            return;
-        }
+            return parse_error("Cannot focus prev when a tiling window is not selected");
 
         if (auto parent = Container::as_parent(container->get_parent().lock()))
         {
@@ -301,13 +308,10 @@ void IpcCommandExecutor::process_focus(IpcCommand const& command, IpcParseResult
     {
         auto container = state.active();
         if (!container)
-            return;
+            return parse_error("No container is selected");
 
         if (container->get_type() != ContainerType::leaf)
-        {
-            mir::log_warning("Cannot focus prev when a tiling window is not selected");
-            return;
-        }
+            return parse_error("Cannot focus prev when a tiling window is not selected");
 
         if (auto parent = Container::as_parent(container->get_parent().lock()))
         {
@@ -328,10 +332,7 @@ void IpcCommandExecutor::process_focus(IpcCommand const& command, IpcParseResult
     else if (arg == "output")
     {
         if (command.arguments.size() < 2)
-        {
-            mir::log_error("process_focus: 'focus output' must have more than two arguments");
-            return;
-        }
+            return parse_error("process_focus: 'focus output' must have more than two arguments");
 
         auto const& arg1 = command.arguments[1];
         if (arg1 == "next")
@@ -352,6 +353,8 @@ void IpcCommandExecutor::process_focus(IpcCommand const& command, IpcParseResult
             policy.try_select_output(names);
         }
     }
+
+    return {};
 }
 
 namespace
@@ -385,21 +388,15 @@ bool parse_move_distance(std::vector<std::string> const& arguments, int& index, 
 }
 }
 
-void IpcCommandExecutor::process_move(IpcCommand const& command, IpcParseResult const& command_list)
+IpcValidationResult IpcCommandExecutor::process_move(IpcCommand const& command, IpcParseResult const& command_list)
 {
-    auto active_output = policy.get_active_output();
+    auto const& active_output = state.active_output;
     if (!active_output)
-    {
-        mir::log_warning("process_move: output is not set");
-        return;
-    }
+        return parse_error("process_move: output is not set");
 
     // https://i3wm.org/docs/userguide.html#_focusing_moving_containers
     if (command.arguments.empty())
-    {
-        mir::log_warning("process_move: move command expects arguments");
-        return;
-    }
+        return parse_error("process_move: move command expects arguments");
 
     int index = 0;
     auto const& arg0 = command.arguments[index++];
@@ -428,15 +425,12 @@ void IpcCommandExecutor::process_move(IpcCommand const& command, IpcParseResult 
     else if (arg0 == "position")
     {
         if (command.arguments.size() < 2)
-        {
-            mir::log_error("process_move: move position expected a third argument");
-            return;
-        }
+            return parse_error("process_move: move position expected a third argument");
 
         auto const& arg1 = command.arguments[index++];
         if (arg1 == "center")
         {
-            auto active = policy.get_state().active().get();
+            auto active = state.active().get();
             auto area = active_output->get_area();
             float x = (float)area.size.width.as_int() / 2.f - (float)active->get_visible_area().size.width.as_int() / 2.f;
             float y = (float)area.size.height.as_int() / 2.f - (float)active->get_visible_area().size.height.as_int() / 2.f;
@@ -444,7 +438,7 @@ void IpcCommandExecutor::process_move(IpcCommand const& command, IpcParseResult 
         }
         else if (arg1 == "mouse")
         {
-            auto const& position = policy.get_cursor_position();
+            auto const& position = state.cursor_position;
             policy.try_move_to((int)position.x.as_int(), (int)position.y.as_int());
         }
         else
@@ -453,39 +447,28 @@ void IpcCommandExecutor::process_move(IpcCommand const& command, IpcParseResult 
             int move_distance_y;
 
             if (!parse_move_distance(command.arguments, index, total_size, move_distance_x))
-            {
-                mir::log_error("process_move: move position <x> <y>: unable to parse x");
-                return;
-            }
+                return parse_error("process_move: move position <x> <y>: unable to parse x");
 
             if (!parse_move_distance(command.arguments, index, total_size, move_distance_y))
-            {
-                mir::log_error("process_move: move position <x> <y>: unable to parse y");
-                return;
-            }
+                return parse_error("process_move: move position <x> <y>: unable to parse y");
 
             policy.try_move_to(move_distance_x, move_distance_y);
         }
-        return;
+
+        return {};
     }
     else if (arg0 == "absolute")
     {
         auto const& arg1 = command.arguments[index++];
         auto const& arg2 = command.arguments[index++];
         if (arg1 != "position")
-        {
-            mir::log_error("process_move: move [absolute] ... expected 'position' as the third argument");
-            return;
-        }
+            return parse_error("process_move: move [absolute] ... expected 'position' as the third argument");
 
         if (arg2 != "center")
-        {
-            mir::log_error("process_move: move absolute position ... expected 'center' as the third argument");
-            return;
-        }
+            return parse_error("process_move: move absolute position ... expected 'center' as the third argument");
 
         float x = 0, y = 0;
-        for (auto const& output : policy.get_output_list())
+        for (auto const& output : state.output_list)
         {
             auto area = output->get_area();
             float end_x = (float)area.size.width.as_int() + (float)area.top_left.x.as_int();
@@ -496,30 +479,24 @@ void IpcCommandExecutor::process_move(IpcCommand const& command, IpcParseResult 
                 y = end_y;
         }
 
-        auto active = policy.get_state().active();
+        auto active = state.active();
         float x_pos = x / 2.f - (float)active->get_visible_area().size.width.as_int() / 2.f;
         float y_pos = y / 2.f - (float)active->get_visible_area().size.height.as_int() / 2.f;
         policy.try_move_to((int)x_pos, (int)y_pos);
-        return;
+        return {};
     }
     else if (arg0 == "window" || arg0 == "container")
     {
         auto const back_and_forth = std::find(command.options.begin(), command.options.end(), "--no-auto-back-and-forth") == command.options.end();
         auto const& arg1 = command.arguments[index++];
         if (arg1 != "to")
-        {
-            mir::log_error("process_move: expected 'to' after 'move window/container ...'");
-            return;
-        }
+            return parse_error("process_move: expected 'to' after 'move window/container ...'");
 
         auto const& arg2 = command.arguments[index++];
         if (arg2 == "workspace")
         {
             if (command.arguments.size() <= 3)
-            {
-                mir::log_error("process_move: expected another argument after 'move container/window to output...'");
-                return;
-            }
+                return parse_error("process_move: expected another argument after 'move container/window to output...'");
 
             auto const& arg3 = command.arguments[index++];
             int number = -1;
@@ -527,17 +504,17 @@ void IpcCommandExecutor::process_move(IpcCommand const& command, IpcParseResult 
             {
                 // TODO: Do we need to care about the name here?
                 policy.move_active_to_workspace(number, back_and_forth);
-                return;
+                return {};
             }
             else if (arg3 == "next")
             {
                 policy.move_active_to_next_workspace();
-                return;
+                return {};
             }
             else if (arg3 == "prev")
             {
                 policy.move_active_to_prev_workspace();
-                return;
+                return {};
             }
             else if (arg3 == "current")
             {
@@ -546,12 +523,12 @@ void IpcCommandExecutor::process_move(IpcCommand const& command, IpcParseResult 
             else if (arg3 == "back_and_forth")
             {
                 policy.move_active_to_back_and_forth();
-                return;
+                return {};
             }
             else
             {
                 policy.move_active_to_workspace_named(arg3, back_and_forth);
-                return;
+                return {};
             }
         }
         else if (arg2 == "output")
@@ -559,7 +536,7 @@ void IpcCommandExecutor::process_move(IpcCommand const& command, IpcParseResult 
             if (command.arguments.size() <= 3)
             {
                 mir::log_error("process_move: expected another argument after 'move container/window to output...'");
-                return;
+                return {};
             }
 
             auto const& arg3 = command.arguments[index++];
@@ -589,7 +566,7 @@ void IpcCommandExecutor::process_move(IpcCommand const& command, IpcParseResult 
     else if (arg0 == "scratchpad")
     {
         policy.move_to_scratchpad();
-        return;
+        return {};
     }
 
     if (direction < Direction::MAX)
@@ -600,15 +577,14 @@ void IpcCommandExecutor::process_move(IpcCommand const& command, IpcParseResult 
         else
             policy.try_move(direction);
     }
+
+    return {};
 }
 
-void IpcCommandExecutor::process_sticky(IpcCommand const& command, IpcParseResult const& command_list)
+IpcValidationResult IpcCommandExecutor::process_sticky(IpcCommand const& command, IpcParseResult const& command_list)
 {
     if (command.arguments.empty())
-    {
-        mir::log_warning("process_sticky: expects arguments");
-        return;
-    }
+        return parse_error("process_sticky: expects arguments");
 
     auto const& arg0 = command.arguments[0];
     if (arg0 == "enable")
@@ -619,10 +595,11 @@ void IpcCommandExecutor::process_sticky(IpcCommand const& command, IpcParseResul
         policy.toggle_pinned_to_workspace();
     else
         mir::log_warning("process_sticky: unknown arguments: %s", arg0.c_str());
+
+    return {};
 }
 
-// This command will be
-void IpcCommandExecutor::process_input(IpcCommand const& command, IpcParseResult const& command_list)
+IpcValidationResult IpcCommandExecutor::process_input(IpcCommand const& command, IpcParseResult const& command_list)
 {
     // Payloads appear in the following format:
     //    [type:X, xkb_Y, Z]
@@ -630,19 +607,13 @@ void IpcCommandExecutor::process_input(IpcCommand const& command, IpcParseResult
     // and Z is the value of that variable. Z may not be included at all, in which
     // case the variable is set to the default.
     if (command.arguments.size() < 2)
-    {
-        mir::log_warning("process_input: expects at least 2 arguments");
-        return;
-    }
+        return parse_error("process_input: expects at least 2 arguments");
 
     const char* const TYPE_PREFIX = "type:";
     const size_t TYPE_PREFIX_LEN = strlen(TYPE_PREFIX);
     std::string_view type_str = command.arguments[0];
     if (!type_str.starts_with("type:"))
-    {
-        mir::log_warning("process_input: 'type' string is misformatted: %s", command.arguments[0].c_str());
-        return;
-    }
+        return parse_error(std::format("process_input: 'type' string is misformatted: %s", command.arguments[0].c_str()));
 
     std::string_view type = type_str.substr(TYPE_PREFIX_LEN);
     assert(type == "keyboard");
@@ -651,10 +622,7 @@ void IpcCommandExecutor::process_input(IpcCommand const& command, IpcParseResult
     const char* const XKB_PREFIX = "xkb_";
     const size_t XKB_PREFIX_LEN = strlen(XKB_PREFIX);
     if (!xkb_str.starts_with(XKB_PREFIX))
-    {
-        mir::log_warning("process_input: 'xkb' string is misformatted: %s", command.arguments[1].c_str());
-        return;
-    }
+        return parse_error(std::format("process_input: 'xkb' string is misformatted: %s", command.arguments[1].c_str()));
 
     std::string_view xkb_variable_name = xkb_str.substr(XKB_PREFIX_LEN);
     assert(xkb_variable_name == "model"
@@ -674,18 +642,16 @@ void IpcCommandExecutor::process_input(IpcCommand const& command, IpcParseResult
     }
     else
     {
-        mir::log_warning("process_input: > 3 arguments were provided but only <= 3 are expected");
-        return;
+        return parse_error("process_input: > 3 arguments were provided but only <= 3 are expected");
     }
+
+    return {};
 }
 
-void IpcCommandExecutor::process_workspace(IpcCommand const& command, IpcParseResult const& command_list)
+IpcValidationResult IpcCommandExecutor::process_workspace(IpcCommand const& command, IpcParseResult const& command_list)
 {
     if (command.arguments.empty())
-    {
-        mir::log_error("process_workspace: no arguments provided");
-        return;
-    }
+        return parse_error("process_workspace: no arguments provided");
 
     std::string const& arg0 = command.arguments[0];
     if (arg0 == "next")
@@ -694,14 +660,14 @@ void IpcCommandExecutor::process_workspace(IpcCommand const& command, IpcParseRe
         policy.prev_workspace();
     else if (arg0 == "next_on_output")
     {
-        if (auto const* output = policy.get_active_output())
+        if (auto const& output = state.active_output)
             policy.next_workspace_on_output(*output);
         else
             mir::log_error("process_workspace: next_on_output has no output to go next on");
     }
     else if (arg0 == "prev_on_output")
     {
-        if (auto const* output = policy.get_active_output())
+        if (auto const& output = state.active_output)
             policy.prev_workspace_on_output(*output);
         else
             mir::log_error("process_workspace: prev_on_output has no output to go prev on");
@@ -722,7 +688,7 @@ void IpcCommandExecutor::process_workspace(IpcCommand const& command, IpcParseRe
             if (command.arguments.size() < 3)
             {
                 policy.select_workspace(number, back_and_forth);
-                return;
+                return {};
             }
 
             // We have "workspace number <name>"
@@ -735,9 +701,11 @@ void IpcCommandExecutor::process_workspace(IpcCommand const& command, IpcParseRe
             policy.select_workspace(*arg1, back_and_forth);
         }
     }
+
+    return {};
 }
 
-void IpcCommandExecutor::process_layout(IpcCommand const& command, IpcParseResult const& command_list)
+IpcValidationResult IpcCommandExecutor::process_layout(IpcCommand const& command, IpcParseResult const& command_list)
 {
     // https://i3wm.org/docs/userguide.html#manipulating_layout
     std::string const& arg0 = command.arguments[0];
@@ -754,10 +722,7 @@ void IpcCommandExecutor::process_layout(IpcCommand const& command, IpcParseResul
     else if (arg0 == "toggle")
     {
         if (command.arguments.size() == 1)
-        {
-            mir::log_error("process_layout: expected argument after 'layout toggle ...'");
-            return;
-        }
+            return parse_error("process_layout: expected argument after 'layout toggle ...'");
 
         if (command.arguments.size() == 2)
         {
@@ -767,18 +732,15 @@ void IpcCommandExecutor::process_layout(IpcCommand const& command, IpcParseResul
             else if (arg1 == "all")
                 policy.try_toggle_layout(true);
             else
-                mir::log_error("process_layout: expected split/all after 'layout toggle X'");
+                return parse_error("process_layout: expected split/all after 'layout toggle X'");
 
-            return;
+            return {};
         }
         else
         {
-            auto container = policy.get_state().active();
+            auto container = state.active();
             if (!container)
-            {
-                mir::log_error("process_layout: container unavailable");
-                return;
-            }
+                return parse_error("process_layout: container unavailable");
 
             auto current_type = container->get_layout();
             size_t index = 0;
@@ -844,24 +806,21 @@ void IpcCommandExecutor::process_layout(IpcCommand const& command, IpcParseResul
                 policy.set_layout(LayoutScheme::horizontal);
         }
     }
+
+    return {};
 }
 
-void IpcCommandExecutor::process_scratchpad(IpcCommand const& command, IpcParseResult const& command_list)
+IpcValidationResult IpcCommandExecutor::process_scratchpad(IpcCommand const& command, IpcParseResult const& command_list)
 {
     if (command.arguments.empty())
-    {
-        mir::log_error("process_scratchpad: no arguments provided");
-        return;
-    }
+        return parse_error("process_scratchpad: no arguments provided");
 
     std::string const& arg0 = command.arguments[0];
     if (arg0 != "show")
-    {
-        mir::log_error("process_scratchpad: all scratchpad commands must be 'scratchpad show'");
-        return;
-    }
+        return parse_error("process_scratchpad: all scratchpad commands must be 'scratchpad show'");
 
     policy.show_scratchpad();
+    return {};
 }
 
 namespace
@@ -869,6 +828,7 @@ namespace
 struct ResizeAdjust
 {
     bool success = true;
+    std::string error;
     Direction direction = Direction::MAX;
     int first = 0;
     int second = 0;
@@ -877,14 +837,11 @@ struct ResizeAdjust
 ResizeAdjust parse_resize(CompositorState const& state, ArgumentsIndexer& indexer, int multiplier)
 {
     if (!indexer.next())
-    {
-        mir::log_error("process_resize: expected argument after 'resize grow'");
-        return { false };
-    }
+        return { .success = false, .error = "process_resize: expected argument after 'resize grow'" };
 
     auto const& container = state.active();
     if (!container)
-        return { .success = false };
+        return { .success = false, .error = "No container is selcted" };
 
     ResizeAdjust result;
     if (indexer.current() == "width" || indexer.current() == "horizontal")
@@ -913,9 +870,7 @@ ResizeAdjust parse_resize(CompositorState const& state, ArgumentsIndexer& indexe
     }
     else
     {
-        mir::log_error("Unknown direction value: %s", indexer.current().c_str());
-        result.success = false;
-        return result;
+        return { .success = false, .error = std::format("Unknown direction value: %s", indexer.current().c_str()) };
     }
 
     int available_space = 0;
@@ -932,19 +887,12 @@ ResizeAdjust parse_resize(CompositorState const& state, ArgumentsIndexer& indexe
 
     int first = 0;
     if (!indexer.parse_move_distance(available_space, first))
-    {
-        result.success = false;
-        return result;
-    }
+        return { .success = false, .error = "cannot parse the first value" };
 
     if (indexer.next())
     {
         if (indexer.current() != "or")
-        {
-            mir::log_error("parse_resize: expected 'or'");
-            result.success = false;
-            return result;
-        }
+            return { .success = false, .error = "expected 'or' after first value" };
     }
 
     int second = 0;
@@ -957,6 +905,7 @@ ResizeAdjust parse_resize(CompositorState const& state, ArgumentsIndexer& indexe
 struct SetResizeResult
 {
     bool success = true;
+    std::string error;
     std::optional<int> width;
     std::optional<int> height;
 };
@@ -965,21 +914,15 @@ SetResizeResult parse_set_resize(CompositorState const& state, ArgumentsIndexer&
 {
     auto const& container = state.active();
     if (!container)
-        return { .success = false };
+        return { .success = false, .error = "Container is not selected" };
 
     SetResizeResult result;
     int width = 0, height = 0;
     if (!indexer.parse_move_distance(container->get_output()->get_area().size.width.as_value(), width))
-    {
-        mir::log_error("parse_set_resize: invalid width");
-        return { .success = false };
-    }
+        return { .success = false, .error = "invalid width" };
 
     if (!indexer.parse_move_distance(container->get_output()->get_area().size.height.as_value(), height))
-    {
-        mir::log_error("parse_set_resize: invalid height");
-        return { .success = false };
-    }
+        return { .success = false, .error = "invalid height" };
 
     if (width != 0)
         result.width = width;
@@ -990,13 +933,10 @@ SetResizeResult parse_set_resize(CompositorState const& state, ArgumentsIndexer&
 }
 }
 
-void IpcCommandExecutor::process_resize(IpcCommand const& command, IpcParseResult const& command_list)
+IpcValidationResult IpcCommandExecutor::process_resize(IpcCommand const& command, IpcParseResult const& command_list)
 {
     if (command.arguments.empty())
-    {
-        mir::log_error("process_resize: no arguments provided");
-        return;
-    }
+        return parse_error("process_resize: no arguments provided");
 
     ArgumentsIndexer indexer(command);
     auto const& arg0 = indexer.current();
@@ -1004,7 +944,7 @@ void IpcCommandExecutor::process_resize(IpcCommand const& command, IpcParseResul
     {
         auto adjust = parse_resize(state, indexer, 1);
         if (!adjust.success)
-            return;
+            return parse_error(adjust.error);
 
         policy.try_resize(adjust.direction, adjust.first);
     }
@@ -1012,7 +952,7 @@ void IpcCommandExecutor::process_resize(IpcCommand const& command, IpcParseResul
     {
         auto adjust = parse_resize(state, indexer, -1);
         if (!adjust.success)
-            return;
+            return parse_error(adjust.error);
 
         policy.try_resize(adjust.direction, adjust.first);
     }
@@ -1020,13 +960,12 @@ void IpcCommandExecutor::process_resize(IpcCommand const& command, IpcParseResul
     {
         auto result = parse_set_resize(state, indexer);
         if (!result.success)
-            return;
+            return parse_error(result.error);
 
         policy.try_set_size(result.width, result.height);
     }
     else
-    {
-        mir::log_error("process_resize: unexpected argument: %s", arg0.c_str());
-        return;
-    }
+        return parse_error(std::format("process_resize: unexpected argument: %s", arg0.c_str()));
+
+    return {};
 }
