@@ -613,7 +613,7 @@ IpcValidationResult IpcCommandExecutor::process_input(IpcCommand const& command,
     const size_t TYPE_PREFIX_LEN = strlen(TYPE_PREFIX);
     std::string_view type_str = command.arguments[0];
     if (!type_str.starts_with("type:"))
-        return parse_error(std::format("process_input: 'type' string is misformatted: %s", command.arguments[0].c_str()));
+        return parse_error(std::format("process_input: 'type' string is misformatted: {}", command.arguments[0].c_str()));
 
     std::string_view type = type_str.substr(TYPE_PREFIX_LEN);
     assert(type == "keyboard");
@@ -622,7 +622,7 @@ IpcValidationResult IpcCommandExecutor::process_input(IpcCommand const& command,
     const char* const XKB_PREFIX = "xkb_";
     const size_t XKB_PREFIX_LEN = strlen(XKB_PREFIX);
     if (!xkb_str.starts_with(XKB_PREFIX))
-        return parse_error(std::format("process_input: 'xkb' string is misformatted: %s", command.arguments[1].c_str()));
+        return parse_error(std::format("process_input: 'xkb' string is misformatted: {}", command.arguments[1].c_str()));
 
     std::string_view xkb_variable_name = xkb_str.substr(XKB_PREFIX_LEN);
     assert(xkb_variable_name == "model"
@@ -870,7 +870,7 @@ ResizeAdjust parse_resize(CompositorState const& state, ArgumentsIndexer& indexe
     }
     else
     {
-        return { .success = false, .error = std::format("Unknown direction value: %s", indexer.current().c_str()) };
+        return { .success = false, .error = std::format("Unknown direction value: {}", indexer.current().c_str()) };
     }
 
     int available_space = 0;
@@ -965,7 +965,7 @@ IpcValidationResult IpcCommandExecutor::process_resize(IpcCommand const& command
         policy.try_set_size(result.width, result.height);
     }
     else
-        return parse_error(std::format("process_resize: unexpected argument: %s", arg0.c_str()));
+        return parse_error(std::format("process_resize: unexpected argument: {}", arg0.c_str()));
 
     return {};
 }

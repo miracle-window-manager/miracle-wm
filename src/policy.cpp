@@ -110,7 +110,7 @@ Policy::Policy(
     window_controller(tools, animator, state),
     i3_command_executor(*this, workspace_manager, compositor_state, external_client_launcher, window_controller),
     surface_tracker { surface_tracker },
-    ipc { std::make_shared<Ipc>(runner, workspace_manager, *this, server.the_main_loop(), i3_command_executor, config) },
+    ipc { std::make_shared<Ipc>(runner, workspace_manager, *this, i3_command_executor, config) },
     scratchpad_(window_controller, state),
     self { std::make_shared<Self>(*this) }
 {

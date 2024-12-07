@@ -225,12 +225,10 @@ json mode_event_to_json(WindowManagerMode mode)
 Ipc::Ipc(miral::MirRunner& runner,
     miracle::WorkspaceManager& workspace_manager,
     Policy& policy,
-    std::shared_ptr<mir::ServerActionQueue> const& queue,
     IpcCommandExecutor& executor,
     std::shared_ptr<Config> const& config) :
     workspace_manager { workspace_manager },
     policy { policy },
-    queue { queue },
     executor { executor },
     config { config }
 {
@@ -528,14 +526,20 @@ void Ipc::handle_command(miracle::Ipc::IpcClient& client, uint32_t payload_lengt
     {
         mir::log_debug("Processing i3_command: %s", buf);
         auto result = parse_i3_command(buf);
-        if (result)
+        if (result.success)
         {
             const std::string msg = "[{\"success\": true}]";
             send_reply(client, payload_type, msg);
         }
         else
         {
-            const std::string msg = "[{\"success\": false, \"parse_error\": true}]";
+            json j = json::array();
+            j.push_back({
+                { "success",     false              },
+                { "parse_error", result.parse_error },
+                { "error",       result.error       },
+            });
+            const std::string msg = to_string(j);
             send_reply(client, payload_type, msg);
         }
         break;
@@ -759,26 +763,9 @@ void Ipc::handle_writeable(miracle::Ipc::IpcClient& client)
     client.write_buffer_len = 0;
 }
 
-bool Ipc::parse_i3_command(const char* command)
+IpcValidationResult Ipc::parse_i3_command(const char* command)
 {
-    {
-        std::unique_lock lock(pending_commands_mutex);
-        IpcCommandParser parser(command);
-        pending_commands.push_back(parser.parse());
-    }
-
-    queue->enqueue(this, [&]()
-    {
-        size_t num_processed = 0;
-        {
-            std::shared_lock lock(pending_commands_mutex);
-            for (auto const& c : pending_commands)
-                executor.process(c);
-            num_processed = pending_commands.size();
-        }
-
-        std::unique_lock lock(pending_commands_mutex);
-        pending_commands.erase(pending_commands.begin(), pending_commands.begin() + num_processed);
-    });
-    return true;
+    IpcCommandParser parser(command);
+    auto const pending_commands = parser.parse();
+    return executor.process(pending_commands);
 }
