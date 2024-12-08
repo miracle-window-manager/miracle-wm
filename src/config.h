@@ -158,6 +158,7 @@ class Config
 public:
     virtual ~Config() = default;
     virtual void load(mir::Server& server) = 0;
+    virtual void reload() = 0;
     [[nodiscard]] virtual std::string const& get_filename() const = 0;
     [[nodiscard]] virtual MirInputEventModifier get_input_event_modifier() const = 0;
     [[nodiscard]] virtual CustomKeyCommand const* matches_custom_key_command(MirKeyboardAction action, int scan_code, unsigned int modifiers) const = 0;
@@ -195,6 +196,7 @@ public:
     auto operator=(FilesystemConfiguration const&) -> FilesystemConfiguration& = delete;
 
     void load(mir::Server& server) override;
+    void reload() override;
     [[nodiscard]] std::string const& get_filename() const override;
     [[nodiscard]] MirInputEventModifier get_input_event_modifier() const override;
     [[nodiscard]] CustomKeyCommand const* matches_custom_key_command(MirKeyboardAction action, int scan_code, unsigned int modifiers) const override;
@@ -247,7 +249,6 @@ private:
     };
 
     void _init(std::optional<StartupApp> const& systemd_app, std::optional<StartupApp> const& exec_app);
-    void _reload();
     void _watch(miral::MirRunner& runner);
     void add_error(YAML::Node const&);
     void read_action_key(YAML::Node const&);

@@ -80,6 +80,7 @@ public:
     virtual bool try_move_active_to_nonprimary() = 0;
     virtual bool try_move_active_to_next() = 0;
     virtual bool try_move_active(std::vector<std::string> const& names) = 0;
+    virtual bool reload_config() = 0;
 };
 }
 

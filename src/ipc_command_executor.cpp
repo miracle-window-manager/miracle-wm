@@ -155,8 +155,11 @@ IpcValidationResult IpcCommandExecutor::process(miracle::IpcParseResult const& c
         case IpcCommandType::resize:
             result = process_resize(command, command_list);
             break;
+        case IpcCommandType::reload:
+            result = process_reload(command, command_list);
+            break;
         default:
-            result = parse_error(std::format("Unsupported command type: %d", (int)command.type));
+            result = parse_error(std::format("Unsupported command type: {}", (int)command.type));
             break;
         }
 
@@ -967,5 +970,14 @@ IpcValidationResult IpcCommandExecutor::process_resize(IpcCommand const& command
     else
         return parse_error(std::format("process_resize: unexpected argument: {}", arg0.c_str()));
 
+    return {};
+}
+
+IpcValidationResult IpcCommandExecutor::process_reload(IpcCommand const& command, IpcParseResult const&)
+{
+    if (!command.arguments.empty())
+        return parse_error("'reload' command expects no arguments");
+
+    policy.reload_config();
     return {};
 }

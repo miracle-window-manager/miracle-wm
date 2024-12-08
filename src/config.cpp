@@ -175,7 +175,7 @@ void FilesystemConfiguration::_init(std::optional<StartupApp> const& systemd_app
         }
     }
 
-    _reload();
+    reload();
 
     // If the user specified an --systemd-session-configure <APP_NAME>, let's add that to the list
     if (systemd_app)
@@ -194,7 +194,7 @@ void FilesystemConfiguration::_init(std::optional<StartupApp> const& systemd_app
     _watch(runner);
 }
 
-void FilesystemConfiguration::_reload()
+void FilesystemConfiguration::reload()
 {
     std::lock_guard<std::mutex> lock(mutex);
 
@@ -785,7 +785,7 @@ void FilesystemConfiguration::_watch(miral::MirRunner& runner)
 
         if (inotify_buffer.event.mask & (IN_MODIFY))
         {
-            _reload();
+            reload();
             has_changes = true;
         }
     });

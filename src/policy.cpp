@@ -1602,3 +1602,9 @@ bool Policy::can_set_layout() const
 
     return !state.active()->is_fullscreen();
 }
+
+bool Policy::reload_config()
+{
+    config->reload();
+    return true;
+}

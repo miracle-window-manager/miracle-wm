@@ -152,6 +152,7 @@ public:
     bool try_move_active_to_nonprimary() override;
     bool try_move_active_to_next() override;
     bool try_move_active(std::vector<std::string> const& names) override;
+    bool reload_config() override;
 
     // Getters
 
