@@ -6,7 +6,7 @@ description: |
   that provides a tiling-window manager.
 confinement: classic
 base: core24
-version: 0.3.7
+version: 0.0.0
 
 platforms:
   amd64:
@@ -40,14 +40,16 @@ parts:
   miracle-wm:
     build-attributes:
       - enable-patchelf
+    # Override pull will set the version either to the tag+hash or the tag itself.
+    # If the tag is the currently published tag, then we set the grade to stable.
+    # Otherwise, the grade is always devel.
     override-pull: |
       craftctl default
-      # work around https://github.com/diddlesnaps/snapcraft-multiarch-action/issues/22
       git config --global --add safe.directory ${CRAFT_PART_SRC}
-      server_version=`git rev-list --count HEAD`
-      mir_version=`LANG=C apt-cache policy mir-graphics-drivers-desktop | sed -rne 's/^\s+Candidate:\s+([^-]*)-.+$/\1/p'`
-      craftctl set version=$server_version-mir$mir_version
-      if echo $mir_version | grep -e '+dev' -e '~rc' -q; then craftctl set grade=devel; else craftctl set grade=stable; fi
+      published=`git describe --tags --abbrev=0`
+      version=`git describe --tags`
+      craftctl set version=$version
+      if [[ "$published" != *"$version"* ]]; then craftctl set grade=devel; else craftctl set grade=stable; fi
     plugin: cmake
     cmake-parameters:
       - -DSNAP_BUILD=ON
