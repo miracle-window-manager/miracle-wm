@@ -153,6 +153,11 @@ public:
     bool try_move_active_to_next() override;
     bool try_move_active(std::vector<std::string> const& names) override;
     bool reload_config() override;
+    [[nodiscard]] nlohmann::json to_json() const override;
+    [[nodiscard]] nlohmann::json outputs_json() const override;
+    [[nodiscard]] nlohmann::json workspaces_json() const override;
+    [[nodiscard]] nlohmann::json workspace_to_json(uint32_t) const override;
+    [[nodiscard]] nlohmann::json mode_to_json() const override;
 
     // Getters
 
@@ -163,6 +168,16 @@ public:
 
 private:
     class Self;
+
+    class Locker
+    {
+    public:
+        explicit Locker(std::shared_ptr<Self> const&);
+        ~Locker();
+
+    private:
+        std::lock_guard<std::recursive_mutex> lock_guard;
+    };
 
     bool can_move_container() const;
     bool can_set_layout() const;

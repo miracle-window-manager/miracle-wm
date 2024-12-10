@@ -33,8 +33,7 @@ struct sockaddr_un;
 namespace miracle
 {
 
-class Policy;
-class Config;
+class CommandController;
 
 /// This it taken directly from SWAY
 enum IpcType
@@ -81,8 +80,7 @@ class Ipc : public virtual WorkspaceObserver, public virtual ModeObserver
 {
 public:
     Ipc(miral::MirRunner& runner,
-        WorkspaceManager&,
-        Policy& policy,
+        CommandController&,
         IpcCommandExecutor&,
         std::shared_ptr<Config> const&);
     ~Ipc();
@@ -105,8 +103,7 @@ private:
         int subscribed_events = 0;
     };
 
-    WorkspaceManager& workspace_manager;
-    Policy& policy;
+    CommandController& policy;
     mir::Fd ipc_socket;
     std::unique_ptr<miral::FdHandle> socket_handle;
     sockaddr_un* ipc_sockaddr = nullptr;

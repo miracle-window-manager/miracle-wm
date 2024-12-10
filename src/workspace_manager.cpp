@@ -74,8 +74,8 @@ bool WorkspaceManager::request_workspace(
     output_hint->advise_new_workspace({ .id = id,
         .num = num,
         .name = workspace_config.name });
-    request_focus(id);
     registry.advise_created(id);
+    request_focus(id);
     return true;
 }
 
@@ -220,9 +220,9 @@ bool WorkspaceManager::delete_workspace(uint32_t id)
     if (!w)
         return false;
 
+    registry.advise_removed(id);
     auto* output = w->get_output();
     output->advise_workspace_deleted(id);
-    registry.advise_removed(id);
     return true;
 }
 
