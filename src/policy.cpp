@@ -22,7 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "container_group_container.h"
 #include "feature_flags.h"
 #include "floating_tree_container.h"
-#include "math_helpers.h"
 #include "parent_container.h"
 #include "shell_component_container.h"
 #include "window_helpers.h"
@@ -39,6 +38,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <miral/toolkit_event.h>
 #include <miral/window_specification.h>
 #include <miral/zone.h>
+#include <mutex>
 
 using namespace miracle;
 
@@ -81,7 +81,15 @@ public:
     }
 
     Policy& policy;
+    std::recursive_mutex mutex;
 };
+
+Policy::Locker::Locker(std::shared_ptr<Self> const& self) :
+    lock_guard { self->mutex }
+{
+}
+
+Policy::Locker::~Locker() { }
 
 Policy::Policy(
     miral::WindowManagerTools const& tools,
@@ -110,7 +118,7 @@ Policy::Policy(
     window_controller(tools, animator, state),
     i3_command_executor(*this, workspace_manager, compositor_state, external_client_launcher, window_controller),
     surface_tracker { surface_tracker },
-    ipc { std::make_shared<Ipc>(runner, workspace_manager, *this, i3_command_executor, config) },
+    ipc { std::make_shared<Ipc>(runner, *this, i3_command_executor, config) },
     scratchpad_(window_controller, state),
     self { std::make_shared<Self>(*this) }
 {
@@ -251,6 +259,7 @@ bool Policy::handle_keyboard_event(MirKeyboardEvent const* event)
 
 bool Policy::handle_pointer_event(MirPointerEvent const* event)
 {
+    Locker locker(self);
     auto x = miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_x);
     auto y = miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_y);
     auto action = miral::toolkit::mir_pointer_event_action(event);
@@ -343,6 +352,7 @@ auto Policy::place_new_window(
     const miral::ApplicationInfo& app_info,
     const miral::WindowSpecification& requested_specification) -> miral::WindowSpecification
 {
+    Locker locker(self);
     if (!state.active_output)
     {
         mir::log_warning("place_new_window: no output available");
@@ -356,6 +366,7 @@ auto Policy::place_new_window(
 
 void Policy::advise_new_window(miral::WindowInfo const& window_info)
 {
+    Locker locker(self);
     if (!state.active_output)
     {
         mir::log_warning("create_container: output unavailable");
@@ -388,6 +399,7 @@ void Policy::advise_new_window(miral::WindowInfo const& window_info)
 
 void Policy::handle_window_ready(miral::WindowInfo& window_info)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -404,6 +416,7 @@ Policy::confirm_placement_on_display(
     MirWindowState new_state,
     mir::geometry::Rectangle const& new_placement)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -416,6 +429,7 @@ Policy::confirm_placement_on_display(
 
 void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -449,6 +463,7 @@ void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
 
 void Policy::advise_focus_lost(const miral::WindowInfo& window_info)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -462,6 +477,7 @@ void Policy::advise_focus_lost(const miral::WindowInfo& window_info)
 
 void Policy::advise_delete_window(const miral::WindowInfo& window_info)
 {
+    Locker locker(self);
     for (auto it = orphaned_window_list.begin(); it != orphaned_window_list.end(); it++)
     {
         if (*it == window_info.window())
@@ -490,6 +506,7 @@ void Policy::advise_delete_window(const miral::WindowInfo& window_info)
 
 void Policy::advise_move_to(miral::WindowInfo const& window_info, geom::Point top_left)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -502,6 +519,7 @@ void Policy::advise_move_to(miral::WindowInfo const& window_info, geom::Point to
 
 void Policy::advise_output_create(miral::Output const& output)
 {
+    Locker locker(self);
     auto output_content = std::make_shared<Output>(
         output, workspace_manager, output.extents(), window_manager_tools,
         floating_window_manager, state, config, window_controller, animator);
@@ -527,6 +545,7 @@ void Policy::advise_output_create(miral::Output const& output)
 
 void Policy::advise_output_update(miral::Output const& updated, miral::Output const& original)
 {
+    Locker locker(self);
     for (auto& output : state.output_list)
     {
         if (output->get_output().is_same_output(original))
@@ -539,6 +558,7 @@ void Policy::advise_output_update(miral::Output const& updated, miral::Output co
 
 void Policy::advise_output_delete(miral::Output const& output)
 {
+    Locker locker(self);
     for (auto it = state.output_list.begin(); it != state.output_list.end(); it++)
     {
         auto other_output = *it;
@@ -591,6 +611,7 @@ void Policy::handle_modify_window(
     miral::WindowInfo& window_info,
     const miral::WindowSpecification& modifications)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -612,6 +633,7 @@ void Policy::handle_modify_window(
 
 void Policy::handle_raise_window(miral::WindowInfo& window_info)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -629,6 +651,7 @@ bool Policy::handle_touch_event(const MirTouchEvent* event)
 
 void Policy::handle_request_move(miral::WindowInfo& window_info, const MirInputEvent* input_event)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -644,6 +667,7 @@ void Policy::handle_request_resize(
     const MirInputEvent* input_event,
     MirResizeEdge edge)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -663,6 +687,7 @@ mir::geometry::Rectangle Policy::confirm_inherited_move(
 
 void Policy::advise_application_zone_create(miral::Zone const& application_zone)
 {
+    Locker locker(self);
     for (auto const& output : state.output_list)
     {
         output->advise_application_zone_create(application_zone);
@@ -671,6 +696,7 @@ void Policy::advise_application_zone_create(miral::Zone const& application_zone)
 
 void Policy::advise_application_zone_update(miral::Zone const& updated, miral::Zone const& original)
 {
+    Locker locker(self);
     for (auto const& output : state.output_list)
     {
         output->advise_application_zone_update(updated, original);
@@ -679,6 +705,7 @@ void Policy::advise_application_zone_update(miral::Zone const& updated, miral::Z
 
 void Policy::advise_application_zone_delete(miral::Zone const& application_zone)
 {
+    Locker locker(self);
     for (auto const& output : state.output_list)
     {
         output->advise_application_zone_delete(application_zone);
@@ -699,6 +726,7 @@ void Policy::advise_end()
 
 void Policy::try_toggle_resize_mode()
 {
+    Locker locker(self);
     if (!state.active())
     {
         state.mode = WindowManagerMode::normal;
@@ -721,6 +749,7 @@ void Policy::try_toggle_resize_mode()
 
 bool Policy::try_request_vertical()
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -733,6 +762,7 @@ bool Policy::try_request_vertical()
 
 bool Policy::try_toggle_layout(bool cycle_thru_all)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -745,6 +775,7 @@ bool Policy::try_toggle_layout(bool cycle_thru_all)
 
 bool Policy::try_request_horizontal()
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -757,6 +788,7 @@ bool Policy::try_request_horizontal()
 
 bool Policy::try_resize(miracle::Direction direction, int pixels)
 {
+    Locker locker(self);
     if (!state.active())
         return false;
 
@@ -765,6 +797,7 @@ bool Policy::try_resize(miracle::Direction direction, int pixels)
 
 bool Policy::try_set_size(std::optional<int> const& width, std::optional<int> const& height)
 {
+    Locker locker(self);
     if (!state.active())
         return false;
 
@@ -773,6 +806,7 @@ bool Policy::try_set_size(std::optional<int> const& width, std::optional<int> co
 
 bool Policy::try_move(miracle::Direction direction)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -784,6 +818,7 @@ bool Policy::try_move(miracle::Direction direction)
 
 bool Policy::try_move_by(miracle::Direction direction, int pixels)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -795,6 +830,7 @@ bool Policy::try_move_by(miracle::Direction direction, int pixels)
 
 bool Policy::try_move_to(int x, int y)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -806,6 +842,7 @@ bool Policy::try_move_to(int x, int y)
 
 void Policy::select_container(std::shared_ptr<Container> const& container)
 {
+    Locker locker(self);
     if (container->window())
         window_controller.select_active_window(container->window().value());
     else
@@ -817,6 +854,7 @@ void Policy::select_container(std::shared_ptr<Container> const& container)
 
 bool Policy::try_select(miracle::Direction direction)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -828,6 +866,7 @@ bool Policy::try_select(miracle::Direction direction)
 
 bool Policy::try_select_parent()
 {
+    Locker locker(self);
     if (state.mode != WindowManagerMode::normal)
         return false;
 
@@ -848,6 +887,7 @@ bool Policy::try_select_parent()
 
 bool Policy::try_select_child()
 {
+    Locker locker(self);
     if (state.mode != WindowManagerMode::normal)
         return false;
 
@@ -887,6 +927,7 @@ bool Policy::try_select_child()
 
 bool Policy::try_select_floating()
 {
+    Locker locker(self);
     if (state.mode != WindowManagerMode::normal)
         return false;
 
@@ -904,6 +945,7 @@ bool Policy::try_select_floating()
 
 bool Policy::try_select_tiling()
 {
+    Locker locker(self);
     if (state.mode != WindowManagerMode::normal)
         return false;
 
@@ -921,6 +963,7 @@ bool Policy::try_select_tiling()
 
 bool Policy::try_select_toggle()
 {
+    Locker locker(self);
     if (state.mode != WindowManagerMode::normal)
         return false;
 
@@ -937,6 +980,7 @@ bool Policy::try_select_toggle()
 
 bool Policy::try_close_window()
 {
+    Locker locker(self);
     if (!state.active())
         return false;
 
@@ -950,6 +994,7 @@ bool Policy::try_close_window()
 
 bool Policy::quit()
 {
+    Locker locker(self);
     ipc->on_shutdown();
     runner.stop();
     return true;
@@ -957,6 +1002,7 @@ bool Policy::quit()
 
 bool Policy::try_toggle_fullscreen()
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -968,6 +1014,7 @@ bool Policy::try_toggle_fullscreen()
 
 bool Policy::select_workspace(int number, bool back_and_forth)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -980,6 +1027,7 @@ bool Policy::select_workspace(int number, bool back_and_forth)
 
 bool Policy::select_workspace(std::string const& name, bool back_and_forth)
 {
+    Locker locker(self);
     // TODO: Handle back_and_forth
     if (state.mode == WindowManagerMode::resizing)
         return false;
@@ -989,6 +1037,7 @@ bool Policy::select_workspace(std::string const& name, bool back_and_forth)
 
 bool Policy::next_workspace()
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -998,6 +1047,7 @@ bool Policy::next_workspace()
 
 bool Policy::prev_workspace()
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -1007,6 +1057,7 @@ bool Policy::prev_workspace()
 
 bool Policy::back_and_forth_workspace()
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -1016,6 +1067,7 @@ bool Policy::back_and_forth_workspace()
 
 bool Policy::next_workspace_on_output(miracle::Output const& output)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -1024,6 +1076,7 @@ bool Policy::next_workspace_on_output(miracle::Output const& output)
 
 bool Policy::prev_workspace_on_output(miracle::Output const& output)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -1032,6 +1085,7 @@ bool Policy::prev_workspace_on_output(miracle::Output const& output)
 
 bool Policy::move_active_to_workspace(int number, bool back_and_forth)
 {
+    Locker locker(self);
     if (!can_move_container())
         return false;
 
@@ -1053,6 +1107,7 @@ bool Policy::move_active_to_workspace(int number, bool back_and_forth)
 
 bool Policy::move_active_to_workspace_named(std::string const& name, bool back_and_forth)
 {
+    Locker locker(self);
     if (!can_move_container())
         return false;
 
@@ -1071,6 +1126,7 @@ bool Policy::move_active_to_workspace_named(std::string const& name, bool back_a
 
 bool Policy::move_active_to_next_workspace()
 {
+    Locker locker(self);
     if (!can_move_container())
         return false;
 
@@ -1089,6 +1145,7 @@ bool Policy::move_active_to_next_workspace()
 
 bool Policy::move_active_to_prev_workspace()
 {
+    Locker locker(self);
     if (!can_move_container())
         return false;
 
@@ -1107,6 +1164,7 @@ bool Policy::move_active_to_prev_workspace()
 
 bool Policy::move_active_to_back_and_forth()
 {
+    Locker locker(self);
     if (!can_move_container())
         return false;
 
@@ -1125,6 +1183,7 @@ bool Policy::move_active_to_back_and_forth()
 
 bool Policy::move_to_scratchpad()
 {
+    Locker locker(self);
     if (!can_move_container())
         return false;
 
@@ -1155,12 +1214,14 @@ bool Policy::move_to_scratchpad()
 
 bool Policy::show_scratchpad()
 {
+    Locker locker(self);
     // TODO: Only show the window that meets the criteria
     return scratchpad_.toggle_show_all();
 }
 
 bool Policy::can_move_container() const
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -1242,6 +1303,7 @@ std::shared_ptr<Container> Policy::toggle_floating_internal(std::shared_ptr<Cont
 
 bool Policy::toggle_floating()
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -1254,6 +1316,7 @@ bool Policy::toggle_floating()
 
 bool Policy::toggle_pinned_to_workspace()
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -1265,6 +1328,7 @@ bool Policy::toggle_pinned_to_workspace()
 
 bool Policy::set_is_pinned(bool pinned)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -1276,6 +1340,7 @@ bool Policy::set_is_pinned(bool pinned)
 
 bool Policy::toggle_tabbing()
 {
+    Locker locker(self);
     if (!can_set_layout())
         return false;
 
@@ -1284,6 +1349,7 @@ bool Policy::toggle_tabbing()
 
 bool Policy::toggle_stacking()
 {
+    Locker locker(self);
     if (!can_set_layout())
         return false;
 
@@ -1292,6 +1358,7 @@ bool Policy::toggle_stacking()
 
 bool Policy::set_layout(LayoutScheme scheme)
 {
+    Locker locker(self);
     if (!can_set_layout())
         return false;
 
@@ -1300,6 +1367,7 @@ bool Policy::set_layout(LayoutScheme scheme)
 
 bool Policy::set_layout_default()
 {
+    Locker locker(self);
     if (!can_set_layout())
         return false;
 
@@ -1315,6 +1383,7 @@ void Policy::move_cursor_to_output(Output const& output)
 
 bool Policy::try_select_next_output()
 {
+    Locker locker(self);
     for (size_t i = 0; i < state.output_list.size(); i++)
     {
         if (state.output_list[i] == state.active_output)
@@ -1333,6 +1402,7 @@ bool Policy::try_select_next_output()
 
 bool Policy::try_select_prev_output()
 {
+    Locker locker(self);
     for (int i = state.output_list.size() - 1; i >= 0; i++)
     {
         if (state.output_list[i] == state.active_output)
@@ -1403,6 +1473,7 @@ std::shared_ptr<Output> const& Policy::_next_output_in_direction(Direction direc
 
 bool Policy::try_select_output(Direction direction)
 {
+    Locker locker(self);
     auto const& next = _next_output_in_direction(direction);
     if (next != state.active_output)
     {
@@ -1443,6 +1514,7 @@ std::shared_ptr<Output> const& Policy::_next_output_in_list(std::vector<std::str
 
 bool Policy::try_select_output(std::vector<std::string> const& names)
 {
+    Locker locker(self);
     if (!state.active_output)
         return false;
 
@@ -1454,6 +1526,7 @@ bool Policy::try_select_output(std::vector<std::string> const& names)
 
 bool Policy::try_move_active_to_output(miracle::Direction direction)
 {
+    Locker locker(self);
     if (!state.active_output)
         return false;
 
@@ -1478,6 +1551,7 @@ bool Policy::try_move_active_to_output(miracle::Direction direction)
 
 bool Policy::try_move_active_to_current()
 {
+    Locker locker(self);
     if (!state.active_output)
         return false;
 
@@ -1499,6 +1573,7 @@ bool Policy::try_move_active_to_current()
 
 bool Policy::try_move_active_to_primary()
 {
+    Locker locker(self);
     if (state.output_list.empty())
         return false;
 
@@ -1520,6 +1595,7 @@ bool Policy::try_move_active_to_primary()
 
 bool Policy::try_move_active_to_nonprimary()
 {
+    Locker locker(self);
     constexpr int MIN_SIZE_TO_HAVE_NONPRIMARY_OUTPUT = 2;
     if (state.output_list.size() < MIN_SIZE_TO_HAVE_NONPRIMARY_OUTPUT)
         return false;
@@ -1542,6 +1618,7 @@ bool Policy::try_move_active_to_nonprimary()
 
 bool Policy::try_move_active_to_next()
 {
+    Locker locker(self);
     if (!can_move_container())
         return false;
 
@@ -1574,6 +1651,7 @@ bool Policy::try_move_active_to_next()
 
 bool Policy::try_move_active(std::vector<std::string> const& names)
 {
+    Locker locker(self);
     if (!can_move_container())
         return false;
 
@@ -1605,6 +1683,102 @@ bool Policy::can_set_layout() const
 
 bool Policy::reload_config()
 {
+    Locker locker(self);
     config->reload();
     return true;
+}
+
+nlohmann::json Policy::to_json() const
+{
+    Locker locker(self);
+    geom::Point top_left { INT_MAX, INT_MAX };
+    geom::Point bottom_right { 0, 0 };
+    nlohmann::json outputs_json = nlohmann::json::array();
+    for (auto const& output : state.output_list)
+    {
+        auto& area = output->get_area();
+
+        // Recalculate the total extents of the tree
+        if (area.top_left.x.as_int() < top_left.x.as_int())
+            top_left.x = geom::X { area.top_left.x.as_int() };
+        if (area.top_left.y.as_int() < top_left.y.as_int())
+            top_left.y = geom::Y { area.top_left.y.as_int() };
+
+        int bottom_x = area.top_left.x.as_int() + area.size.width.as_int();
+        int bottom_y = area.top_left.y.as_int() + area.size.height.as_int();
+        if (bottom_x > bottom_right.x.as_int())
+            bottom_right.x = geom::X { bottom_x };
+        if (bottom_y > bottom_right.y.as_int())
+            bottom_right.y = geom::Y { bottom_y };
+
+        outputs_json.push_back(output->to_json());
+    }
+
+    geom::Rectangle total_area {
+        top_left,
+        geom::Size {
+                    geom::Width(bottom_right.x.as_int() - top_left.x.as_int()),
+                    geom::Height(bottom_right.y.as_int() - top_left.y.as_int()) }
+    };
+    nlohmann::json root = {
+        { "id", 0 },
+        { "name", "root" },
+        {
+         "rect",
+         { { "x", total_area.top_left.x.as_int() }, { "y", total_area.top_left.y.as_int() }, { "width", total_area.size.width.as_int() }, { "height", total_area.size.height.as_int() } },
+         },
+        { "nodes", outputs_json },
+        { "type", "root" }
+    };
+    return root;
+}
+
+nlohmann::json Policy::outputs_json() const
+{
+    Locker locker(self);
+    nlohmann::json j = nlohmann::json::array();
+    for (auto const& output : state.output_list)
+        j.push_back(output->to_json());
+    return j;
+}
+
+nlohmann::json Policy::workspaces_json() const
+{
+    Locker locker(self);
+    nlohmann::json j = nlohmann::json::array();
+    for (auto workspace : workspace_manager.workspaces())
+        j.push_back(workspace->to_json());
+    return j;
+}
+
+nlohmann::json Policy::workspace_to_json(uint32_t id) const
+{
+    Locker locker(self);
+    auto workspace = workspace_manager.workspace(id);
+    return workspace->to_json();
+}
+
+nlohmann::json Policy::mode_to_json() const
+{
+    Locker locker(self);
+    switch (state.mode)
+    {
+    case WindowManagerMode::normal:
+        return {
+            { "name", "default" }
+        };
+    case WindowManagerMode::resizing:
+        return {
+            { "name", "resize" }
+        };
+    case WindowManagerMode::selecting:
+        return {
+            { "name", "selecting" }
+        };
+    default:
+    {
+        mir::fatal_error("handle_command: unknown binding state: %d", (int)state.mode);
+        return {};
+    }
+    }
 }

@@ -91,7 +91,7 @@ void WindowManagerToolsWindowController::set_rectangle(
         from,
         to,
         geom::Rectangle { window.top_left(), window.size() },
-        [this, container = container](miracle::AnimationStepResult const& result)
+        [this, container = container](AnimationStepResult const& result)
     {
         on_animation(result, container);
     });

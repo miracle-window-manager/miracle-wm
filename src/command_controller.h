@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "direction.h"
 #include "output.h"
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 
@@ -81,6 +82,11 @@ public:
     virtual bool try_move_active_to_next() = 0;
     virtual bool try_move_active(std::vector<std::string> const& names) = 0;
     virtual bool reload_config() = 0;
+    [[nodiscard]] virtual nlohmann::json to_json() const = 0;
+    [[nodiscard]] virtual nlohmann::json outputs_json() const = 0;
+    [[nodiscard]] virtual nlohmann::json workspaces_json() const = 0;
+    [[nodiscard]] virtual nlohmann::json workspace_to_json(uint32_t) const = 0;
+    [[nodiscard]] virtual nlohmann::json mode_to_json() const = 0;
 };
 }
 

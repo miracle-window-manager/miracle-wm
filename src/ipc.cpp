@@ -18,10 +18,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MIR_LOG_COMPONENT "miracle_ipc"
 
 #include "ipc.h"
+#include "command_controller.h"
 #include "config.h"
 #include "ipc_command_executor.h"
 #include "output.h"
-#include "policy.h"
 #include "version.h"
 #include "workspace.h"
 
@@ -76,38 +76,6 @@ bool fd_is_valid(int fd)
     return fcntl(fd, F_GETFD) != -1 || errno != EBADF;
 }
 
-json workspace_to_json(WorkspaceManager const& workspace_manager, uint32_t id)
-{
-    auto const& workspace = workspace_manager.workspace(id);
-    if (!workspace)
-        return {};
-
-    auto screen = workspace->get_output();
-    bool is_focused = screen->active() == workspace;
-
-    // Note: The reported workspace area appears to be the placement
-    // area of the root tree.
-    //   See: https://i3wm.org/docs/ipc.html#_tree_reply
-    auto area = workspace->get_tree()->get_area();
-
-    return {
-        { "num",     workspace->num() ? workspace->num().value() : -1 },
-        { "id",      reinterpret_cast<std::uintptr_t>(workspace)      },
-        { "type",    "workspace"                                      },
-        { "name",    workspace->display_name()                        },
-        { "visible", screen->is_active() && is_focused                },
-        { "focused", screen->is_active() && is_focused                },
-        { "urgent",  false                                            },
-        { "output",  screen->get_output().name()                      },
-        { "rect",    {
-                      { "x", area.top_left.x.as_int() },
-                      { "y", area.top_left.y.as_int() },
-                      { "width", area.size.width.as_int() },
-                      { "height", area.size.height.as_int() },
-                  }                                  }
-    };
-}
-
 json output_to_json(std::shared_ptr<Output> const& output)
 {
     auto area = output->get_area();
@@ -123,75 +91,6 @@ json output_to_json(std::shared_ptr<Output> const& output)
                       { "height", area.size.height.as_int() },
                   }                               }
     };
-}
-
-json tree_to_json(miracle::Policy const& policy)
-{
-    // See: https://github.com/swaywm/sway/blob/master/sway/sway-ipc.7.scd
-    geom::Point top_left { INT_MAX, INT_MAX };
-    geom::Point bottom_right { 0, 0 };
-    json outputs_json = nlohmann::json::array();
-    for (auto const& output : policy.get_output_list())
-    {
-        auto& area = output->get_area();
-
-        // Recalculate the total extents of the tree
-        if (area.top_left.x.as_int() < top_left.x.as_int())
-            top_left.x = geom::X { area.top_left.x.as_int() };
-        if (area.top_left.y.as_int() < top_left.y.as_int())
-            top_left.y = geom::Y { area.top_left.y.as_int() };
-
-        int bottom_x = area.top_left.x.as_int() + area.size.width.as_int();
-        int bottom_y = area.top_left.y.as_int() + area.size.height.as_int();
-        if (bottom_x > bottom_right.x.as_int())
-            bottom_right.x = geom::X { bottom_x };
-        if (bottom_y > bottom_right.y.as_int())
-            bottom_right.y = geom::Y { bottom_y };
-
-        outputs_json.push_back(output->to_json());
-    }
-
-    geom::Rectangle total_area {
-        top_left,
-        geom::Size {
-                    geom::Width(bottom_right.x.as_int() - top_left.x.as_int()),
-                    geom::Height(bottom_right.y.as_int() - top_left.y.as_int()) }
-    };
-    json root = {
-        { "id", 0 },
-        { "name", "root" },
-        {
-         "rect",
-         { { "x", total_area.top_left.x.as_int() }, { "y", total_area.top_left.y.as_int() }, { "width", total_area.size.width.as_int() }, { "height", total_area.size.height.as_int() } },
-         },
-        { "nodes", outputs_json },
-        { "type", "root" }
-    };
-    return root;
-}
-
-json mode_to_json(WindowManagerMode mode)
-{
-    switch (mode)
-    {
-    case WindowManagerMode::normal:
-        return {
-            { "name", "default" }
-        };
-    case WindowManagerMode::resizing:
-        return {
-            { "name", "resize" }
-        };
-    case WindowManagerMode::selecting:
-        return {
-            { "name", "selecting" }
-        };
-    default:
-    {
-        mir::fatal_error("handle_command: unknown binding state: %d", (int)mode);
-        return {};
-    }
-    }
 }
 
 json mode_event_to_json(WindowManagerMode mode)
@@ -223,11 +122,9 @@ json mode_event_to_json(WindowManagerMode mode)
 }
 
 Ipc::Ipc(miral::MirRunner& runner,
-    miracle::WorkspaceManager& workspace_manager,
-    Policy& policy,
+    CommandController& policy,
     IpcCommandExecutor& executor,
     std::shared_ptr<Config> const& config) :
-    workspace_manager { workspace_manager },
     policy { policy },
     executor { executor },
     config { config }
@@ -374,9 +271,9 @@ Ipc::~Ipc()
 void Ipc::on_created(uint32_t id)
 {
     json j = {
-        { "change", "init" },
-        { "old", nullptr },
-        { "current", workspace_to_json(workspace_manager, id) }
+        { "change",  "init"                       },
+        { "old",     nullptr                      },
+        { "current", policy.workspace_to_json(id) }
     };
 
     auto serialized_value = to_string(j);
@@ -394,8 +291,8 @@ void Ipc::on_created(uint32_t id)
 void Ipc::on_removed(uint32_t id)
 {
     json j = {
-        { "change", "empty" },
-        { "current", workspace_to_json(workspace_manager, id) }
+        { "change",  "empty"                      },
+        { "current", policy.workspace_to_json(id) }
     };
 
     auto serialized_value = to_string(j);
@@ -415,12 +312,12 @@ void Ipc::on_focused(
     uint32_t current_id)
 {
     json j = {
-        { "change", "focus" },
-        { "current", workspace_to_json(workspace_manager, current_id) }
+        { "change",  "focus"                              },
+        { "current", policy.workspace_to_json(current_id) }
     };
 
     if (previous_id)
-        j["old"] = workspace_to_json(workspace_manager, previous_id.value());
+        j["old"] = policy.workspace_to_json(previous_id.value());
     else
         j["old"] = nullptr;
 
@@ -546,22 +443,13 @@ void Ipc::handle_command(miracle::Ipc::IpcClient& client, uint32_t payload_lengt
     }
     case IPC_GET_WORKSPACES:
     {
-        json j = json::array();
-        for (auto const& workspace : workspace_manager.workspaces())
-            j.push_back(workspace_to_json(workspace_manager, workspace->id()));
-
-        auto json_string = to_string(j);
+        auto json_string = to_string(policy.workspaces_json());
         send_reply(client, payload_type, json_string);
         break;
     }
     case IPC_GET_OUTPUTS:
     {
-        json j = json::array();
-        for (auto const& output : policy.get_output_list())
-        {
-            j.push_back(output_to_json(output));
-        }
-        auto json_string = to_string(j);
+        auto json_string = to_string(policy.outputs_json());
         send_reply(client, payload_type, json_string);
         break;
     }
@@ -617,7 +505,7 @@ void Ipc::handle_command(miracle::Ipc::IpcClient& client, uint32_t payload_lengt
     }
     case IPC_GET_TREE:
     {
-        auto json_string = to_string(tree_to_json(policy));
+        auto json_string = to_string(policy.to_json());
         send_reply(client, payload_type, json_string);
         break;
     }
@@ -644,8 +532,7 @@ void Ipc::handle_command(miracle::Ipc::IpcClient& client, uint32_t payload_lengt
     }
     case IPC_GET_BINDING_STATE:
     {
-        auto const& state = policy.get_state();
-        send_reply(client, payload_type, to_string(mode_to_json(state.mode)));
+        send_reply(client, payload_type, to_string(policy.mode_to_json()));
         break;
     }
     case IPC_SEND_TICK:
