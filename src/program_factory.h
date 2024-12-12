@@ -75,7 +75,7 @@ struct ProgramData
     std::array<GLint, 8> tex_uniforms;
     GLint position_attr = -1;
     GLint texcoord_attr = -1;
-    GLint centre_uniform = -1;
+    GLint topleft_uniform = -1;
     GLint display_transform_uniform = -1;
     GLint workspace_transform_uniform = -1;
     GLint transform_uniform = -1;

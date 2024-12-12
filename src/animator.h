@@ -46,6 +46,7 @@ extern const AnimationHandle none_animation_handle;
 struct AnimationStepResult
 {
     AnimationHandle handle = none_animation_handle;
+    mir::geometry::Rectangle from;
     bool is_complete = false;
     std::optional<glm::vec2> position;
     std::optional<glm::vec2> size;
@@ -58,9 +59,9 @@ public:
     Animation(
         AnimationHandle handle,
         AnimationDefinition definition,
-        std::optional<mir::geometry::Rectangle> const& from,
-        std::optional<mir::geometry::Rectangle> const& to,
-        std::optional<mir::geometry::Rectangle> const& current,
+        mir::geometry::Rectangle const& from,
+        mir::geometry::Rectangle const& to,
+        mir::geometry::Rectangle const& current,
         std::function<void(AnimationStepResult const&)> const& callback);
 
     Animation& operator=(Animation const& other);
@@ -74,8 +75,9 @@ public:
 private:
     AnimationHandle handle;
     AnimationDefinition definition;
-    std::optional<mir::geometry::Rectangle> from;
-    std::optional<mir::geometry::Rectangle> to;
+    mir::geometry::Rectangle current;
+    mir::geometry::Rectangle from;
+    mir::geometry::Rectangle to;
     std::function<void(AnimationStepResult const&)> callback;
     float runtime_seconds = 0.f;
 };
@@ -103,6 +105,9 @@ public:
 
     void window_open(
         AnimationHandle handle,
+        mir::geometry::Rectangle const& from,
+        mir::geometry::Rectangle const& to,
+        mir::geometry::Rectangle const& current,
         std::function<void(AnimationStepResult const&)> const& callback);
 
     void workspace_switch(

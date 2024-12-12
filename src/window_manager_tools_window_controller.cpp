@@ -15,17 +15,15 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
+#define MIR_LOG_COMPONENT "window_manager_tools_tiling_interface"
+
 #include "window_manager_tools_window_controller.h"
 #include "animator.h"
 #include "compositor_state.h"
 #include "leaf_container.h"
 #include "window_helpers.h"
-
-#include <mir/scene/surface.h>
-
-#define MIR_LOG_COMPONENT "window_manager_tools_tiling_interface"
-#include <glm/gtc/matrix_transform.hpp>
 #include <mir/log.h>
+#include <mir/scene/surface.h>
 
 using namespace miracle;
 
@@ -49,14 +47,18 @@ void WindowManagerToolsWindowController::open(miral::Window const& window)
     }
 
     auto const& info = info_for(window);
+    geom::Rectangle rect { window.top_left(), window.size() };
     if (info.parent())
     {
-        on_animation({ container->animation_handle(), true }, container);
+        on_animation({ container->animation_handle(), rect, true }, container);
         return;
     }
 
     animator.window_open(
         container->animation_handle(),
+        rect,
+        rect,
+        rect,
         [this, container = container](miracle::AnimationStepResult const& result)
     {
         on_animation(result, container);
@@ -82,7 +84,7 @@ void WindowManagerToolsWindowController::set_rectangle(
     auto const& info = info_for(window);
     if (info.parent())
     {
-        on_animation({ container->animation_handle(), true }, container);
+        on_animation({ container->animation_handle(), from, true }, container);
         return;
     }
 
@@ -158,20 +160,12 @@ void WindowManagerToolsWindowController::send_to_back(miral::Window const& windo
 }
 
 void WindowManagerToolsWindowController::on_animation(
-    miracle::AnimationStepResult const& result, std::shared_ptr<Container> const& container)
+    miracle::AnimationStepResult const& result,
+    std::shared_ptr<Container> const& container)
 {
     auto window = container->window().value();
-    auto surface = window.operator std::shared_ptr<mir::scene::Surface>();
-    if (!surface)
-        return;
-
     bool needs_modify = false;
     miral::WindowSpecification spec;
-    spec.top_left() = container->get_visible_area().top_left;
-    spec.size() = container->get_visible_area().size;
-
-    spec.min_width() = mir::geometry::Width(0);
-    spec.min_height() = mir::geometry::Height(0);
 
     if (result.position)
     {
@@ -189,14 +183,14 @@ void WindowManagerToolsWindowController::on_animation(
         needs_modify = true;
     }
 
-    if (needs_modify)
-        tools.modify_window(window, spec);
-
-    if (result.transform && result.transform.value() != container->get_transform())
+    if (result.transform)
     {
         container->set_transform(result.transform.value());
-        surface->set_transformation(result.transform.value());
+        needs_modify = true;
     }
+
+    if (needs_modify)
+        tools.modify_window(window, spec);
 
     // NOTE: The clip area needs to reflect the current position + transform of the window.
     // Failing to set a clip area will cause overflowing windows to briefly disregard their
@@ -204,20 +198,22 @@ void WindowManagerToolsWindowController::on_animation(
     // TODO: When we have rotation in our transforms, then we need to handle rotations.
     //  At that point, the top_left corner will change. We will need to find an AABB
     //  to represent the clip area.
-    auto transform = container->get_transform();
-    auto width = spec.size().value().width.as_int();
-    auto height = spec.size().value().height.as_int();
-
-    glm::vec4 scale = transform * glm::vec4(width, height, 0, 1);
-
-    mir::geometry::Rectangle new_rectangle(
-        { spec.top_left().value().x.as_int(), spec.top_left().value().y.as_int() },
-        { scale.x, scale.y });
-
-    if (container->get_type() == ContainerType::leaf)
-        clip(window, new_rectangle);
+    if (result.is_complete)
+        container->constrain();
     else
-        noclip(window);
+    {
+        auto transform = container->get_transform();
+        glm::vec4 scale = transform * glm::vec4(result.from.size.width.as_int(), result.from.size.height.as_int(), 0, 1);
+
+        mir::geometry::Rectangle new_rectangle(
+            { result.from.top_left.x.as_int(), result.from.top_left.y.as_int() },
+            { scale.x, scale.y });
+
+        if (container->get_type() == ContainerType::leaf)
+            clip(window, new_rectangle);
+        else
+            noclip(window);
+    }
 }
 
 void WindowManagerToolsWindowController::set_user_data(

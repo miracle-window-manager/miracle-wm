@@ -53,14 +53,15 @@ AnimationHandle const miracle::none_animation_handle = 0;
 Animation::Animation(
     AnimationHandle handle,
     AnimationDefinition definition,
-    std::optional<mir::geometry::Rectangle> const& from,
-    std::optional<mir::geometry::Rectangle> const& to,
-    std::optional<mir::geometry::Rectangle> const& current,
+    mir::geometry::Rectangle const& from,
+    mir::geometry::Rectangle const& to,
+    mir::geometry::Rectangle const& current,
     std::function<void(AnimationStepResult const&)> const& callback) :
     handle { handle },
     definition { std::move(definition) },
     to { to },
     from { current },
+    current { current },
     callback { callback },
     runtime_seconds { 0.f }
 {
@@ -68,22 +69,18 @@ Animation::Animation(
     {
     case AnimationType::slide:
     {
-        assert(from != std::nullopt);
-        assert(to != std::nullopt);
-        assert(current != std::nullopt);
-
         // Find out the percentage that we're already through the move. This could be negative, by design.
-        glm::vec2 end = to_glm_vec2(to.value().top_left);
-        glm::vec2 start = to_glm_vec2(from.value().top_left);
-        glm::vec2 real_start = to_glm_vec2(current.value().top_left);
+        glm::vec2 end = to_glm_vec2(to.top_left);
+        glm::vec2 start = to_glm_vec2(from.top_left);
+        glm::vec2 real_start = to_glm_vec2(current.top_left);
         auto percent_x = get_percent_complete(end.x - start.x, real_start.x - start.x);
         auto percent_y = get_percent_complete(end.y - start.y, real_start.y - start.y);
 
         // Find out the percentage that we're already through the resize. This could be negative, by design.
-        float width_change = to.value().size.width.as_int() - from.value().size.width.as_int();
-        float height_change = to.value().size.height.as_int() - from.value().size.height.as_int();
-        float real_width_change = current.value().size.width.as_int() - from.value().size.width.as_int();
-        float real_height_change = current.value().size.height.as_int() - from.value().size.height.as_int();
+        float width_change = to.size.width.as_int() - from.size.width.as_int();
+        float height_change = to.size.height.as_int() - from.size.height.as_int();
+        float real_width_change = current.size.width.as_int() - from.size.width.as_int();
+        float real_height_change = current.size.height.as_int() - from.size.height.as_int();
 
         float percent_w = get_percent_complete(width_change, real_width_change);
         float percent_h = get_percent_complete(height_change, real_height_change);
@@ -233,13 +230,49 @@ inline float ease(AnimationDefinition const& defintion, float t)
 inline float interpolate_scale(float p, float start, float end)
 {
     float diff = end - start;
+    if (diff == 0)
+        return 1.f;
+
+    // We want to find the percentage that we should scale relative
+    // to the [start] value. For example, if we are growing from 200
+    // to 250, and p=0.5, then we should be at width 225, which would
+    // be a scale up of 225 / 220;
     float current = start + diff * p;
-    float percent_traveled = current / end;
-    if (percent_traveled < 0)
-        percent_traveled *= -1;
-    return percent_traveled;
+    return current / start;
 }
 
+struct SlideResult
+{
+    glm::vec2 position;
+    glm::mat4 transform;
+};
+
+inline SlideResult slide(float p, std::optional<geom::Rectangle> const& from, std::optional<geom::Rectangle> const& to)
+{
+    auto const distance = to.value().top_left - from.value().top_left;
+    float const x = (float)distance.dx.as_int() * p;
+    float const y = (float)distance.dy.as_int() * p;
+
+    glm::vec2 const position = {
+        (float)from.value().top_left.x.as_int() + x,
+        (float)from.value().top_left.y.as_int() + y
+    };
+
+    float const x_scale = interpolate_scale(p, static_cast<float>(from->size.width.as_value()), static_cast<float>(to->size.width.as_value()));
+    float const y_scale = interpolate_scale(p, static_cast<float>(from->size.height.as_value()), static_cast<float>(to->size.height.as_value()));
+
+    return { position, glm::scale(glm::mat4(1.f), glm::vec3(x_scale, y_scale, 1.f)) };
+}
+
+glm::vec2 to_vec2_point(geom::Rectangle const& r)
+{
+    return { r.top_left.x.as_int(), r.top_left.y.as_int() };
+}
+
+glm::vec2 to_vec2_size(geom::Rectangle const& r)
+{
+    return { r.size.width.as_int(), r.size.height.as_int() };
+}
 }
 
 AnimationStepResult Animation::init()
@@ -247,97 +280,101 @@ AnimationStepResult Animation::init()
     switch (definition.type)
     {
     case AnimationType::grow:
-        return { handle, false, {}, {}, glm::mat4(0.f) };
+        return { handle, current, false, std::nullopt, std::nullopt, glm::mat4(0.f) };
     case AnimationType::shrink:
-        return { handle, false, {}, {}, glm::mat4(1.f) };
+        return { handle, current, false, std::nullopt, std::nullopt, glm::mat4(1.f) };
     case AnimationType::disabled:
         return {
             handle,
+            current,
             true,
-            !to.has_value() ? std::nullopt : std::optional<glm::vec2>(glm::vec2(to.value().top_left.x.as_int(), to.value().top_left.y.as_int())),
-            !to.has_value() ? std::nullopt : std::optional<glm::vec2>(glm::vec2(to.value().size.width.as_int(), to.value().size.height.as_int())),
+            to_vec2_point(to),
+            to_vec2_size(to),
             glm::mat4(1.f),
         };
     default:
-        return { handle, false, {}, {}, {} };
+        return { handle, current, false, std::nullopt, std::nullopt, std::nullopt };
     }
 }
 
 AnimationStepResult Animation::step()
 {
     runtime_seconds += Animator::timestep_seconds;
+    float const t = (runtime_seconds / definition.duration_seconds);
+
+    // When we finish a transformation, we move to the final rectangle. However, we do NOT update the transformation
+    // immediately. The transformation will get thrown away on the next handle_modify.
     if (runtime_seconds >= definition.duration_seconds)
     {
+        glm::mat4 transform(1.f);
+        if (definition.type == AnimationType::slide)
+        {
+            auto const p = ease(definition, t);
+            auto const result = slide(p, from, to);
+            transform = result.transform;
+        }
+
         return {
             handle,
+            current,
             true,
-            !to.has_value() ? std::nullopt : std::optional<glm::vec2>(glm::vec2(to.value().top_left.x.as_int(), to.value().top_left.y.as_int())),
-            !to.has_value() ? std::nullopt : std::optional<glm::vec2>(glm::vec2(to.value().size.width.as_int(), to.value().size.height.as_int())),
-            glm::mat4(1.f),
+            to_vec2_point(to),
+            to_vec2_size(to),
+            transform
         };
     }
 
-    float t = (runtime_seconds / definition.duration_seconds);
     switch (definition.type)
     {
     case AnimationType::slide:
     {
-        auto p = ease(definition, t);
-        auto distance = to.value().top_left - from.value().top_left;
-        float x = (float)distance.dx.as_int() * p;
-        float y = (float)distance.dy.as_int() * p;
-
-        glm::vec2 position = {
-            (float)from.value().top_left.x.as_int() + x,
-            (float)from.value().top_left.y.as_int() + y
-        };
-
-        float x_scale = interpolate_scale(p, static_cast<float>(from->size.width.as_value()), static_cast<float>(to->size.width.as_value()));
-        float y_scale = interpolate_scale(p, static_cast<float>(from->size.height.as_value()), static_cast<float>(to->size.height.as_value()));
-
-        glm::vec3 translate(
-            (float)-to->size.width.as_value() / 2.f,
-            (float)-to->size.height.as_value() / 2.f,
-            0);
-        auto inverse_translate = -translate;
-        glm::mat4 scale_matrix = glm::translate(
-            glm::scale(
-                glm::translate(translate),
-                glm::vec3(x_scale, y_scale, 1.f)),
-            inverse_translate);
-
+        auto const p = ease(definition, t);
+        auto const result = slide(p, from, to);
+        current.top_left = geom::Point { result.position.x, result.position.y };
         return {
             handle,
+            current,
             false,
-            position,
-            glm::vec2(to.value().size.width.as_int(), to.value().size.height.as_int()),
-            scale_matrix
+            result.position,
+            std::nullopt,
+            result.transform
         };
     }
     case AnimationType::grow:
     {
         auto p = ease(definition, t);
-        glm::mat4 transform(
-            p, 0, 0, 0,
-            0, p, 0, 0,
-            0, 0, 1, 0,
-            0, 0, 0, 1);
-        return { handle, false, std::nullopt, std::nullopt, transform };
+        glm::vec3 translate(
+            (float)to.size.width.as_value() / 2.f,
+            (float)to.size.height.as_value() / 2.f,
+            0);
+        auto inverse_translate = -translate;
+        glm::mat4 transform = glm::translate(
+            glm::scale(
+                glm::translate(translate),
+                glm::vec3(p, p, 1.f)),
+            inverse_translate);
+        return { handle, current, false, std::nullopt, std::nullopt, transform };
     }
     case AnimationType::shrink:
     {
         auto p = 1.f - ease(definition, t);
-        glm::mat4 transform(
-            p, 0, 0, 0,
-            0, p, 0, 0,
-            0, 0, 1, 0,
-            0, 0, 0, 1);
-        return { handle, false, std::nullopt, std::nullopt, transform };
+        glm::vec3 translate(
+            (float)to.size.width.as_value() / 2.f,
+            (float)to.size.height.as_value() / 2.f,
+            0);
+        auto inverse_translate = -translate;
+        glm::mat4 transform = glm::translate(
+            glm::scale(
+                glm::translate(translate),
+                glm::vec3(p, p, 1.f)),
+            inverse_translate);
+        return { handle, current, false, std::nullopt, std::nullopt, transform };
     }
     case AnimationType::disabled:
     default:
         return {
             handle,
+            current,
             true,
             std::nullopt,
             std::nullopt,
@@ -400,7 +437,8 @@ void Animator::window_move(
     if (!config->are_animations_enabled())
     {
         callback(
-            { handle,
+            AnimationStepResult { handle,
+                current,
                 true,
                 glm::vec2(to.top_left.x.as_int(), to.top_left.y.as_int()),
                 glm::vec2(to.size.width.as_int(), to.size.height.as_int()),
@@ -419,22 +457,25 @@ void Animator::window_move(
 
 void Animator::window_open(
     AnimationHandle handle,
+    mir::geometry::Rectangle const& from,
+    mir::geometry::Rectangle const& to,
+    mir::geometry::Rectangle const& current,
     std::function<void(AnimationStepResult const&)> const& callback)
 {
     // If animations aren't enabled, let's give them the position that
     // they want to go to immediately and don't bother animating anything.
     if (!config->are_animations_enabled())
     {
-        callback({ handle, true });
+        callback(AnimationStepResult { handle, from, true });
         return;
     }
 
     append(Animation(
         handle,
         config->get_animation_definitions()[(int)AnimateableEvent::window_open],
-        std::nullopt,
-        std::nullopt,
-        std::nullopt,
+        from,
+        to,
+        current,
         callback));
 }
 
@@ -448,7 +489,8 @@ void Animator::workspace_switch(
     if (!config->are_animations_enabled())
     {
         callback(
-            { handle,
+            AnimationStepResult { handle,
+                from,
                 true,
                 glm::vec2(to.top_left.x.as_int(), to.top_left.y.as_int()),
                 glm::vec2(to.size.width.as_int(), to.size.height.as_int()),

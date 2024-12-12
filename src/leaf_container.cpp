@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <cmath>
 #include <mir/scene/session.h>
+#include <mir/scene/surface.h>
 #include <mir_toolkit/common.h>
 
 using namespace miracle;
@@ -169,7 +170,10 @@ void LeafContainer::handle_modify(miral::WindowSpecification const& modification
         mods.size().consume();
     }
 
+    if (mods.size().is_set())
+        set_transform(glm::mat4(1.f));
     window_controller.modify(window_, mods);
+    constrain();
 }
 
 void LeafContainer::handle_raise()
@@ -312,7 +316,11 @@ glm::mat4 LeafContainer::get_transform() const
 
 void LeafContainer::set_transform(glm::mat4 transform_)
 {
-    transform = transform_;
+    if (auto surface = window_.operator std::shared_ptr<mir::scene::Surface>())
+    {
+        surface->set_transformation(transform_);
+        transform = transform_;
+    }
 }
 
 uint32_t LeafContainer::animation_handle() const

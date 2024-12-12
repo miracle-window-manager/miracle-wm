@@ -358,9 +358,9 @@ miracle::Renderer::DrawData Renderer::draw(
     glActiveTexture(GL_TEXTURE0);
 
     auto const& rect = renderable.screen_position();
-    GLfloat centrex = (float)rect.top_left.x.as_int() + (float)rect.size.width.as_int() / 2.0f;
-    GLfloat centrey = (float)rect.top_left.y.as_int() + (float)rect.size.height.as_int() / 2.0f;
-    glUniform2f(prog->centre_uniform, centrex, centrey);
+    GLfloat const top_left_x = (float)rect.top_left.x.as_int();
+    GLfloat const top_left_y = (float)rect.top_left.y.as_int();
+    glUniform2f(prog->topleft_uniform, top_left_x, top_left_y);
 
     glm::mat4 transform = renderable.transformation();
     if (texture->layout() == mg::gl::Texture::Layout::TopRowFirst)
