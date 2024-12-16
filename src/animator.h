@@ -45,9 +45,14 @@ extern const AnimationHandle none_animation_handle;
 /// Callback data provided to the caller on each tick.
 struct AnimationStepResult
 {
+    /// The handle of the animation to which this result matches
     AnimationHandle handle = none_animation_handle;
-    mir::geometry::Rectangle from;
+
+    /// Whether or not this result marks the end of animation.
     bool is_complete = false;
+
+    /// The clip area that should be applied to this transformation
+    mir::geometry::Rectangle clip_area;
     std::optional<glm::vec2> position;
     std::optional<glm::vec2> size;
     std::optional<glm::mat4> transform;

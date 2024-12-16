@@ -244,6 +244,7 @@ inline float interpolate_scale(float p, float start, float end)
 struct SlideResult
 {
     glm::vec2 position;
+    glm::vec2 size;
     glm::mat4 transform;
 };
 
@@ -253,15 +254,14 @@ inline SlideResult slide(float p, std::optional<geom::Rectangle> const& from, st
     float const x = (float)distance.dx.as_int() * p;
     float const y = (float)distance.dy.as_int() * p;
 
-    glm::vec2 const position = {
-        (float)from.value().top_left.x.as_int() + x,
-        (float)from.value().top_left.y.as_int() + y
-    };
-
     float const x_scale = interpolate_scale(p, static_cast<float>(from->size.width.as_value()), static_cast<float>(to->size.width.as_value()));
     float const y_scale = interpolate_scale(p, static_cast<float>(from->size.height.as_value()), static_cast<float>(to->size.height.as_value()));
 
-    return { position, glm::scale(glm::mat4(1.f), glm::vec3(x_scale, y_scale, 1.f)) };
+    return {
+        .position = glm::vec2(from->top_left.x.as_int() + x, from->top_left.y.as_int() + y),
+        .size = glm::vec2(from->size.width.as_int() * x_scale, from->size.height.as_int() * y_scale),
+        .transform = glm::scale(glm::mat4(1.0), glm::vec3(x_scale, y_scale, 0.f))
+    };
 }
 
 glm::vec2 to_vec2_point(geom::Rectangle const& r)
@@ -280,20 +280,13 @@ AnimationStepResult Animation::init()
     switch (definition.type)
     {
     case AnimationType::grow:
-        return { handle, current, false, std::nullopt, std::nullopt, glm::mat4(0.f) };
+        return { handle, false, current, std::nullopt, std::nullopt, glm::mat4(0.f) };
     case AnimationType::shrink:
-        return { handle, current, false, std::nullopt, std::nullopt, glm::mat4(1.f) };
+        return { handle, false, current, std::nullopt, std::nullopt, glm::mat4(1.f) };
     case AnimationType::disabled:
-        return {
-            handle,
-            current,
-            true,
-            to_vec2_point(to),
-            to_vec2_size(to),
-            glm::mat4(1.f),
-        };
+        return { handle, true, current, to_vec2_point(to), to_vec2_size(to), glm::mat4(1.f) };
     default:
-        return { handle, current, false, std::nullopt, std::nullopt, std::nullopt };
+        return { handle, false, current, std::nullopt, std::nullopt, std::nullopt };
     }
 }
 
@@ -302,26 +295,9 @@ AnimationStepResult Animation::step()
     runtime_seconds += Animator::timestep_seconds;
     float const t = (runtime_seconds / definition.duration_seconds);
 
-    // When we finish a transformation, we move to the final rectangle. However, we do NOT update the transformation
-    // immediately. The transformation will get thrown away on the next handle_modify.
     if (runtime_seconds >= definition.duration_seconds)
     {
-        glm::mat4 transform(1.f);
-        if (definition.type == AnimationType::slide)
-        {
-            auto const p = ease(definition, t);
-            auto const result = slide(p, from, to);
-            transform = result.transform;
-        }
-
-        return {
-            handle,
-            current,
-            true,
-            to_vec2_point(to),
-            to_vec2_size(to),
-            transform
-        };
+        return { handle, true, to, to_vec2_point(to), to_vec2_size(to), glm::mat4(1.f) };
     }
 
     switch (definition.type)
@@ -330,11 +306,14 @@ AnimationStepResult Animation::step()
     {
         auto const p = ease(definition, t);
         auto const result = slide(p, from, to);
-        current.top_left = geom::Point { result.position.x, result.position.y };
+        current.top_left.x = geom::X { result.position.x };
+        current.top_left.y = geom::Y { result.position.y };
+        current.size.width = geom::Width { result.size.x };
+        current.size.height = geom::Height { result.size.y };
         return {
             handle,
-            current,
             false,
+            current,
             result.position,
             std::nullopt,
             result.transform
@@ -353,7 +332,7 @@ AnimationStepResult Animation::step()
                 glm::translate(translate),
                 glm::vec3(p, p, 1.f)),
             inverse_translate);
-        return { handle, current, false, std::nullopt, std::nullopt, transform };
+        return { handle, false, to, std::nullopt, std::nullopt, transform };
     }
     case AnimationType::shrink:
     {
@@ -368,18 +347,11 @@ AnimationStepResult Animation::step()
                 glm::translate(translate),
                 glm::vec3(p, p, 1.f)),
             inverse_translate);
-        return { handle, current, false, std::nullopt, std::nullopt, transform };
+        return { handle, false, to, std::nullopt, std::nullopt, transform };
     }
     case AnimationType::disabled:
     default:
-        return {
-            handle,
-            current,
-            true,
-            std::nullopt,
-            std::nullopt,
-            std::nullopt
-        };
+        return { handle, true, to, std::nullopt, std::nullopt, std::nullopt };
     }
 }
 
@@ -438,8 +410,8 @@ void Animator::window_move(
     {
         callback(
             AnimationStepResult { handle,
-                current,
                 true,
+                to,
                 glm::vec2(to.top_left.x.as_int(), to.top_left.y.as_int()),
                 glm::vec2(to.size.width.as_int(), to.size.height.as_int()),
                 glm::mat4(1.f) });
@@ -466,7 +438,7 @@ void Animator::window_open(
     // they want to go to immediately and don't bother animating anything.
     if (!config->are_animations_enabled())
     {
-        callback(AnimationStepResult { handle, from, true });
+        callback(AnimationStepResult { handle, true, to });
         return;
     }
 
@@ -490,8 +462,8 @@ void Animator::workspace_switch(
     {
         callback(
             AnimationStepResult { handle,
-                from,
                 true,
+                to,
                 glm::vec2(to.top_left.x.as_int(), to.top_left.y.as_int()),
                 glm::vec2(to.size.width.as_int(), to.size.height.as_int()),
                 glm::mat4(1.f) });
@@ -505,15 +477,6 @@ void Animator::workspace_switch(
         to,
         current,
         callback));
-}
-
-namespace
-{
-struct PendingUpdateData
-{
-    AnimationStepResult result;
-    std::function<void(miracle::AnimationStepResult const&)> callback;
-};
 }
 
 void Animator::run()
@@ -549,30 +512,18 @@ void Animator::run()
 
 void Animator::step()
 {
-    std::vector<PendingUpdateData> update_data;
+    std::lock_guard<std::mutex> lock(processing_lock);
+    for (auto it = queued_animations.begin(); it != queued_animations.end();)
     {
-        std::lock_guard<std::mutex> lock(processing_lock);
-        for (auto it = queued_animations.begin(); it != queued_animations.end();)
-        {
-            auto& item = *it;
-            auto result = item.step();
+        auto& item = *it;
+        auto result = item.step();
 
-            update_data.push_back({ result, item.get_callback() });
-            if (result.is_complete)
-                it = queued_animations.erase(it);
-            else
-                it++;
-        }
+        item.get_callback()(result);
+        if (result.is_complete)
+            it = queued_animations.erase(it);
+        else
+            it++;
     }
-
-    server_action_queue->enqueue(this, [&, update_data]()
-    {
-        if (!running)
-            return;
-
-        for (auto const& update_item : update_data)
-            update_item.callback(update_item.result);
-    });
 }
 
 void Animator::stop()

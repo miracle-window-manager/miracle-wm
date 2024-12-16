@@ -29,6 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <glm/gtx/transform.hpp>
 #include <mir/log.h>
 #include <mir/scene/session.h>
+#include <mir/scene/surface.h>
 
 using namespace miracle;
 
@@ -270,7 +271,11 @@ glm::mat4 FloatingWindowContainer::get_transform() const
 
 void FloatingWindowContainer::set_transform(glm::mat4 transform_)
 {
-    transform = transform_;
+    if (auto surface = window_.operator std::shared_ptr<mir::scene::Surface>())
+    {
+        surface->set_transformation(transform_);
+        transform = transform_;
+    }
 }
 
 uint32_t FloatingWindowContainer::animation_handle() const

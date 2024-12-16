@@ -170,10 +170,10 @@ void LeafContainer::handle_modify(miral::WindowSpecification const& modification
         mods.size().consume();
     }
 
-    if (mods.size().is_set())
+    if (mods.size())
         set_transform(glm::mat4(1.f));
+
     window_controller.modify(window_, mods);
-    constrain();
 }
 
 void LeafContainer::handle_raise()
@@ -264,10 +264,7 @@ void LeafContainer::commit_changes()
         logical_area = next_logical_area.value();
         next_logical_area.reset();
         if (!window_controller.is_fullscreen(window_))
-        {
             window_controller.set_rectangle(window_, previous, get_visible_area());
-            constrain();
-        }
     }
 }
 

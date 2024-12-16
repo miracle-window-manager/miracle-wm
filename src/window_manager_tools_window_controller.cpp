@@ -50,7 +50,7 @@ void WindowManagerToolsWindowController::open(miral::Window const& window)
     geom::Rectangle rect { window.top_left(), window.size() };
     if (info.parent())
     {
-        on_animation({ container->animation_handle(), rect, true }, container);
+        on_animation({ container->animation_handle(), true, rect }, container);
         return;
     }
 
@@ -84,7 +84,7 @@ void WindowManagerToolsWindowController::set_rectangle(
     auto const& info = info_for(window);
     if (info.parent())
     {
-        on_animation({ container->animation_handle(), from, true }, container);
+        on_animation({ container->animation_handle(), true, to }, container);
         return;
     }
 
@@ -202,15 +202,8 @@ void WindowManagerToolsWindowController::on_animation(
         container->constrain();
     else
     {
-        auto transform = container->get_transform();
-        glm::vec4 scale = transform * glm::vec4(result.from.size.width.as_int(), result.from.size.height.as_int(), 0, 1);
-
-        mir::geometry::Rectangle new_rectangle(
-            { result.from.top_left.x.as_int(), result.from.top_left.y.as_int() },
-            { scale.x, scale.y });
-
         if (container->get_type() == ContainerType::leaf)
-            clip(window, new_rectangle);
+            clip(window, result.clip_area);
         else
             noclip(window);
     }

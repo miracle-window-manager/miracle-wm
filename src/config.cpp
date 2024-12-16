@@ -1160,8 +1160,8 @@ FilesystemConfiguration::ConfigDetails::ConfigDetails()
     std::array<AnimationDefinition, static_cast<int>(AnimateableEvent::max)> parsed({
         {
          AnimationType::grow,
-         EaseFunction::ease_in_out_back,
-         0.25f,
+         EaseFunction::ease_in_sine,
+         0.3f,
          },
         {
          AnimationType::slide,
