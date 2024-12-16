@@ -238,7 +238,7 @@ inline float interpolate_scale(float p, float start, float end)
     // to 250, and p=0.5, then we should be at width 225, which would
     // be a scale up of 225 / 220;
     float current = start + diff * p;
-    return current / start;
+    return current / end;
 }
 
 struct SlideResult
@@ -248,18 +248,18 @@ struct SlideResult
     glm::mat4 transform;
 };
 
-inline SlideResult slide(float p, std::optional<geom::Rectangle> const& from, std::optional<geom::Rectangle> const& to)
+inline SlideResult slide(float p, geom::Rectangle const& from, geom::Rectangle const& to)
 {
-    auto const distance = to.value().top_left - from.value().top_left;
+    auto const distance = to.top_left - from.top_left;
     float const x = (float)distance.dx.as_int() * p;
     float const y = (float)distance.dy.as_int() * p;
 
-    float const x_scale = interpolate_scale(p, static_cast<float>(from->size.width.as_value()), static_cast<float>(to->size.width.as_value()));
-    float const y_scale = interpolate_scale(p, static_cast<float>(from->size.height.as_value()), static_cast<float>(to->size.height.as_value()));
+    float const x_scale = interpolate_scale(p, static_cast<float>(from.size.width.as_value()), static_cast<float>(to.size.width.as_value()));
+    float const y_scale = interpolate_scale(p, static_cast<float>(from.size.height.as_value()), static_cast<float>(to.size.height.as_value()));
 
     return {
-        .position = glm::vec2(from->top_left.x.as_int() + x, from->top_left.y.as_int() + y),
-        .size = glm::vec2(from->size.width.as_int() * x_scale, from->size.height.as_int() * y_scale),
+        .position = glm::vec2(from.top_left.x.as_int() + x, from.top_left.y.as_int() + y),
+        .size = glm::vec2(to.size.width.as_int() * x_scale, to.size.height.as_int() * y_scale),
         .transform = glm::scale(glm::mat4(1.0), glm::vec3(x_scale, y_scale, 0.f))
     };
 }
@@ -283,6 +283,13 @@ AnimationStepResult Animation::init()
         return { handle, false, current, std::nullopt, std::nullopt, glm::mat4(0.f) };
     case AnimationType::shrink:
         return { handle, false, current, std::nullopt, std::nullopt, glm::mat4(1.f) };
+    case AnimationType::slide:
+    {
+        // Sliding is funky. We resize immediately but remain in the same position. The transformation
+        // and position are interpolated over time to give the illusion of moving and growing.
+        auto result = slide(0, from, to);
+        return { handle, false, current, result.position, to_vec2_size(to), result.transform };
+    }
     case AnimationType::disabled:
         return { handle, true, current, to_vec2_point(to), to_vec2_size(to), glm::mat4(1.f) };
     default:
