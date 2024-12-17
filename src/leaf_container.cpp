@@ -170,8 +170,11 @@ void LeafContainer::handle_modify(miral::WindowSpecification const& modification
         mods.size().consume();
     }
 
-    if (mods.size())
-        set_transform(glm::mat4(1.f));
+//    if (mods.size())
+//        set_transform(glm::mat4(1.f));
+
+    if (mods.size().is_set())
+        window_controller.set_size_hack(animation_handle_, mods.size().value());
 
     window_controller.modify(window_, mods);
 }

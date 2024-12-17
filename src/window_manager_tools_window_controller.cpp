@@ -184,20 +184,11 @@ void WindowManagerToolsWindowController::on_animation(
     }
 
     if (result.transform)
-    {
         container->set_transform(result.transform.value());
-        needs_modify = true;
-    }
 
     if (needs_modify)
         tools.modify_window(window, spec);
 
-    // NOTE: The clip area needs to reflect the current position + transform of the window.
-    // Failing to set a clip area will cause overflowing windows to briefly disregard their
-    // compacted size.
-    // TODO: When we have rotation in our transforms, then we need to handle rotations.
-    //  At that point, the top_left corner will change. We will need to find an AABB
-    //  to represent the clip area.
     if (result.is_complete)
         container->constrain();
     else
@@ -236,4 +227,9 @@ miral::ApplicationInfo& WindowManagerToolsWindowController::app_info(miral::Wind
 void WindowManagerToolsWindowController::close(miral::Window const& window)
 {
     tools.ask_client_to_close(window);
+}
+
+void WindowManagerToolsWindowController::set_size_hack(AnimationHandle handle, mir::geometry::Size const& size)
+{
+    animator.set_size_hack(handle, size);
 }

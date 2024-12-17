@@ -1166,7 +1166,7 @@ FilesystemConfiguration::ConfigDetails::ConfigDetails()
         {
          AnimationType::slide,
          EaseFunction::ease_in_out_back,
-         0.25f,
+         1.0f,
          },
         {
          AnimationType::shrink,

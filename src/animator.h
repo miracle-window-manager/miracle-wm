@@ -69,20 +69,22 @@ public:
         mir::geometry::Rectangle const& current,
         std::function<void(AnimationStepResult const&)> const& callback);
 
-    Animation& operator=(Animation const& other);
+    Animation& operator=(Animation const& other) = default;
 
     AnimationStepResult init();
     AnimationStepResult step();
     [[nodiscard]] std::function<void(AnimationStepResult const&)> const& get_callback() const { return callback; }
     [[nodiscard]] AnimationHandle get_handle() const { return handle; }
     float get_runtime_seconds() const { return runtime_seconds; }
+    void set_current_size(mir::geometry::Size const& size);
 
 private:
     AnimationHandle handle;
     AnimationDefinition definition;
-    mir::geometry::Rectangle current;
+    mir::geometry::Rectangle clip_area;
     mir::geometry::Rectangle from;
     mir::geometry::Rectangle to;
+    mir::geometry::Size real_size;
     std::function<void(AnimationStepResult const&)> callback;
     float runtime_seconds = 0.f;
 };
@@ -125,11 +127,13 @@ public:
     void start();
     void stop();
     void step();
+    void set_size_hack(AnimationHandle handle, mir::geometry::Size const& size);
 
     static constexpr float timestep_seconds = 0.016;
 
 private:
     void run();
+    void tick();
 
     void append(Animation&&);
     bool running = false;
@@ -140,6 +144,8 @@ private:
     std::mutex processing_lock;
     std::condition_variable cv;
     AnimationHandle next_handle = 1;
+    std::chrono::nanoseconds lag;
+    std::chrono::system_clock::time_point time_start;
 };
 
 } // miracle

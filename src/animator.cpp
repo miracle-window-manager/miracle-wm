@@ -61,9 +61,10 @@ Animation::Animation(
     definition { std::move(definition) },
     to { to },
     from { current },
-    current { current },
+    clip_area { current },
     callback { callback },
-    runtime_seconds { 0.f }
+    runtime_seconds { 0.f },
+    real_size { current.size }
 {
     switch (definition.type)
     {
@@ -93,17 +94,6 @@ Animation::Animation(
     default:
         break;
     }
-}
-
-Animation& Animation::operator=(miracle::Animation const& other)
-{
-    handle = other.handle;
-    definition = other.definition;
-    from = other.from;
-    to = other.to;
-    callback = other.callback;
-    runtime_seconds = other.runtime_seconds;
-    return *this;
 }
 
 namespace
@@ -241,26 +231,64 @@ inline float interpolate_scale(float p, float start, float end)
     return current / end;
 }
 
+inline float interpolate_scale2(float p, float start, float end, float real)
+{
+    float diff = end - start;
+    if (diff == 0)
+        return 1.f;
+
+    float current = start + diff * p;
+    return current / real;
+}
+
 struct SlideResult
 {
+    /// The current position that the surface should be in.
+    /// This should also be used as the clip area position.
     glm::vec2 position;
-    glm::vec2 size;
+
+    /// The current size of the clip area. The surface should NOT
+    /// be set to this size, as it has already been set on init().
+    /// This size is strictly meant for the clip area.
+    glm::vec2 clip_area_size;
+
+    /// The transformation ao apply to the surface.
     glm::mat4 transform;
 };
 
-inline SlideResult slide(float p, geom::Rectangle const& from, geom::Rectangle const& to)
+inline SlideResult slide(float p, geom::Rectangle const& from, geom::Rectangle const& to, geom::Size const& committed_size)
 {
     auto const distance = to.top_left - from.top_left;
-    float const x = (float)distance.dx.as_int() * p;
-    float const y = (float)distance.dy.as_int() * p;
+    float const dx = (float)distance.dx.as_int() * p;
+    float const dy = (float)distance.dy.as_int() * p;
 
-    float const x_scale = interpolate_scale(p, static_cast<float>(from.size.width.as_value()), static_cast<float>(to.size.width.as_value()));
-    float const y_scale = interpolate_scale(p, static_cast<float>(from.size.height.as_value()), static_cast<float>(to.size.height.as_value()));
+    float const clip_scale_x = interpolate_scale(p, static_cast<float>(from.size.width.as_value()), static_cast<float>(to.size.width.as_value()));
+    float const clip_scale_y = interpolate_scale(p, static_cast<float>(from.size.height.as_value()), static_cast<float>(to.size.height.as_value()));
+
+    // This bit will only make sense by example.
+    //
+    // Let's say we're growing the width from 50px to 100px. When we first start animating,
+    // the client will not have yet confirmed the size, so it will most be 50px.
+    // In this case, [real_scale_x] will still be 200%, since it will want to scale from 50px
+    // to 100px (assuming p=0).
+    //
+    // However, after a frame or two, the actual size of the window will be 100px. In this
+    // case, we will want to scale down by ~50% (assuming p~=0) from 100px to ~50px.
+    float const real_scale_x = interpolate_scale2(
+        p,
+        static_cast<float>(from.size.width.as_value()),
+        static_cast<float>(to.size.width.as_value()),
+        static_cast<float>(committed_size.width.as_value()));
+    float const real_scale_y = interpolate_scale2(
+        p,
+        static_cast<float>(from.size.height.as_value()),
+        static_cast<float>(to.size.height.as_value()),
+        static_cast<float>(committed_size.height.as_value()));
 
     return {
-        .position = glm::vec2(from.top_left.x.as_int() + x, from.top_left.y.as_int() + y),
-        .size = glm::vec2(to.size.width.as_int() * x_scale, to.size.height.as_int() * y_scale),
-        .transform = glm::scale(glm::mat4(1.0), glm::vec3(x_scale, y_scale, 0.f))
+        .position = glm::vec2(from.top_left.x.as_int() + dx, from.top_left.y.as_int() + dy),
+        .clip_area_size = glm::vec2(to.size.width.as_int() * clip_scale_x, to.size.height.as_int() * clip_scale_y),
+        .transform = glm::scale(glm::mat4(1.0), glm::vec3(real_scale_x, real_scale_y, 0.f))
     };
 }
 
@@ -280,20 +308,20 @@ AnimationStepResult Animation::init()
     switch (definition.type)
     {
     case AnimationType::grow:
-        return { handle, false, current, std::nullopt, std::nullopt, glm::mat4(0.f) };
+        return { handle, false, clip_area, std::nullopt, std::nullopt, glm::mat4(0.f) };
     case AnimationType::shrink:
-        return { handle, false, current, std::nullopt, std::nullopt, glm::mat4(1.f) };
+        return { handle, false, clip_area, std::nullopt, std::nullopt, glm::mat4(1.f) };
     case AnimationType::slide:
     {
         // Sliding is funky. We resize immediately but remain in the same position. The transformation
         // and position are interpolated over time to give the illusion of moving and growing.
-        auto result = slide(0, from, to);
-        return { handle, false, current, result.position, to_vec2_size(to), result.transform };
+        auto result = slide(0, from, to, real_size);
+        return { handle, false, clip_area, result.position, to_vec2_size(to), result.transform };
     }
     case AnimationType::disabled:
-        return { handle, true, current, to_vec2_point(to), to_vec2_size(to), glm::mat4(1.f) };
+        return { handle, true, clip_area, to_vec2_point(to), to_vec2_size(to), glm::mat4(1.f) };
     default:
-        return { handle, false, current, std::nullopt, std::nullopt, std::nullopt };
+        return { handle, false, clip_area, std::nullopt, std::nullopt, std::nullopt };
     }
 }
 
@@ -312,15 +340,15 @@ AnimationStepResult Animation::step()
     case AnimationType::slide:
     {
         auto const p = ease(definition, t);
-        auto const result = slide(p, from, to);
-        current.top_left.x = geom::X { result.position.x };
-        current.top_left.y = geom::Y { result.position.y };
-        current.size.width = geom::Width { result.size.x };
-        current.size.height = geom::Height { result.size.y };
+        auto const result = slide(p, from, to, real_size);
+        clip_area.top_left.x = geom::X { result.position.x };
+        clip_area.top_left.y = geom::Y { result.position.y };
+        clip_area.size.width = geom::Width { result.clip_area_size.x };
+        clip_area.size.height = geom::Height { result.clip_area_size.y };
         return {
             handle,
             false,
-            current,
+            clip_area,
             result.position,
             std::nullopt,
             result.transform
@@ -362,6 +390,11 @@ AnimationStepResult Animation::step()
     }
 }
 
+void Animation::set_current_size(mir::geometry::Size const& size)
+{
+    real_size = size;
+}
+
 Animator::Animator(
     std::shared_ptr<mir::ServerActionQueue> const& server_action_queue,
     std::shared_ptr<Config> const& config) :
@@ -372,8 +405,9 @@ Animator::Animator(
 
 void Animator::start()
 {
-    run_thread = std::thread([&]()
-    { run(); });
+    run();
+//    run_thread = std::thread([&]()
+//    { run(); });
 }
 
 Animator::~Animator()
@@ -489,32 +523,44 @@ void Animator::workspace_switch(
 void Animator::run()
 {
     using clock = std::chrono::high_resolution_clock;
-    constexpr std::chrono::nanoseconds timestep(16ms);
-    std::chrono::nanoseconds lag(0ns);
-    auto time_start = clock::now();
+    lag = 0ns;
+    time_start = clock::now();
     running = true;
 
-    while (running)
+    server_action_queue->enqueue(this, [this]() { tick(); });
+
+}
+
+void Animator::tick() {
+    using clock = std::chrono::high_resolution_clock;
+    constexpr std::chrono::nanoseconds timestep(16ms);
+
+    if (!running) {
+        return;
+    }
+
     {
+//        std::unique_lock lock(processing_lock);
+        if (queued_animations.empty())
         {
-            std::unique_lock lock(processing_lock);
-            if (queued_animations.empty())
-            {
-                cv.wait(lock);
-                time_start = clock::now();
-            }
-        }
-
-        auto delta_time = clock::now() - time_start;
-        time_start = clock::now();
-        lag += std::chrono::duration_cast<std::chrono::nanoseconds>(delta_time);
-
-        while (lag >= timestep)
-        {
-            lag -= timestep;
-            step();
+//            cv.wait(lock);
+            time_start = clock::now();
+            server_action_queue->enqueue_with_guaranteed_execution([&]() { tick(); });
+            return;
         }
     }
+
+    auto delta_time = clock::now() - time_start;
+    time_start = clock::now();
+    lag += std::chrono::duration_cast<std::chrono::nanoseconds>(delta_time);
+
+    while (lag >= timestep)
+    {
+        lag -= timestep;
+        step();
+    }
+
+    server_action_queue->enqueue(this, [this]() { tick(); });
 }
 
 void Animator::step()
@@ -533,6 +579,21 @@ void Animator::step()
     }
 }
 
+void Animator::set_size_hack(AnimationHandle handle, mir::geometry::Size const& size)
+{
+    {
+        std::lock_guard<std::mutex> lock(processing_lock);
+        for (auto& animation : queued_animations)
+        {
+            if (animation.get_handle() == handle)
+            {
+                animation.set_current_size(size);
+                animation.get_callback()(animation.step());
+            }
+        }
+    }
+}
+
 void Animator::stop()
 {
     if (!running)
@@ -540,5 +601,5 @@ void Animator::stop()
 
     running = false;
     cv.notify_one();
-    run_thread.join();
+//    run_thread.join();
 }
