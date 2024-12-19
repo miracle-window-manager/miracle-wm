@@ -469,54 +469,29 @@ void Animator::run()
     }
 }
 
-namespace
-{
-struct PendingUpdateData
-{
-    AnimationStepResult result;
-    std::function<void(miracle::AnimationStepResult const&)> callback;
-};
-}
-
 void Animator::tick()
 {
+    std::lock_guard<std::mutex> lock(processing_lock);
     semaphore.try_acquire();
 
-    // Run the update
-    std::vector<PendingUpdateData> update_data;
+    for (auto& item : queued_animations)
     {
-        std::lock_guard<std::mutex> lock(processing_lock);
-        for (auto& item : queued_animations)
-        {
-            if (item->is_going_to_great_animator_in_the_sky())
-                continue;
+        if (item->is_going_to_great_animator_in_the_sky())
+            continue;
 
-            auto result = item->step(delta_time.count());
+        auto result = item->step(delta_time.count());
 
-            update_data.push_back({ .result = result,
-                .callback = [item](AnimationStepResult const& asr)
-            { item->on_tick(asr); } });
+        item->on_tick(result);
 
-            if (result.is_complete)
-                item->mark_for_great_animator_in_the_sky();
-        }
+        if (result.is_complete)
+            item->mark_for_great_animator_in_the_sky();
     }
 
-    // Inform the callbacks about the update. It is important that this does NOT
-    // happen during the lock, as the callback might try to append an animation
-    // and take the lock itself.
-    for (auto const& update_item : update_data)
-        update_item.callback(update_item.result);
-
-    // Remove marked animations
+    queued_animations.erase(std::remove_if(queued_animations.begin(), queued_animations.end(), [](std::shared_ptr<Animation> const& animation)
     {
-        std::lock_guard<std::mutex> lock(processing_lock);
-        queued_animations.erase(std::remove_if(queued_animations.begin(), queued_animations.end(), [](std::shared_ptr<Animation> const& animation)
-        {
-            return animation->is_going_to_great_animator_in_the_sky();
-        }),
-            queued_animations.end());
-    }
+        return animation->is_going_to_great_animator_in_the_sky();
+    }),
+        queued_animations.end());
 
     semaphore.release();
 }
@@ -524,7 +499,7 @@ void Animator::tick()
 void Animator::set_size_hack(AnimationHandle handle, mir::geometry::Size const& size)
 {
     std::lock_guard<std::mutex> lock(processing_lock);
-    semaphore.try_acquire();
+    semaphore.acquire();
     for (auto& animation : queued_animations)
     {
         if (animation->get_handle() == handle)
