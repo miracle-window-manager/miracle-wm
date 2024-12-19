@@ -58,6 +58,7 @@ public:
         AutoRestartingLauncher&,
         miral::MirRunner&,
         std::shared_ptr<Config> const&,
+        std::shared_ptr<Animator> const&,
         SurfaceTracker&,
         mir::Server const&,
         CompositorState&,
@@ -201,13 +202,14 @@ private:
     ModeObserverRegistrar mode_observer_registrar;
     WorkspaceManager workspace_manager;
     std::shared_ptr<Ipc> ipc;
-    Animator animator;
+    std::shared_ptr<Animator> animator;
     WindowManagerToolsWindowController window_controller;
     IpcCommandExecutor i3_command_executor;
     SurfaceTracker& surface_tracker;
     std::shared_ptr<ContainerGroupContainer> group_selection;
     Scratchpad scratchpad_;
     std::shared_ptr<Self> self;
+    mir::Server const& server;
 };
 }
 

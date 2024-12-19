@@ -66,17 +66,18 @@ public:
         AnimationDefinition definition,
         mir::geometry::Rectangle const& from,
         mir::geometry::Rectangle const& to,
-        mir::geometry::Rectangle const& current,
-        std::function<void(AnimationStepResult const&)> const& callback);
+        mir::geometry::Rectangle const& current);
 
     Animation& operator=(Animation const& other) = default;
 
     AnimationStepResult init();
-    AnimationStepResult step();
-    [[nodiscard]] std::function<void(AnimationStepResult const&)> const& get_callback() const { return callback; }
+    AnimationStepResult step(float const dt);
     [[nodiscard]] AnimationHandle get_handle() const { return handle; }
     float get_runtime_seconds() const { return runtime_seconds; }
     void set_current_size(mir::geometry::Size const& size);
+    void mark_for_great_animator_in_the_sky();
+    bool is_going_to_great_animator_in_the_sky() const;
+    virtual void on_tick(AnimationStepResult const&) = 0;
 
 private:
     AnimationHandle handle;
@@ -85,8 +86,8 @@ private:
     mir::geometry::Rectangle from;
     mir::geometry::Rectangle to;
     mir::geometry::Size real_size;
-    std::function<void(AnimationStepResult const&)> callback;
     float runtime_seconds = 0.f;
+    bool should_leave_this_animator_for_the_great_animator_in_the_sky = false;
 };
 
 /// Manages the animation queue. If multiple animations are queued for a window,
@@ -94,58 +95,33 @@ private:
 class Animator
 {
 public:
-    explicit Animator(
-        std::shared_ptr<mir::ServerActionQueue> const&,
-        std::shared_ptr<Config> const&);
+    explicit Animator(std::shared_ptr<Config> const&);
     ~Animator();
 
     /// Animateable components must register with the Animator before being
     /// able to be animated.
     AnimationHandle register_animateable();
 
-    void window_move(
-        AnimationHandle handle,
-        mir::geometry::Rectangle const& from,
-        mir::geometry::Rectangle const& to,
-        mir::geometry::Rectangle const& current,
-        std::function<void(AnimationStepResult const&)> const& callback);
-
-    void window_open(
-        AnimationHandle handle,
-        mir::geometry::Rectangle const& from,
-        mir::geometry::Rectangle const& to,
-        mir::geometry::Rectangle const& current,
-        std::function<void(AnimationStepResult const&)> const& callback);
-
-    void workspace_switch(
-        AnimationHandle handle,
-        mir::geometry::Rectangle const& from,
-        mir::geometry::Rectangle const& to,
-        mir::geometry::Rectangle const& current,
-        std::function<void(AnimationStepResult const&)> const& callback);
-
     void start();
     void stop();
-    void step();
-    void set_size_hack(AnimationHandle handle, mir::geometry::Size const& size);
-
-    static constexpr float timestep_seconds = 0.016;
-
-private:
     void run();
     void tick();
 
-    void append(Animation&&);
+    void append(std::shared_ptr<Animation> const&);
+    std::binary_semaphore& get_semaphore() { return semaphore; }
+    void set_size_hack(AnimationHandle handle, mir::geometry::Size const& size);
+    void remove_by_animation_handle(AnimationHandle handle);
+
+private:
     bool running = false;
-    std::shared_ptr<mir::ServerActionQueue> server_action_queue;
+    std::binary_semaphore semaphore;
     std::shared_ptr<Config> config;
-    std::vector<Animation> queued_animations;
+    std::vector<std::shared_ptr<Animation>> queued_animations;
     std::thread run_thread;
-    std::mutex processing_lock;
     std::condition_variable cv;
+    std::mutex processing_lock;
     AnimationHandle next_handle = 1;
-    std::chrono::nanoseconds lag;
-    std::chrono::system_clock::time_point time_start;
+    std::chrono::duration<float> delta_time;
 };
 
 } // miracle

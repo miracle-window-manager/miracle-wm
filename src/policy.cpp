@@ -96,6 +96,7 @@ Policy::Policy(
     AutoRestartingLauncher& external_client_launcher,
     miral::MirRunner& runner,
     std::shared_ptr<Config> const& config,
+    std::shared_ptr<Animator> const& animator,
     SurfaceTracker& surface_tracker,
     mir::Server const& server,
     CompositorState& compositor_state,
@@ -106,6 +107,7 @@ Policy::Policy(
     external_client_launcher { external_client_launcher },
     runner { runner },
     config { config },
+    animator { animator },
     workspace_manager { WorkspaceManager(
         tools,
         workspace_observer_registrar,
@@ -114,23 +116,24 @@ Policy::Policy(
 { return get_active_output(); },
         [this]()
 { return get_output_list(); }) },
-    animator(server.the_main_loop(), config),
-    window_controller(tools, animator, state),
+    window_controller(tools, *animator, state, config, server.the_main_loop()),
     i3_command_executor(*this, workspace_manager, compositor_state, external_client_launcher, window_controller),
     surface_tracker { surface_tracker },
     ipc { std::make_shared<Ipc>(runner, *this, i3_command_executor, config) },
     scratchpad_(window_controller, state),
-    self { std::make_shared<Self>(*this) }
+    self { std::make_shared<Self>(*this) },
+    server { server }
 {
-    animator.start();
     workspace_observer_registrar.register_interest(ipc);
     workspace_observer_registrar.register_interest(self);
     mode_observer_registrar.register_interest(ipc);
     window_tools_accessor->set_tools(tools);
+    animator->start();
 }
 
 Policy::~Policy()
 {
+    animator->stop();
     workspace_observer_registrar.unregister_interest(ipc.get());
     workspace_observer_registrar.unregister_interest(self.get());
     mode_observer_registrar.unregister_interest(ipc.get());
@@ -389,7 +392,7 @@ void Policy::advise_new_window(miral::WindowInfo const& window_info)
     }
 
     auto container = state.active_output->create_container(window_info, pending_allocation);
-    container->animation_handle(animator.register_animateable());
+    container->animation_handle(animator->register_animateable());
     container->on_open();
     state.add(container);
 
@@ -500,6 +503,7 @@ void Policy::advise_delete_window(const miral::WindowInfo& window_info)
     else
         scratchpad_.remove(container);
 
+    animator->remove_by_animation_handle(container->animation_handle());
     surface_tracker.remove(window_info.window());
     state.unfocus(container);
 }
@@ -522,7 +526,7 @@ void Policy::advise_output_create(miral::Output const& output)
     Locker locker(self);
     auto output_content = std::make_shared<Output>(
         output, workspace_manager, output.extents(), window_manager_tools,
-        floating_window_manager, state, config, window_controller, animator);
+        floating_window_manager, state, config, window_controller, *animator);
     state.output_list.push_back(output_content);
     workspace_manager.request_first_available_workspace(output_content.get());
     if (state.active_output == nullptr)

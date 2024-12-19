@@ -46,58 +46,7 @@ inline float get_percent_complete(float target, float real)
     else
         return percent;
 }
-}
 
-AnimationHandle const miracle::none_animation_handle = 0;
-
-Animation::Animation(
-    AnimationHandle handle,
-    AnimationDefinition definition,
-    mir::geometry::Rectangle const& from,
-    mir::geometry::Rectangle const& to,
-    mir::geometry::Rectangle const& current,
-    std::function<void(AnimationStepResult const&)> const& callback) :
-    handle { handle },
-    definition { std::move(definition) },
-    to { to },
-    from { current },
-    clip_area { current },
-    callback { callback },
-    runtime_seconds { 0.f },
-    real_size { current.size }
-{
-    switch (definition.type)
-    {
-    case AnimationType::slide:
-    {
-        // Find out the percentage that we're already through the move. This could be negative, by design.
-        glm::vec2 end = to_glm_vec2(to.top_left);
-        glm::vec2 start = to_glm_vec2(from.top_left);
-        glm::vec2 real_start = to_glm_vec2(current.top_left);
-        auto percent_x = get_percent_complete(end.x - start.x, real_start.x - start.x);
-        auto percent_y = get_percent_complete(end.y - start.y, real_start.y - start.y);
-
-        // Find out the percentage that we're already through the resize. This could be negative, by design.
-        float width_change = to.size.width.as_int() - from.size.width.as_int();
-        float height_change = to.size.height.as_int() - from.size.height.as_int();
-        float real_width_change = current.size.width.as_int() - from.size.width.as_int();
-        float real_height_change = current.size.height.as_int() - from.size.height.as_int();
-
-        float percent_w = get_percent_complete(width_change, real_width_change);
-        float percent_h = get_percent_complete(height_change, real_height_change);
-
-        float percentage = std::min(percent_x, std::min(percent_y, std::min(percent_w, percent_h)));
-        percentage = std::clamp(percentage, 0.f, 1.f);
-        runtime_seconds = percentage * definition.duration_seconds;
-        break;
-    }
-    default:
-        break;
-    }
-}
-
-namespace
-{
 float ease_out_bounce(AnimationDefinition const& defintion, float x)
 {
     if (x < 1 / defintion.d1)
@@ -303,6 +252,52 @@ glm::vec2 to_vec2_size(geom::Rectangle const& r)
 }
 }
 
+AnimationHandle const miracle::none_animation_handle = 0;
+
+Animation::Animation(
+    AnimationHandle handle,
+    AnimationDefinition definition,
+    mir::geometry::Rectangle const& from,
+    mir::geometry::Rectangle const& to,
+    mir::geometry::Rectangle const& current) :
+    handle { handle },
+    definition { std::move(definition) },
+    to { to },
+    from { current },
+    clip_area { current },
+    runtime_seconds { 0.f },
+    real_size { current.size }
+{
+    switch (definition.type)
+    {
+    case AnimationType::slide:
+    {
+        // Find out the percentage that we're already through the move. This could be negative, by design.
+        glm::vec2 end = to_glm_vec2(to.top_left);
+        glm::vec2 start = to_glm_vec2(from.top_left);
+        glm::vec2 real_start = to_glm_vec2(current.top_left);
+        auto percent_x = get_percent_complete(end.x - start.x, real_start.x - start.x);
+        auto percent_y = get_percent_complete(end.y - start.y, real_start.y - start.y);
+
+        // Find out the percentage that we're already through the resize. This could be negative, by design.
+        float width_change = to.size.width.as_int() - from.size.width.as_int();
+        float height_change = to.size.height.as_int() - from.size.height.as_int();
+        float real_width_change = current.size.width.as_int() - from.size.width.as_int();
+        float real_height_change = current.size.height.as_int() - from.size.height.as_int();
+
+        float percent_w = get_percent_complete(width_change, real_width_change);
+        float percent_h = get_percent_complete(height_change, real_height_change);
+
+        float percentage = std::min(percent_x, std::min(percent_y, std::min(percent_w, percent_h)));
+        percentage = std::clamp(percentage, 0.f, 1.f);
+        runtime_seconds = percentage * definition.duration_seconds;
+        break;
+    }
+    default:
+        break;
+    }
+}
+
 AnimationStepResult Animation::init()
 {
     switch (definition.type)
@@ -325,9 +320,9 @@ AnimationStepResult Animation::init()
     }
 }
 
-AnimationStepResult Animation::step()
+AnimationStepResult Animation::step(float const dt)
 {
-    runtime_seconds += Animator::timestep_seconds;
+    runtime_seconds += dt;
     float const t = (runtime_seconds / definition.duration_seconds);
 
     if (runtime_seconds >= definition.duration_seconds)
@@ -395,203 +390,30 @@ void Animation::set_current_size(mir::geometry::Size const& size)
     real_size = size;
 }
 
-Animator::Animator(
-    std::shared_ptr<mir::ServerActionQueue> const& server_action_queue,
-    std::shared_ptr<Config> const& config) :
-    server_action_queue { server_action_queue },
-    config { config }
+void Animation::mark_for_great_animator_in_the_sky()
+{
+    should_leave_this_animator_for_the_great_animator_in_the_sky = true;
+}
+
+bool Animation::is_going_to_great_animator_in_the_sky() const
+{
+    return should_leave_this_animator_for_the_great_animator_in_the_sky;
+}
+
+Animator::Animator(std::shared_ptr<Config> const& config) :
+    config { config },
+    semaphore { 0 }
 {
 }
 
 void Animator::start()
 {
-    run();
-//    run_thread = std::thread([&]()
-//    { run(); });
+    run_thread = std::thread([&](){ run(); });
 }
 
 Animator::~Animator()
 {
     stop();
-};
-
-AnimationHandle Animator::register_animateable()
-{
-    return next_handle++;
-}
-
-void Animator::append(miracle::Animation&& animation)
-{
-    std::lock_guard<std::mutex> lock(processing_lock);
-    for (auto it = queued_animations.begin(); it != queued_animations.end();)
-    {
-        if (it->get_handle() == animation.get_handle())
-        {
-            it = queued_animations.erase(it);
-        }
-        else
-            it++;
-    }
-
-    animation.get_callback()(animation.init());
-    queued_animations.push_back(animation);
-    cv.notify_one();
-}
-
-void Animator::window_move(
-    AnimationHandle handle,
-    mir::geometry::Rectangle const& from,
-    mir::geometry::Rectangle const& to,
-    mir::geometry::Rectangle const& current,
-    std::function<void(AnimationStepResult const&)> const& callback)
-{
-    // If animations aren't enabled, let's give them the position that
-    // they want to go to immediately and don't bother animating anything.
-    if (!config->are_animations_enabled())
-    {
-        callback(
-            AnimationStepResult { handle,
-                true,
-                to,
-                glm::vec2(to.top_left.x.as_int(), to.top_left.y.as_int()),
-                glm::vec2(to.size.width.as_int(), to.size.height.as_int()),
-                glm::mat4(1.f) });
-        return;
-    }
-
-    append(Animation(
-        handle,
-        config->get_animation_definitions()[(int)AnimateableEvent::window_move],
-        from,
-        to,
-        current,
-        callback));
-}
-
-void Animator::window_open(
-    AnimationHandle handle,
-    mir::geometry::Rectangle const& from,
-    mir::geometry::Rectangle const& to,
-    mir::geometry::Rectangle const& current,
-    std::function<void(AnimationStepResult const&)> const& callback)
-{
-    // If animations aren't enabled, let's give them the position that
-    // they want to go to immediately and don't bother animating anything.
-    if (!config->are_animations_enabled())
-    {
-        callback(AnimationStepResult { handle, true, to });
-        return;
-    }
-
-    append(Animation(
-        handle,
-        config->get_animation_definitions()[(int)AnimateableEvent::window_open],
-        from,
-        to,
-        current,
-        callback));
-}
-
-void Animator::workspace_switch(
-    AnimationHandle handle,
-    mir::geometry::Rectangle const& from,
-    mir::geometry::Rectangle const& to,
-    mir::geometry::Rectangle const& current,
-    std::function<void(AnimationStepResult const&)> const& callback)
-{
-    if (!config->are_animations_enabled())
-    {
-        callback(
-            AnimationStepResult { handle,
-                true,
-                to,
-                glm::vec2(to.top_left.x.as_int(), to.top_left.y.as_int()),
-                glm::vec2(to.size.width.as_int(), to.size.height.as_int()),
-                glm::mat4(1.f) });
-        return;
-    }
-
-    append(Animation(
-        handle,
-        config->get_animation_definitions()[(int)AnimateableEvent::workspace_switch],
-        from,
-        to,
-        current,
-        callback));
-}
-
-void Animator::run()
-{
-    using clock = std::chrono::high_resolution_clock;
-    lag = 0ns;
-    time_start = clock::now();
-    running = true;
-
-    server_action_queue->enqueue(this, [this]() { tick(); });
-
-}
-
-void Animator::tick() {
-    using clock = std::chrono::high_resolution_clock;
-    constexpr std::chrono::nanoseconds timestep(16ms);
-
-    if (!running) {
-        return;
-    }
-
-    {
-//        std::unique_lock lock(processing_lock);
-        if (queued_animations.empty())
-        {
-//            cv.wait(lock);
-            time_start = clock::now();
-            server_action_queue->enqueue_with_guaranteed_execution([&]() { tick(); });
-            return;
-        }
-    }
-
-    auto delta_time = clock::now() - time_start;
-    time_start = clock::now();
-    lag += std::chrono::duration_cast<std::chrono::nanoseconds>(delta_time);
-
-    while (lag >= timestep)
-    {
-        lag -= timestep;
-        step();
-    }
-
-    server_action_queue->enqueue(this, [this]() { tick(); });
-}
-
-void Animator::step()
-{
-    std::lock_guard<std::mutex> lock(processing_lock);
-    for (auto it = queued_animations.begin(); it != queued_animations.end();)
-    {
-        auto& item = *it;
-        auto result = item.step();
-
-        item.get_callback()(result);
-        if (result.is_complete)
-            it = queued_animations.erase(it);
-        else
-            it++;
-    }
-}
-
-void Animator::set_size_hack(AnimationHandle handle, mir::geometry::Size const& size)
-{
-    {
-        std::lock_guard<std::mutex> lock(processing_lock);
-        for (auto& animation : queued_animations)
-        {
-            if (animation.get_handle() == handle)
-            {
-                animation.set_current_size(size);
-                animation.get_callback()(animation.step());
-            }
-        }
-    }
 }
 
 void Animator::stop()
@@ -601,5 +423,121 @@ void Animator::stop()
 
     running = false;
     cv.notify_one();
-//    run_thread.join();
+    run_thread.join();
+}
+
+AnimationHandle Animator::register_animateable()
+{
+    return next_handle++;
+}
+
+void Animator::append(std::shared_ptr<Animation> const& animation)
+{
+    std::lock_guard<std::mutex> lock(processing_lock);
+    for (auto& other : queued_animations)
+    {
+        if (other->get_handle() == animation->get_handle())
+            other->mark_for_great_animator_in_the_sky();
+    }
+    queued_animations.push_back(animation);
+    animation->on_tick(animation->init());
+    cv.notify_one();
+}
+
+void Animator::run()
+{
+    using clock = std::chrono::high_resolution_clock;
+    constexpr std::chrono::nanoseconds timestep(16ms);
+    auto time_start = clock::now();
+    running = true;
+
+    while (running)
+    {
+        {
+            std::unique_lock lock(processing_lock);
+            if (queued_animations.empty())
+            {
+                cv.wait(lock);
+                time_start = clock::now();
+            }
+        }
+
+        delta_time = clock::now() - time_start;
+        time_start = clock::now();
+        tick();
+        std::this_thread::sleep_for(1ms);
+    }
+}
+
+namespace
+{
+struct PendingUpdateData
+{
+    AnimationStepResult result;
+    std::function<void(miracle::AnimationStepResult const&)> callback;
+};
+}
+
+void Animator::tick()
+{
+    semaphore.try_acquire();
+
+    // Run the update
+    std::vector<PendingUpdateData> update_data;
+    {
+        std::lock_guard<std::mutex> lock(processing_lock);
+        for (auto& item : queued_animations)
+        {
+            if (item->is_going_to_great_animator_in_the_sky())
+                continue;
+
+            auto result = item->step(delta_time.count());
+
+            update_data.push_back({ .result = result,
+                .callback = [item](AnimationStepResult const& asr)
+            { item->on_tick(asr); } });
+
+            if (result.is_complete)
+                item->mark_for_great_animator_in_the_sky();
+        }
+    }
+
+    // Inform the callbacks about the update. It is important that this does NOT
+    // happen during the lock, as the callback might try to append an animation
+    // and take the lock itself.
+    for (auto const& update_item : update_data)
+        update_item.callback(update_item.result);
+
+    // Remove marked animations
+    {
+        std::lock_guard<std::mutex> lock(processing_lock);
+        queued_animations.erase(std::remove_if(queued_animations.begin(), queued_animations.end(), [](std::shared_ptr<Animation> const& animation)
+        {
+            return animation->is_going_to_great_animator_in_the_sky();
+        }),
+            queued_animations.end());
+    }
+
+    semaphore.release();
+}
+
+void Animator::set_size_hack(AnimationHandle handle, mir::geometry::Size const& size)
+{
+    std::lock_guard<std::mutex> lock(processing_lock);
+    semaphore.try_acquire();
+    for (auto& animation : queued_animations)
+    {
+        if (animation->get_handle() == handle)
+            animation->set_current_size(size);
+    }
+}
+
+void Animator::remove_by_animation_handle(miracle::AnimationHandle handle)
+{
+    std::lock_guard<std::mutex> lock(processing_lock);
+    for (auto& animation : queued_animations)
+    {
+        if (animation->get_handle() == handle)
+            animation->mark_for_great_animator_in_the_sky();
+    }
 }

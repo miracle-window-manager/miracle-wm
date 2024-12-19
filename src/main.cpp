@@ -17,6 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define MIR_LOG_COMPONENT "miracle-main"
 
+#include "animator.h"
 #include "auto_restarting_launcher.h"
 #include "compositor_state.h"
 #include "config.h"
@@ -76,6 +77,7 @@ int main(int argc, char const* argv[])
     miracle::AutoRestartingLauncher auto_restarting_launcher(runner, external_client_launcher);
     miracle::SurfaceTracker surface_tracker;
     auto config = std::make_shared<miracle::FilesystemConfiguration>(runner);
+    auto animator = std::make_shared<miracle::Animator>(config);
     for (auto const& env : config->get_env_variables())
     {
         setenv(env.key.c_str(), env.value.c_str(), 1);
@@ -83,14 +85,13 @@ int main(int argc, char const* argv[])
 
     WindowManagerOptions* options;
     std::shared_ptr<miracle::WindowToolsAccessor> accessor = std::make_shared<miracle::WindowToolsAccessor>();
-    ;
     auto window_managers = ServerMiddleman(
         [&](mir::Server& server)
     {
         config->load(server);
         options = new WindowManagerOptions {
             add_window_manager_policy<miracle::Policy>(
-                "tiling", auto_restarting_launcher, runner, config, surface_tracker, server, compositor_state, accessor)
+                "tiling", auto_restarting_launcher, runner, config, animator, surface_tracker, server, compositor_state, accessor)
         };
         (*options)(server);
     });
@@ -124,7 +125,7 @@ int main(int argc, char const* argv[])
     }),
             CustomRenderer([&](std::unique_ptr<mir::graphics::gl::OutputSurface> x, std::shared_ptr<mir::graphics::GLRenderingProvider> y)
     {
-        return std::make_unique<miracle::Renderer>(std::move(y), std::move(x), config, surface_tracker, compositor_state, accessor);
+        return std::make_unique<miracle::Renderer>(std::move(y), std::move(x), config, surface_tracker, compositor_state, accessor, animator);
     }),
             miroil::OpenGLContext(new miracle::GLConfig()) });
 }

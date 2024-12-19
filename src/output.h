@@ -106,6 +106,32 @@ public:
     [[nodiscard]] nlohmann::json to_json() const;
 
 private:
+    class WorkspaceAnimation : public Animation
+    {
+    public:
+        WorkspaceAnimation(
+            AnimationHandle handle,
+            AnimationDefinition definition,
+            mir::geometry::Rectangle const& from,
+            mir::geometry::Rectangle const& to,
+            mir::geometry::Rectangle const& current,
+            std::shared_ptr<Workspace> const& to_workspace,
+            std::shared_ptr<Workspace> const& from_workspace,
+            Output* output);
+
+        void on_tick(AnimationStepResult const&) override;
+
+    private:
+        std::shared_ptr<Workspace> to_workspace;
+        std::shared_ptr<Workspace> from_workspace;
+        Output* output;
+    };
+
+    void on_workspace_animation(
+        AnimationStepResult const& result,
+        std::shared_ptr<Workspace> const& to,
+        std::shared_ptr<Workspace> const& from);
+
     miral::Output output;
     WorkspaceManager& workspace_manager;
     miral::WindowManagerTools tools;

@@ -161,22 +161,10 @@ void LeafContainer::handle_modify(miral::WindowSpecification const& modification
             tree->advise_restored_container(*this);
     }
 
-    // If we are trying to set the window size to something that we don't want it
-    // to be, then let's consume it.
-    if (!is_fullscreen()
-        && mods.size().is_set()
-        && get_visible_area().size != mods.size().value())
-    {
-        mods.size().consume();
-    }
-
-//    if (mods.size())
-//        set_transform(glm::mat4(1.f));
+    window_controller.modify(window_, mods);
 
     if (mods.size().is_set())
         window_controller.set_size_hack(animation_handle_, mods.size().value());
-
-    window_controller.modify(window_, mods);
 }
 
 void LeafContainer::handle_raise()

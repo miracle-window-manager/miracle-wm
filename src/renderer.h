@@ -49,6 +49,7 @@ namespace miracle
 class Config;
 class CompositorState;
 class WindowToolsAccessor;
+class Animator;
 
 class Renderer : public mir::renderer::Renderer
 {
@@ -58,7 +59,8 @@ public:
         std::shared_ptr<Config> const& config,
         SurfaceTracker& surface_tracker,
         CompositorState const& compositor_state,
-        std::shared_ptr<WindowToolsAccessor> const& accessor);
+        std::shared_ptr<WindowToolsAccessor> const& accessor,
+        std::shared_ptr<Animator> const& animator);
     ~Renderer() override = default;
 
     // These are called with a valid GL context:
@@ -93,6 +95,7 @@ private:
     {
         bool enabled = false;
         bool needs_outline = false;
+        glm::mat4 transform = glm::mat4(1.f);
         glm::mat4 workspace_transform = glm::mat4(1.f);
         bool is_focused = false;
 
@@ -123,6 +126,7 @@ private:
     SurfaceTracker& surface_tracker;
     CompositorState const& compositor_state;
     std::shared_ptr<WindowToolsAccessor> const& accessor;
+    std::shared_ptr<Animator> animator;
 };
 
 }

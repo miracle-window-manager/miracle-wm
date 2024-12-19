@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "output.h"
 #include "animator.h"
 #include "compositor_state.h"
+#include "config.h"
 #include "floating_window_container.h"
 #include "leaf_container.h"
 #include "vector_helpers.h"
@@ -216,40 +217,84 @@ bool Output::advise_workspace_active(uint32_t id)
     if (from->is_empty())
         workspace_manager.delete_workspace(from->id());
 
-    animator.workspace_switch(
+    if (!config->are_animations_enabled())
+    {
+        on_workspace_animation(
+            AnimationStepResult { handle,
+                true,
+                dest,
+                glm::vec2(dest.top_left.x.as_int(), dest.top_left.y.as_int()),
+                glm::vec2(dest.size.width.as_int(), dest.size.height.as_int()),
+                glm::mat4(1.f) },
+            to,
+            from);
+        return true;
+    }
+
+    auto animation = std::make_shared<WorkspaceAnimation>(
         handle,
+        config->get_animation_definitions()[(int)AnimateableEvent::workspace_switch],
         src,
         dest,
         real,
-        [this, to = to, from = from](AnimationStepResult const& asr)
+        to,
+        from,
+        this);
+
+    animator.append(animation);
+    return true;
+}
+
+Output::WorkspaceAnimation::WorkspaceAnimation(
+    AnimationHandle handle,
+    AnimationDefinition definition,
+    mir::geometry::Rectangle const& from,
+    mir::geometry::Rectangle const& to,
+    mir::geometry::Rectangle const& current,
+    std::shared_ptr<Workspace> const& to_workspace,
+    std::shared_ptr<Workspace> const& from_workspace,
+    Output* output) :
+    Animation(handle, definition, from, to, current),
+    to_workspace { to_workspace },
+    from_workspace { from_workspace },
+    output { output }
+{
+}
+
+void Output::WorkspaceAnimation::on_tick(miracle::AnimationStepResult const& asr)
+{
+    output->on_workspace_animation(asr, to_workspace, from_workspace);
+}
+
+void Output::on_workspace_animation(
+    AnimationStepResult const& asr,
+    std::shared_ptr<Workspace> const& to,
+    std::shared_ptr<Workspace> const& from)
+{
+    if (asr.is_complete)
     {
-        if (asr.is_complete)
-        {
-            if (asr.position)
-                set_position(asr.position.value());
-            if (asr.transform)
-                set_transform(asr.transform.value());
-
-            for (auto const& workspace : workspaces)
-            {
-                if (workspace != to)
-                    workspace->hide();
-            }
-
-            to->trigger_rerender();
-            return;
-        }
-
         if (asr.position)
             set_position(asr.position.value());
         if (asr.transform)
             set_transform(asr.transform.value());
 
         for (auto const& workspace : workspaces)
-            workspace->trigger_rerender();
-    });
+        {
+            if (workspace != to)
+                workspace->hide();
+        }
 
-    return true;
+        to->trigger_rerender();
+        return;
+    }
+
+    if (asr.position)
+        set_position(asr.position.value());
+    if (asr.transform)
+        set_transform(asr.transform.value());
+
+    for (auto const& workspace : workspaces)
+        workspace->trigger_rerender();
 }
 
 void Output::advise_application_zone_create(miral::Zone const& application_zone)
