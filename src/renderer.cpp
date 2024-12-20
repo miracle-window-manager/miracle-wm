@@ -250,9 +250,6 @@ Renderer::DrawData Renderer::get_draw_data(mir::graphics::Renderable const& rend
 
 auto Renderer::render(mg::RenderableList const& renderables) const -> std::unique_ptr<mg::Framebuffer>
 {
-    auto& semaphore = animator->get_semaphore();
-    semaphore.acquire();
-
     output_surface->make_current();
     output_surface->bind();
 
@@ -287,7 +284,6 @@ auto Renderer::render(mg::RenderableList const& renderables) const -> std::uniqu
     while (auto const gl_error = glGetError())
         mir::log_debug("GL error: %d", gl_error);
 
-    semaphore.release();
     return output;
 }
 

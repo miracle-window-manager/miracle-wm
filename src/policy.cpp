@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MIR_LOG_COMPONENT "miracle"
 
 #include "policy.h"
+#include "animator_loop.h"
 #include "config.h"
 #include "container_group_container.h"
 #include "feature_flags.h"
@@ -108,6 +109,7 @@ Policy::Policy(
     runner { runner },
     config { config },
     animator { animator },
+    animator_loop { std::make_unique<ThreadedAnimatorLoop>(animator) },
     workspace_manager { WorkspaceManager(
         tools,
         workspace_observer_registrar,
@@ -128,12 +130,12 @@ Policy::Policy(
     workspace_observer_registrar.register_interest(self);
     mode_observer_registrar.register_interest(ipc);
     window_tools_accessor->set_tools(tools);
-    animator->start();
+    animator_loop->start();
 }
 
 Policy::~Policy()
 {
-    animator->stop();
+    animator_loop->stop();
     workspace_observer_registrar.unregister_interest(ipc.get());
     workspace_observer_registrar.unregister_interest(self.get());
     mode_observer_registrar.unregister_interest(ipc.get());

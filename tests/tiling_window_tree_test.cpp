@@ -91,6 +91,7 @@ public:
     void modify(miral::Window const&, miral::WindowSpecification const&) override { }
     miral::WindowInfo& info_for(miral::Window const&) override { }
     miral::ApplicationInfo& app_info(miral::Window const&) override { }
+    void set_size_hack(AnimationHandle, mir::geometry::Size const&) { }
 
 private:
     std::vector<std::pair<miral::Window, std::shared_ptr<Container>>>& pairs;

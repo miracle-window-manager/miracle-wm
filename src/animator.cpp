@@ -400,30 +400,10 @@ bool Animation::is_going_to_great_animator_in_the_sky() const
     return should_leave_this_animator_for_the_great_animator_in_the_sky;
 }
 
-Animator::Animator(std::shared_ptr<Config> const& config) :
-    config { config },
-    semaphore { 0 }
+Animator::Animator(
+    std::shared_ptr<Config> const& config) :
+    config { config }
 {
-}
-
-void Animator::start()
-{
-    run_thread = std::thread([&](){ run(); });
-}
-
-Animator::~Animator()
-{
-    stop();
-}
-
-void Animator::stop()
-{
-    if (!running)
-        return;
-
-    running = false;
-    cv.notify_one();
-    run_thread.join();
 }
 
 AnimationHandle Animator::register_animateable()
@@ -444,42 +424,16 @@ void Animator::append(std::shared_ptr<Animation> const& animation)
     cv.notify_one();
 }
 
-void Animator::run()
-{
-    using clock = std::chrono::high_resolution_clock;
-    constexpr std::chrono::nanoseconds timestep(16ms);
-    auto time_start = clock::now();
-    running = true;
-
-    while (running)
-    {
-        {
-            std::unique_lock lock(processing_lock);
-            if (queued_animations.empty())
-            {
-                cv.wait(lock);
-                time_start = clock::now();
-            }
-        }
-
-        delta_time = clock::now() - time_start;
-        time_start = clock::now();
-        tick();
-        std::this_thread::sleep_for(1ms);
-    }
-}
-
-void Animator::tick()
+void Animator::tick(float dt)
 {
     std::lock_guard<std::mutex> lock(processing_lock);
-    semaphore.try_acquire();
 
     for (auto& item : queued_animations)
     {
         if (item->is_going_to_great_animator_in_the_sky())
             continue;
 
-        auto result = item->step(delta_time.count());
+        auto result = item->step(dt);
 
         item->on_tick(result);
 
@@ -492,14 +446,12 @@ void Animator::tick()
         return animation->is_going_to_great_animator_in_the_sky();
     }),
         queued_animations.end());
-
-    semaphore.release();
 }
 
 void Animator::set_size_hack(AnimationHandle handle, mir::geometry::Size const& size)
 {
     std::lock_guard<std::mutex> lock(processing_lock);
-    semaphore.acquire();
+
     for (auto& animation : queued_animations)
     {
         if (animation->get_handle() == handle)

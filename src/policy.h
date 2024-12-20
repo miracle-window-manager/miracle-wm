@@ -49,6 +49,7 @@ namespace miracle
 class Container;
 class ContainerGroupContainer;
 class WindowToolsAccessor;
+class AnimatorLoop;
 
 class Policy : public miral::WindowManagementPolicy, public CommandController
 {
@@ -203,6 +204,7 @@ private:
     WorkspaceManager workspace_manager;
     std::shared_ptr<Ipc> ipc;
     std::shared_ptr<Animator> animator;
+    std::unique_ptr<AnimatorLoop> animator_loop;
     WindowManagerToolsWindowController window_controller;
     IpcCommandExecutor i3_command_executor;
     SurfaceTracker& surface_tracker;

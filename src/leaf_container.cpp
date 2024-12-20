@@ -150,6 +150,9 @@ void LeafContainer::handle_modify(miral::WindowSpecification const& modification
     auto const& info = window_controller.info_for(window_);
 
     auto mods = modifications;
+    if (mods.size().is_set())
+        window_controller.set_size_hack(animation_handle_, mods.size().value());
+
     if (mods.state().is_set() && mods.state().value() != info.state())
     {
         set_state(mods.state().value());
@@ -162,9 +165,6 @@ void LeafContainer::handle_modify(miral::WindowSpecification const& modification
     }
 
     window_controller.modify(window_, mods);
-
-    if (mods.size().is_set())
-        window_controller.set_size_hack(animation_handle_, mods.size().value());
 }
 
 void LeafContainer::handle_raise()

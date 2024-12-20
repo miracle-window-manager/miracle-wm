@@ -96,32 +96,27 @@ class Animator
 {
 public:
     explicit Animator(std::shared_ptr<Config> const&);
-    ~Animator();
 
     /// Animateable components must register with the Animator before being
     /// able to be animated.
     AnimationHandle register_animateable();
 
-    void start();
-    void stop();
-    void run();
-    void tick();
+    void tick(float dt);
 
     void append(std::shared_ptr<Animation> const&);
-    std::binary_semaphore& get_semaphore() { return semaphore; }
     void set_size_hack(AnimationHandle handle, mir::geometry::Size const& size);
     void remove_by_animation_handle(AnimationHandle handle);
+    bool has_animations() const { return !queued_animations.empty(); }
+    std::condition_variable& get_cv() { return cv; }
+    std::mutex& get_lock() { return processing_lock; }
 
 private:
-    bool running = false;
-    std::binary_semaphore semaphore;
     std::shared_ptr<Config> config;
     std::vector<std::shared_ptr<Animation>> queued_animations;
     std::thread run_thread;
     std::condition_variable cv;
     std::mutex processing_lock;
     AnimationHandle next_handle = 1;
-    std::chrono::duration<float> delta_time;
 };
 
 } // miracle

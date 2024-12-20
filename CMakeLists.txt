@@ -78,6 +78,7 @@ add_library(miracle-wm-implementation
     src/compositor_state.h src/compositor_state.cpp
     src/math_helpers.h
     src/command_controller.h
+    src/animator_loop.cpp src/animator_loop.h
 )
 
 add_executable(miracle-wm
