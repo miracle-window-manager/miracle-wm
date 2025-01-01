@@ -16,125 +16,61 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
 #include "animator.h"
-#include "config.h"
-#include "yaml-cpp/yaml.h"
-#include <filesystem>
-#include <fstream>
 #include <gtest/gtest.h>
-#include <miral/runner.h>
 
 using namespace miracle;
 
 namespace
 {
-int argc = 1;
-char const* argv[] = { "miracle-wm-tests" };
-const std::string path = std::filesystem::current_path() / "test.yaml";
+class StubAnimation : public Animation
+{
+public:
+    StubAnimation(
+        AnimationHandle handle,
+        AnimationDefinition definition,
+        mir::geometry::Rectangle const& from,
+        mir::geometry::Rectangle const& to,
+        mir::geometry::Rectangle const& current) :
+        Animation(handle, definition, from, to, current)
+    {
+    }
+
+    void on_tick(AnimationStepResult const& asr) override
+    {
+        was_called = true;
+    }
+
+    bool was_called = false;
+};
 }
 
 class AnimatorTest : public testing::Test
 {
 public:
-    AnimatorTest() :
-        runner(argc, argv),
-        config { std::make_shared<FilesystemConfiguration>(runner, path) }
-    {
-    }
-    miral::MirRunner runner;
-    std::shared_ptr<Config> config;
 };
 
-// TEST_F(AnimatorTest, CanStepLinearSlideAnimation)
-//{
-//     YAML::Node node;
-//     YAML::Node item;
-//     item["event"] = "window_move";
-//     item["type"] = "slide";
-//     item["function"] = "linear";
-//     item["duration"] = 1;
-//     node["animations"].push_back(item);
-//     std::fstream file(path, std::ios::app);
-//     file << node;
-//
-//     Animator animator(queue, config);
-//     auto handle = animator.register_animateable();
-//     bool was_called = false;
-//     animator.window_move(
-//         handle,
-//         mir::geometry::Rectangle(
-//             mir::geometry::Point(0, 0),
-//             mir::geometry::Size(0, 0)),
-//         mir::geometry::Rectangle(
-//             mir::geometry::Point(600, 0),
-//             mir::geometry::Size(0, 0)),
-//         mir::geometry::Rectangle(
-//             mir::geometry::Point(0, 0),
-//             mir::geometry::Size(0, 0)),
-//         [&](auto const& asr)
-//     {
-//         was_called = true;
-//     });
-//     animator.step();
-//     EXPECT_EQ(was_called, true);
-// }
-//
-// TEST_F(AnimatorTest, LinearSlideResultsInCorrectNewPoint)
-//{
-//     YAML::Node node;
-//     YAML::Node item;
-//     item["event"] = "window_move";
-//     item["type"] = "slide";
-//     item["function"] = "linear";
-//     item["duration"] = 1;
-//     node["animations"].push_back(item);
-//     std::fstream file(path, std::ios::app);
-//     file << node;
-//
-//     Animator animator(queue, config);
-//     auto handle = animator.register_animateable();
-//     mir::geometry::Point point;
-//     animator.window_move(
-//         handle,
-//         mir::geometry::Rectangle(
-//             mir::geometry::Point(0, 0),
-//             mir::geometry::Size(0, 0)),
-//         mir::geometry::Rectangle(
-//             mir::geometry::Point(600, 0),
-//             mir::geometry::Size(0, 0)),
-//         mir::geometry::Rectangle(
-//             mir::geometry::Point(0, 0),
-//             mir::geometry::Size(0, 0)),
-//         [&](AnimationStepResult const& asr)
-//     {
-//         if (asr.position)
-//             EXPECT_EQ(asr.position.value().x, 600 * Animator::timestep_seconds);
-//     });
-//     animator.step();
-// }
-//
-// class AnimationTest : public testing::Test
-//{
-// };
-//
-// TEST_F(AnimationTest, InterruptingSlideResultsInModifiedAnimationDuration)
-//{
-//     AnimationHandle handle = 0;
-//     AnimationDefinition definition;
-//     definition.duration_seconds = 6;
-//     definition.type = AnimationType::slide;
-//     definition.function = EaseFunction::linear;
-//     Animation animation(
-//         handle,
-//         definition,
-//         mir::geometry::Rectangle(
-//             mir::geometry::Point(0, 0),
-//             mir::geometry::Size(0, 0)),
-//         mir::geometry::Rectangle(
-//             mir::geometry::Point(600, 600),
-//             mir::geometry::Size(0, 0)),
-//         mir::geometry::Rectangle(
-//             mir::geometry::Point(200, 200),
-//             mir::geometry::Size(0, 0)),
-//         [](auto const& asr) { });
-//     ASSERT_NEAR(animation.get_runtime_seconds(), 2, 0.05);
-// }
+TEST_F(AnimatorTest, CanStepLinearSlideAnimation)
+{
+    Animator animator;
+    auto const handle = animator.register_animateable();
+    AnimationDefinition definition {
+        .type = AnimationType::slide,
+        .function = EaseFunction::linear,
+        .duration_seconds = 1
+    };
+    auto const animation = std::make_shared<StubAnimation>(
+        handle,
+        definition,
+        mir::geometry::Rectangle(
+            mir::geometry::Point(0, 0),
+            mir::geometry::Size(0, 0)),
+        mir::geometry::Rectangle(
+            mir::geometry::Point(600, 0),
+            mir::geometry::Size(0, 0)),
+        mir::geometry::Rectangle(
+            mir::geometry::Point(0, 0),
+            mir::geometry::Size(0, 0)));
+    animator.append(animation);
+    animator.tick(0.16);
+    EXPECT_EQ(animation->was_called, true);
+}

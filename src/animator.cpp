@@ -26,6 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace miracle;
 using namespace std::chrono_literals;
+namespace geom = mir::geometry;
 
 namespace
 {
