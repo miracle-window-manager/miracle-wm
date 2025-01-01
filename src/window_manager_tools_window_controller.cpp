@@ -15,27 +15,31 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
+#define MIR_LOG_COMPONENT "window_manager_tools_tiling_interface"
+
 #include "window_manager_tools_window_controller.h"
 #include "animator.h"
 #include "compositor_state.h"
+#include "config.h"
 #include "leaf_container.h"
 #include "window_helpers.h"
-
-#include <mir/scene/surface.h>
-
-#define MIR_LOG_COMPONENT "window_manager_tools_tiling_interface"
-#include <glm/gtc/matrix_transform.hpp>
 #include <mir/log.h>
+#include <mir/scene/surface.h>
+#include <mir/server_action_queue.h>
 
 using namespace miracle;
 
 WindowManagerToolsWindowController::WindowManagerToolsWindowController(
     miral::WindowManagerTools const& tools,
     Animator& animator,
-    CompositorState& state) :
+    CompositorState& state,
+    std::shared_ptr<Config> const& config,
+    std::shared_ptr<mir::ServerActionQueue> const& server_action_queue) :
     tools { tools },
     animator { animator },
-    state { state }
+    state { state },
+    config { config },
+    server_action_queue { server_action_queue }
 {
 }
 
@@ -49,18 +53,29 @@ void WindowManagerToolsWindowController::open(miral::Window const& window)
     }
 
     auto const& info = info_for(window);
+    geom::Rectangle rect { window.top_left(), window.size() };
     if (info.parent())
     {
-        on_animation({ container->animation_handle(), true }, container);
+        on_animation({ container->animation_handle(), true, rect }, container);
         return;
     }
 
-    animator.window_open(
-        container->animation_handle(),
-        [this, container = container](miracle::AnimationStepResult const& result)
+    if (!config->are_animations_enabled())
     {
-        on_animation(result, container);
-    });
+        on_animation(AnimationStepResult { container->animation_handle(), true, rect }, container);
+        return;
+    }
+
+    auto animation = std::make_shared<WindowAnimation>(
+        container->animation_handle(),
+        config->get_animation_definitions()[(int)AnimateableEvent::window_open],
+        rect,
+        rect,
+        rect,
+        this,
+        container);
+
+    animator.append(animation);
 }
 
 bool WindowManagerToolsWindowController::is_fullscreen(miral::Window const& window)
@@ -82,19 +97,33 @@ void WindowManagerToolsWindowController::set_rectangle(
     auto const& info = info_for(window);
     if (info.parent())
     {
-        on_animation({ container->animation_handle(), true }, container);
+        on_animation({ container->animation_handle(), true, to }, container);
         return;
     }
 
-    animator.window_move(
+    if (!config->are_animations_enabled())
+    {
+        on_animation(
+            AnimationStepResult { container->animation_handle(),
+                true,
+                to,
+                glm::vec2(to.top_left.x.as_int(), to.top_left.y.as_int()),
+                glm::vec2(to.size.width.as_int(), to.size.height.as_int()),
+                glm::mat4(1.f) },
+            container);
+        return;
+    }
+
+    auto animation = std::make_shared<WindowAnimation>(
         container->animation_handle(),
+        config->get_animation_definitions()[(int)AnimateableEvent::window_move],
         from,
         to,
         geom::Rectangle { window.top_left(), window.size() },
-        [this, container = container](AnimationStepResult const& result)
-    {
-        on_animation(result, container);
-    });
+        this,
+        container);
+
+    animator.append(animation);
 }
 
 MirWindowState WindowManagerToolsWindowController::get_state(miral::Window const& window)
@@ -157,21 +186,32 @@ void WindowManagerToolsWindowController::send_to_back(miral::Window const& windo
     tools.send_tree_to_back(window);
 }
 
-void WindowManagerToolsWindowController::on_animation(
-    miracle::AnimationStepResult const& result, std::shared_ptr<Container> const& container)
+WindowManagerToolsWindowController::WindowAnimation::WindowAnimation(
+    AnimationHandle handle,
+    AnimationDefinition definition,
+    mir::geometry::Rectangle const& from,
+    mir::geometry::Rectangle const& to,
+    mir::geometry::Rectangle const& current,
+    WindowManagerToolsWindowController* controller,
+    std::shared_ptr<Container> const& container) :
+    Animation(handle, definition, from, to, current),
+    controller { controller },
+    container { container }
 {
-    auto window = container->window().value();
-    auto surface = window.operator std::shared_ptr<mir::scene::Surface>();
-    if (!surface)
-        return;
+}
 
+void WindowManagerToolsWindowController::WindowAnimation::on_tick(miracle::AnimationStepResult const& asr)
+{
+    if (auto shared_container = container.lock())
+        controller->on_animation(asr, shared_container);
+}
+
+void WindowManagerToolsWindowController::on_animation(
+    miracle::AnimationStepResult const& result,
+    std::shared_ptr<Container> const& container)
+{
     bool needs_modify = false;
     miral::WindowSpecification spec;
-    spec.top_left() = container->get_visible_area().top_left;
-    spec.size() = container->get_visible_area().size;
-
-    spec.min_width() = mir::geometry::Width(0);
-    spec.min_height() = mir::geometry::Height(0);
 
     if (result.position)
     {
@@ -189,35 +229,32 @@ void WindowManagerToolsWindowController::on_animation(
         needs_modify = true;
     }
 
-    if (needs_modify)
-        tools.modify_window(window, spec);
-
-    if (result.transform && result.transform.value() != container->get_transform())
-    {
+    if (result.transform)
         container->set_transform(result.transform.value());
-        surface->set_transformation(result.transform.value());
+
+    if (needs_modify)
+    {
+        server_action_queue->enqueue(this, [this, container, spec, result]()
+        {
+            if (!container->window())
+                return;
+
+            auto window = container->window().value();
+            if (!window)
+                return;
+            tools.modify_window(window, spec);
+
+            if (result.is_complete)
+                container->constrain();
+            else
+            {
+                if (container->get_type() == ContainerType::leaf)
+                    clip(window, result.clip_area);
+                else
+                    noclip(window);
+            }
+        });
     }
-
-    // NOTE: The clip area needs to reflect the current position + transform of the window.
-    // Failing to set a clip area will cause overflowing windows to briefly disregard their
-    // compacted size.
-    // TODO: When we have rotation in our transforms, then we need to handle rotations.
-    //  At that point, the top_left corner will change. We will need to find an AABB
-    //  to represent the clip area.
-    auto transform = container->get_transform();
-    auto width = spec.size().value().width.as_int();
-    auto height = spec.size().value().height.as_int();
-
-    glm::vec4 scale = transform * glm::vec4(width, height, 0, 1);
-
-    mir::geometry::Rectangle new_rectangle(
-        { spec.top_left().value().x.as_int(), spec.top_left().value().y.as_int() },
-        { scale.x, scale.y });
-
-    if (container->get_type() == ContainerType::leaf)
-        clip(window, new_rectangle);
-    else
-        noclip(window);
 }
 
 void WindowManagerToolsWindowController::set_user_data(
@@ -247,4 +284,9 @@ miral::ApplicationInfo& WindowManagerToolsWindowController::app_info(miral::Wind
 void WindowManagerToolsWindowController::close(miral::Window const& window)
 {
     tools.ask_client_to_close(window);
+}
+
+void WindowManagerToolsWindowController::set_size_hack(AnimationHandle handle, mir::geometry::Size const& size)
+{
+    animator.set_size_hack(handle, size);
 }

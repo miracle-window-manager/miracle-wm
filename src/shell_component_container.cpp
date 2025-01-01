@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "shell_component_container.h"
 #include "window_controller.h"
 #include <mir/scene/session.h>
+#include <mir/scene/surface.h>
 
 namespace miracle
 {
@@ -169,7 +170,11 @@ glm::mat4 ShellComponentContainer::get_transform() const
 
 void ShellComponentContainer::set_transform(glm::mat4 transform)
 {
-    transform_ = transform;
+    if (auto surface = window_.operator std::shared_ptr<mir::scene::Surface>())
+    {
+        surface->set_transformation(transform);
+        transform_ = transform;
+    }
 }
 
 glm::mat4 ShellComponentContainer::get_workspace_transform() const

@@ -18,13 +18,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef MIRACLEWM_WINDOW_MANAGER_TOOLS_TILING_INTERFACE_H
 #define MIRACLEWM_WINDOW_MANAGER_TOOLS_TILING_INTERFACE_H
 
+#include "animator.h"
 #include "window_controller.h"
 #include <miral/window_manager_tools.h>
 
+namespace mir
+{
+class ServerActionQueue;
+}
 namespace miracle
 {
-class Animator;
 class CompositorState;
+class Config;
 
 class WindowManagerToolsWindowController : public WindowController
 {
@@ -32,7 +37,9 @@ public:
     WindowManagerToolsWindowController(
         miral::WindowManagerTools const&,
         Animator& animator,
-        CompositorState& state);
+        CompositorState& state,
+        std::shared_ptr<Config> const& config,
+        std::shared_ptr<mir::ServerActionQueue> const& server_action_queue);
     void open(miral::Window const&) override;
     bool is_fullscreen(miral::Window const&) override;
     void set_rectangle(miral::Window const&, geom::Rectangle const&, geom::Rectangle const&) override;
@@ -44,17 +51,39 @@ public:
     std::shared_ptr<Container> get_container(miral::Window const&) override;
     void raise(miral::Window const&) override;
     void send_to_back(miral::Window const&) override;
-    void on_animation(miracle::AnimationStepResult const& result, std::shared_ptr<Container> const&) override;
     void set_user_data(miral::Window const&, std::shared_ptr<void> const&) override;
     void modify(miral::Window const&, miral::WindowSpecification const&) override;
     miral::WindowInfo& info_for(miral::Window const&) override;
     miral::ApplicationInfo& app_info(miral::Window const&) override;
     void close(miral::Window const& window) override;
+    void set_size_hack(AnimationHandle handle, mir::geometry::Size const& size) override;
 
 private:
     miral::WindowManagerTools tools;
     Animator& animator;
     CompositorState& state;
+    std::shared_ptr<Config> config;
+    std::shared_ptr<mir::ServerActionQueue> server_action_queue;
+
+    class WindowAnimation : public Animation
+    {
+    public:
+        WindowAnimation(
+            AnimationHandle handle,
+            AnimationDefinition definition,
+            mir::geometry::Rectangle const& from,
+            mir::geometry::Rectangle const& to,
+            mir::geometry::Rectangle const& current,
+            WindowManagerToolsWindowController* controller,
+            std::shared_ptr<Container> const& container);
+        void on_tick(AnimationStepResult const&) override;
+
+    private:
+        WindowManagerToolsWindowController* controller;
+        std::weak_ptr<Container> container;
+    };
+
+    void on_animation(AnimationStepResult const& result, std::shared_ptr<Container> const&);
 };
 }
 

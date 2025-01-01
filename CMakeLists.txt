@@ -4,6 +4,7 @@ cmake_policy(SET CMP0022 NEW)
 
 project(miracle-wm)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -78,6 +79,7 @@ add_library(miracle-wm-implementation
     src/compositor_state.h src/compositor_state.cpp
     src/math_helpers.h
     src/command_controller.h
+    src/animator_loop.cpp src/animator_loop.h
 )
 
 add_executable(miracle-wm

@@ -18,6 +18,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef MIRACLEWM_TILING_INTERFACE_H
 #define MIRACLEWM_TILING_INTERFACE_H
 
+#include "animator.h"
+
 #include <miral/application_info.h>
 #include <miral/window.h>
 #include <miral/window_info.h>
@@ -28,7 +30,6 @@ namespace miracle
 {
 class Container;
 class TilingWindowTree;
-class AnimationStepResult;
 
 /**
  * The sole interface for making changes to a window. This interface allows
@@ -49,11 +50,11 @@ public:
     virtual void send_to_back(miral::Window const&) = 0;
     virtual void open(miral::Window const&) = 0;
     virtual void close(miral::Window const&) = 0;
-    virtual void on_animation(miracle::AnimationStepResult const& result, std::shared_ptr<Container> const&) = 0;
     virtual void set_user_data(miral::Window const&, std::shared_ptr<void> const&) = 0;
     virtual void modify(miral::Window const&, miral::WindowSpecification const&) = 0;
     virtual miral::WindowInfo& info_for(miral::Window const&) = 0;
     virtual miral::ApplicationInfo& app_info(miral::Window const&) = 0;
+    virtual void set_size_hack(AnimationHandle handle, geom::Size const& size) = 0;
 };
 
 }
