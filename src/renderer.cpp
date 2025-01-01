@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "program_factory.h"
 #include "tessellation_helpers.h"
 
+#include "animator.h"
 #include "container.h"
 #include "window_tools_accessor.h"
 #include "workspace.h"
@@ -145,7 +146,8 @@ Renderer::Renderer(
     std::shared_ptr<Config> const& config,
     SurfaceTracker& surface_tracker,
     CompositorState const& compositor_state,
-    std::shared_ptr<WindowToolsAccessor> const& accessor) :
+    std::shared_ptr<WindowToolsAccessor> const& accessor,
+    std::shared_ptr<Animator> const& animator) :
     output_surface { make_output_current(std::move(output)) },
     clear_color { 0.0f, 0.0f, 0.0f, 1.0f },
     program_factory { std::make_unique<ProgramFactory>() },
@@ -155,7 +157,8 @@ Renderer::Renderer(
     config { config },
     surface_tracker { surface_tracker },
     compositor_state { compositor_state },
-    accessor { accessor }
+    accessor { accessor },
+    animator { animator }
 {
     // http://directx.com/2014/06/egl-understanding-eglchooseconfig-then-ignoring-it/
     eglBindAPI(EGL_OPENGL_ES_API);
@@ -235,8 +238,8 @@ Renderer::DrawData Renderer::get_draw_data(mir::graphics::Renderable const& rend
             auto const& info = accessor->get_tools().info_for(window);
             auto userdata = static_pointer_cast<Container>(info.userdata());
             data.needs_outline = (userdata->get_type() == ContainerType::leaf || userdata->get_type() == ContainerType::floating_window)
-                && !info.parent()
-                && window.top_left() == renderable.screen_position().top_left; // HACK: This is a major hack! We only want the outline on the main layer, so we make sure that only renderables with the right top_left get an outline.
+                && !info.parent();
+            data.transform = userdata->get_transform();
             data.workspace_transform = userdata->get_output_transform() * userdata->get_workspace_transform();
             data.is_focused = userdata->is_focused();
         }
@@ -358,11 +361,11 @@ miracle::Renderer::DrawData Renderer::draw(
     glActiveTexture(GL_TEXTURE0);
 
     auto const& rect = renderable.screen_position();
-    GLfloat centrex = (float)rect.top_left.x.as_int() + (float)rect.size.width.as_int() / 2.0f;
-    GLfloat centrey = (float)rect.top_left.y.as_int() + (float)rect.size.height.as_int() / 2.0f;
-    glUniform2f(prog->centre_uniform, centrex, centrey);
+    GLfloat const top_left_x = (float)rect.top_left.x.as_int();
+    GLfloat const top_left_y = (float)rect.top_left.y.as_int();
+    glUniform2f(prog->topleft_uniform, top_left_x, top_left_y);
 
-    glm::mat4 transform = renderable.transformation();
+    glm::mat4 transform = data.transform;
     if (texture->layout() == mg::gl::Texture::Layout::TopRowFirst)
     {
         // GL textures have (0,0) at bottom-left rather than top-left
@@ -501,6 +504,7 @@ miracle::Renderer::DrawData Renderer::draw(
             return DrawData {
                 true,
                 false,
+                data.transform,
                 data.workspace_transform,
                 data.is_focused,
                 { true,

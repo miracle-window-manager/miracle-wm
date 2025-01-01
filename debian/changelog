@@ -1,3 +1,8 @@
+miracle-wm (0.4.0-noble) noble; urgency=medium
+  - Update to version 0.4.0
+
+ -- Matthew Kosarek <matthew@matthewkosarek.xyz>  Wed, 11 Dec 2024 07:18:00 -0500
+
 miracle-wm (0.3.2-noble) noble; urgency=medium
   - Animation support for windows opening, moving, and resizing
   - Animation support for workspace changing

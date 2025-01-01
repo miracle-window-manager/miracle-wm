@@ -29,9 +29,10 @@ class SurfaceTracker
 public:
     void add(miral::Window const&);
     void remove(miral::Window const&);
-    miral::Window get(mir::scene::Surface const*) const;
+    miral::Window get(mir::scene::Surface const*);
 
 private:
+    std::mutex mutex;
     std::map<mir::scene::Surface const*, miral::Window> map;
 };
 

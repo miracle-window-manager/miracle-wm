@@ -51,6 +51,7 @@ public:
     mir::geometry::Point cursor_position;
     uint32_t modifiers = 0;
     bool has_clicked_floating_window = false;
+    std::vector<std::shared_ptr<Output>> output_list;
 
     [[nodiscard]] std::shared_ptr<Container> active() const;
 

@@ -29,6 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <glm/gtx/transform.hpp>
 #include <mir/log.h>
 #include <mir/scene/session.h>
+#include <mir/scene/surface.h>
 
 using namespace miracle;
 
@@ -184,9 +185,20 @@ std::optional<miral::Window> FloatingWindowContainer::window() const
     return window_;
 }
 
-bool FloatingWindowContainer::resize(Direction direction)
+bool FloatingWindowContainer::resize(Direction direction, int pixels)
 {
     return false;
+}
+
+bool FloatingWindowContainer::set_size(std::optional<int> const& width, std::optional<int> const& height)
+{
+    auto rectangle = get_visible_area();
+    if (width)
+        rectangle.size.width = geom::Width { width.value() };
+    if (height)
+        rectangle.size.height = geom::Height { height.value() };
+    window_controller.set_rectangle(window_, get_visible_area(), rectangle);
+    return true;
 }
 
 bool FloatingWindowContainer::toggle_fullscreen()
@@ -259,7 +271,11 @@ glm::mat4 FloatingWindowContainer::get_transform() const
 
 void FloatingWindowContainer::set_transform(glm::mat4 transform_)
 {
-    transform = transform_;
+    if (auto surface = window_.operator std::shared_ptr<mir::scene::Surface>())
+    {
+        surface->set_transformation(transform_);
+        transform = transform_;
+    }
 }
 
 uint32_t FloatingWindowContainer::animation_handle() const

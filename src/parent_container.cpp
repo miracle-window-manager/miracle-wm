@@ -592,7 +592,12 @@ void ParentContainer::handle_raise()
 {
 }
 
-bool ParentContainer::resize(Direction direction)
+bool ParentContainer::resize(Direction direction, int pixels)
+{
+    return false;
+}
+
+bool ParentContainer::set_size(std::optional<int> const& width, std::optional<int> const& height)
 {
     return false;
 }

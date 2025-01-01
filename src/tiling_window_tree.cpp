@@ -104,9 +104,30 @@ void TilingWindowTree::graft(std::shared_ptr<LeafContainer> const& leaf)
     root_lane->commit_changes();
 }
 
-bool TilingWindowTree::resize_container(miracle::Direction direction, Container& container)
+bool TilingWindowTree::resize_container(miracle::Direction direction, int pixels, Container& container)
 {
-    handle_resize(container, direction, config->get_resize_jump());
+    handle_resize(container, direction, pixels);
+    return true;
+}
+
+bool TilingWindowTree::set_size(std::optional<int> const& width, std::optional<int> const& height, Container& container)
+{
+    auto const& rectangle = container.get_visible_area();
+    int new_width = width ? width.value() : rectangle.size.width.as_int();
+    int new_height = height ? height.value() : rectangle.size.height.as_int();
+    int diff_x = new_width - rectangle.size.width.as_int();
+    int diff_y = new_height - rectangle.size.height.as_int();
+
+    if (diff_x < 0)
+        handle_resize(container, Direction::left, -diff_x);
+    else
+        handle_resize(container, Direction::right, diff_x);
+
+    if (diff_y < 0)
+        handle_resize(container, Direction::up, -diff_y);
+    else
+        handle_resize(container, Direction::down, diff_y);
+
     return true;
 }
 
@@ -487,7 +508,7 @@ void TilingWindowTree::handle_resize(
         int total_height = 0;
         for (size_t i = 0; i < nodes.size(); i++)
         {
-            auto other_node = nodes[i];
+            auto const& other_node = nodes[i];
             auto other_rect = other_node->get_logical_area();
             if (node.shared_from_this() == other_node)
                 other_rect.size.height = geom::Height { other_rect.size.height.as_int() + resize_amount };
@@ -496,7 +517,7 @@ void TilingWindowTree::handle_resize(
 
             if (i != 0)
             {
-                auto prev_rect = pending_node_resizes[i - 1];
+                auto const& prev_rect = pending_node_resizes[i - 1];
                 other_rect.top_left.y = geom::Y { prev_rect.top_left.y.as_int() + prev_rect.size.height.as_int() };
             }
 
@@ -520,7 +541,7 @@ void TilingWindowTree::handle_resize(
         int total_width = 0;
         for (size_t i = 0; i < nodes.size(); i++)
         {
-            auto other_node = nodes[i];
+            auto const& other_node = nodes[i];
             auto other_rect = other_node->get_logical_area();
             if (node.shared_from_this() == other_node)
                 other_rect.size.width = geom::Width { other_rect.size.width.as_int() + resize_amount };
@@ -529,7 +550,7 @@ void TilingWindowTree::handle_resize(
 
             if (i != 0)
             {
-                auto prev_rect = pending_node_resizes[i - 1];
+                auto const& prev_rect = pending_node_resizes[i - 1];
                 other_rect.top_left.x = geom::X { prev_rect.top_left.x.as_int() + prev_rect.size.width.as_int() };
             }
 
@@ -640,11 +661,11 @@ bool TilingWindowTree::confirm_placement_on_display(
     MirWindowState new_state,
     mir::geometry::Rectangle& new_placement)
 {
-    auto rect = container.get_visible_area();
+    //    auto rect = container.get_visible_area();
     switch (new_state)
     {
     case mir_window_state_restored:
-        new_placement = rect;
+        //        new_placement = rect;
         break;
     default:
         break;

@@ -236,6 +236,12 @@ void Workspace::for_each_window(std::function<void(std::shared_ptr<Container>)> 
 {
     for (auto const& window : floating_windows)
     {
+        if (!window->window())
+        {
+            mir::log_error("Workspace::for_each_window: floating window has no window");
+            continue;
+        }
+
         auto container = window_controller.get_container(window->window().value());
         if (container)
             f(container);
@@ -245,6 +251,12 @@ void Workspace::for_each_window(std::function<void(std::shared_ptr<Container>)> 
     {
         if (auto leaf = Container::as_leaf(node))
         {
+            if (!leaf->window())
+            {
+                mir::log_error("Workspace::for_each_window: tiled window has no window");
+                return;
+            }
+
             auto container = window_controller.get_container(leaf->window().value());
             if (container)
                 f(container);

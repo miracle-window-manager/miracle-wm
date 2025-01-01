@@ -64,7 +64,8 @@ public:
     void on_move_to(geom::Point const&) override;
     mir::geometry::Rectangle confirm_placement(
         MirWindowState, mir::geometry::Rectangle const&) override;
-    bool resize(Direction direction) override;
+    bool resize(Direction direction, int pixels) override;
+    bool set_size(std::optional<int> const& width, std::optional<int> const& height) override;
     bool toggle_fullscreen() override;
     void request_horizontal_layout() override;
     void request_vertical_layout() override;

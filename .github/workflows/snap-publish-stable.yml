@@ -1,0 +1,42 @@
+name: Snap Publish Stable
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number && format('pr{0}', github.event.number) || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  Snap:
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 30
+
+    strategy:
+      matrix:
+        platform:
+          - amd64
+          - armhf
+          - arm64
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # needed for version determination
+
+      - id: build-snap
+        name: Build the snap
+        uses: snapcore/action-build@v1
+
+      - name: Publish the snap
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.STORE_LOGIN }}
+        with:
+          snap: ${{ steps.build-snap.outputs.snap }}
+          release: stable
+

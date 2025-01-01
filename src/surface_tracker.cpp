@@ -21,20 +21,23 @@ using namespace miracle;
 
 void SurfaceTracker::add(miral::Window const& window)
 {
+    std::lock_guard lock(mutex);
     auto surface = window.operator std::shared_ptr<mir::scene::Surface>();
     map.insert(std::pair(surface.get(), window));
 }
 
 void SurfaceTracker::remove(miral::Window const& window)
 {
+    std::lock_guard lock(mutex);
     auto surface = window.operator std::shared_ptr<mir::scene::Surface>();
     auto it = map.find(surface.get());
     if (it != map.end())
         map.erase(it);
 }
 
-miral::Window SurfaceTracker::get(mir::scene::Surface const* surface) const
+miral::Window SurfaceTracker::get(mir::scene::Surface const* surface)
 {
+    std::lock_guard lock(mutex);
     auto it = map.find(surface);
     if (it == map.end())
         return {};

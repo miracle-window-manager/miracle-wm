@@ -1,0 +1,22 @@
+name: Clang Tidy
+
+on:
+  merge_group:
+    types: [checks_requested]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  clang-tidy:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # needed for version determination
+
+      - name: Clang Format
+        run: |
+          sudo apt install clang-format
+          bash ${{github.workspace}}/tools/clang-tidy-check.sh

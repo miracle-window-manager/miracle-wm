@@ -89,7 +89,8 @@ public:
     virtual void handle_request_move(MirInputEvent const* input_event) = 0;
     virtual void handle_request_resize(MirInputEvent const* input_event, MirResizeEdge edge) = 0;
     virtual void handle_raise() = 0;
-    virtual bool resize(Direction direction) = 0;
+    virtual bool resize(Direction direction, int pixels) = 0;
+    virtual bool set_size(std::optional<int> const& width, std::optional<int> const& height) = 0;
     virtual bool toggle_fullscreen() = 0;
     virtual void request_horizontal_layout() = 0;
     virtual void request_vertical_layout() = 0;

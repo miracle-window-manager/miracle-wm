@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MIR_LOG_COMPONENT "miracle"
 
 #include "policy.h"
+#include "animator_loop.h"
 #include "config.h"
 #include "container_group_container.h"
 #include "feature_flags.h"
@@ -38,6 +39,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <miral/toolkit_event.h>
 #include <miral/window_specification.h>
 #include <miral/zone.h>
+#include <mutex>
 
 using namespace miracle;
 
@@ -80,13 +82,22 @@ public:
     }
 
     Policy& policy;
+    std::recursive_mutex mutex;
 };
+
+Policy::Locker::Locker(std::shared_ptr<Self> const& self) :
+    lock_guard { self->mutex }
+{
+}
+
+Policy::Locker::~Locker() { }
 
 Policy::Policy(
     miral::WindowManagerTools const& tools,
     AutoRestartingLauncher& external_client_launcher,
     miral::MirRunner& runner,
     std::shared_ptr<Config> const& config,
+    std::shared_ptr<Animator> const& animator,
     SurfaceTracker& surface_tracker,
     mir::Server const& server,
     CompositorState& compositor_state,
@@ -97,6 +108,8 @@ Policy::Policy(
     external_client_launcher { external_client_launcher },
     runner { runner },
     config { config },
+    animator { animator },
+    animator_loop { std::make_unique<ThreadedAnimatorLoop>(animator) },
     workspace_manager { WorkspaceManager(
         tools,
         workspace_observer_registrar,
@@ -105,23 +118,24 @@ Policy::Policy(
 { return get_active_output(); },
         [this]()
 { return get_output_list(); }) },
-    animator(server.the_main_loop(), config),
-    window_controller(tools, animator, state),
+    window_controller(tools, *animator, state, config, server.the_main_loop()),
     i3_command_executor(*this, workspace_manager, compositor_state, external_client_launcher, window_controller),
     surface_tracker { surface_tracker },
-    ipc { std::make_shared<Ipc>(runner, workspace_manager, *this, server.the_main_loop(), i3_command_executor, config) },
+    ipc { std::make_shared<Ipc>(runner, *this, i3_command_executor, config) },
     scratchpad_(window_controller, state),
-    self { std::make_shared<Self>(*this) }
+    self { std::make_shared<Self>(*this) },
+    server { server }
 {
-    animator.start();
     workspace_observer_registrar.register_interest(ipc);
     workspace_observer_registrar.register_interest(self);
     mode_observer_registrar.register_interest(ipc);
     window_tools_accessor->set_tools(tools);
+    animator_loop->start();
 }
 
 Policy::~Policy()
 {
+    animator_loop->stop();
     workspace_observer_registrar.unregister_interest(ipc.get());
     workspace_observer_registrar.unregister_interest(self.get());
     mode_observer_registrar.unregister_interest(ipc.get());
@@ -163,13 +177,13 @@ bool Policy::handle_keyboard_event(MirKeyboardEvent const* event)
             try_toggle_resize_mode();
             return true;
         case DefaultKeyCommand::ResizeUp:
-            return try_resize(Direction::up);
+            return state.mode == WindowManagerMode::resizing && try_resize(Direction::up, config->get_resize_jump());
         case DefaultKeyCommand::ResizeDown:
-            return try_resize(Direction::down);
+            return state.mode == WindowManagerMode::resizing && try_resize(Direction::down, config->get_resize_jump());
         case DefaultKeyCommand::ResizeLeft:
-            return try_resize(Direction::left);
+            return state.mode == WindowManagerMode::resizing && try_resize(Direction::left, config->get_resize_jump());
         case DefaultKeyCommand::ResizeRight:
-            return try_resize(Direction::right);
+            return state.mode == WindowManagerMode::resizing && try_resize(Direction::right, config->get_resize_jump());
         case DefaultKeyCommand::MoveUp:
             return try_move(Direction::up);
         case DefaultKeyCommand::MoveDown:
@@ -250,13 +264,14 @@ bool Policy::handle_keyboard_event(MirKeyboardEvent const* event)
 
 bool Policy::handle_pointer_event(MirPointerEvent const* event)
 {
+    Locker locker(self);
     auto x = miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_x);
     auto y = miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_y);
     auto action = miral::toolkit::mir_pointer_event_action(event);
     state.cursor_position = { x, y };
 
     // Select the output first
-    for (auto const& output : output_list)
+    for (auto const& output : state.output_list)
     {
         if (output->point_is_in_output(static_cast<int>(x), static_cast<int>(y)))
         {
@@ -342,6 +357,7 @@ auto Policy::place_new_window(
     const miral::ApplicationInfo& app_info,
     const miral::WindowSpecification& requested_specification) -> miral::WindowSpecification
 {
+    Locker locker(self);
     if (!state.active_output)
     {
         mir::log_warning("place_new_window: no output available");
@@ -355,14 +371,15 @@ auto Policy::place_new_window(
 
 void Policy::advise_new_window(miral::WindowInfo const& window_info)
 {
+    Locker locker(self);
     if (!state.active_output)
     {
         mir::log_warning("create_container: output unavailable");
         auto window = window_info.window();
-        if (!output_list.empty())
+        if (!state.output_list.empty())
         {
             // Our output is gone! Let's try to add it to a different output
-            output_list.front()->add_immediately(window);
+            state.output_list.front()->add_immediately(window);
         }
         else
         {
@@ -377,7 +394,7 @@ void Policy::advise_new_window(miral::WindowInfo const& window_info)
     }
 
     auto container = state.active_output->create_container(window_info, pending_allocation);
-    container->animation_handle(animator.register_animateable());
+    container->animation_handle(animator->register_animateable());
     container->on_open();
     state.add(container);
 
@@ -387,6 +404,7 @@ void Policy::advise_new_window(miral::WindowInfo const& window_info)
 
 void Policy::handle_window_ready(miral::WindowInfo& window_info)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -403,6 +421,7 @@ Policy::confirm_placement_on_display(
     MirWindowState new_state,
     mir::geometry::Rectangle const& new_placement)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -415,6 +434,7 @@ Policy::confirm_placement_on_display(
 
 void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -433,8 +453,11 @@ void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
         auto* workspace = container->get_workspace();
         state.focus(container);
         container->on_focus_gained();
-        if (workspace && workspace != state.active_output->active())
-            workspace_manager.request_focus(workspace->id());
+
+        // TODO: This logic was put in place to navigate to the focused
+        //  workspace.
+        // if (workspace && workspace != state.active_output->active())
+        //    workspace_manager.request_focus(workspace->id());
 
         if (workspace)
             workspace->advise_focus_gained(container);
@@ -445,6 +468,7 @@ void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
 
 void Policy::advise_focus_lost(const miral::WindowInfo& window_info)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -458,6 +482,7 @@ void Policy::advise_focus_lost(const miral::WindowInfo& window_info)
 
 void Policy::advise_delete_window(const miral::WindowInfo& window_info)
 {
+    Locker locker(self);
     for (auto it = orphaned_window_list.begin(); it != orphaned_window_list.end(); it++)
     {
         if (*it == window_info.window())
@@ -480,12 +505,14 @@ void Policy::advise_delete_window(const miral::WindowInfo& window_info)
     else
         scratchpad_.remove(container);
 
+    animator->remove_by_animation_handle(container->animation_handle());
     surface_tracker.remove(window_info.window());
     state.unfocus(container);
 }
 
 void Policy::advise_move_to(miral::WindowInfo const& window_info, geom::Point top_left)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -498,10 +525,11 @@ void Policy::advise_move_to(miral::WindowInfo const& window_info, geom::Point to
 
 void Policy::advise_output_create(miral::Output const& output)
 {
+    Locker locker(self);
     auto output_content = std::make_shared<Output>(
         output, workspace_manager, output.extents(), window_manager_tools,
-        floating_window_manager, state, config, window_controller, animator);
-    output_list.push_back(output_content);
+        floating_window_manager, state, config, window_controller, *animator);
+    state.output_list.push_back(output_content);
     workspace_manager.request_first_available_workspace(output_content.get());
     if (state.active_output == nullptr)
     {
@@ -523,7 +551,8 @@ void Policy::advise_output_create(miral::Output const& output)
 
 void Policy::advise_output_update(miral::Output const& updated, miral::Output const& original)
 {
-    for (auto& output : output_list)
+    Locker locker(self);
+    for (auto& output : state.output_list)
     {
         if (output->get_output().is_same_output(original))
         {
@@ -535,7 +564,8 @@ void Policy::advise_output_update(miral::Output const& updated, miral::Output co
 
 void Policy::advise_output_delete(miral::Output const& output)
 {
-    for (auto it = output_list.begin(); it != output_list.end(); it++)
+    Locker locker(self);
+    for (auto it = state.output_list.begin(); it != state.output_list.end(); it++)
     {
         auto other_output = *it;
         if (other_output->get_output().is_same_output(output))
@@ -552,8 +582,8 @@ void Policy::advise_output_delete(miral::Output const& output)
                     workspace_manager.delete_workspace(w);
             };
 
-            output_list.erase(it);
-            if (output_list.empty())
+            state.output_list.erase(it);
+            if (state.output_list.empty())
             {
                 // All nodes should become orphaned
                 for (auto& window : other_output->collect_all_windows())
@@ -569,7 +599,7 @@ void Policy::advise_output_delete(miral::Output const& output)
             }
             else
             {
-                state.active_output = output_list.front();
+                state.active_output = state.output_list.front();
                 state.active_output->set_is_active(true);
                 for (auto& window : other_output->collect_all_windows())
                 {
@@ -587,6 +617,7 @@ void Policy::handle_modify_window(
     miral::WindowInfo& window_info,
     const miral::WindowSpecification& modifications)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -608,6 +639,7 @@ void Policy::handle_modify_window(
 
 void Policy::handle_raise_window(miral::WindowInfo& window_info)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -625,6 +657,7 @@ bool Policy::handle_touch_event(const MirTouchEvent* event)
 
 void Policy::handle_request_move(miral::WindowInfo& window_info, const MirInputEvent* input_event)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -640,6 +673,7 @@ void Policy::handle_request_resize(
     const MirInputEvent* input_event,
     MirResizeEdge edge)
 {
+    Locker locker(self);
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -659,7 +693,8 @@ mir::geometry::Rectangle Policy::confirm_inherited_move(
 
 void Policy::advise_application_zone_create(miral::Zone const& application_zone)
 {
-    for (auto const& output : output_list)
+    Locker locker(self);
+    for (auto const& output : state.output_list)
     {
         output->advise_application_zone_create(application_zone);
     }
@@ -667,7 +702,8 @@ void Policy::advise_application_zone_create(miral::Zone const& application_zone)
 
 void Policy::advise_application_zone_update(miral::Zone const& updated, miral::Zone const& original)
 {
-    for (auto const& output : output_list)
+    Locker locker(self);
+    for (auto const& output : state.output_list)
     {
         output->advise_application_zone_update(updated, original);
     }
@@ -675,7 +711,8 @@ void Policy::advise_application_zone_update(miral::Zone const& updated, miral::Z
 
 void Policy::advise_application_zone_delete(miral::Zone const& application_zone)
 {
-    for (auto const& output : output_list)
+    Locker locker(self);
+    for (auto const& output : state.output_list)
     {
         output->advise_application_zone_delete(application_zone);
     }
@@ -695,6 +732,7 @@ void Policy::advise_end()
 
 void Policy::try_toggle_resize_mode()
 {
+    Locker locker(self);
     if (!state.active())
     {
         state.mode = WindowManagerMode::normal;
@@ -717,6 +755,7 @@ void Policy::try_toggle_resize_mode()
 
 bool Policy::try_request_vertical()
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -729,6 +768,7 @@ bool Policy::try_request_vertical()
 
 bool Policy::try_toggle_layout(bool cycle_thru_all)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -741,6 +781,7 @@ bool Policy::try_toggle_layout(bool cycle_thru_all)
 
 bool Policy::try_request_horizontal()
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -751,19 +792,27 @@ bool Policy::try_request_horizontal()
     return true;
 }
 
-bool Policy::try_resize(miracle::Direction direction)
+bool Policy::try_resize(miracle::Direction direction, int pixels)
 {
-    if (state.mode != WindowManagerMode::resizing)
-        return false;
-
+    Locker locker(self);
     if (!state.active())
         return false;
 
-    return state.active()->resize(direction);
+    return state.active()->resize(direction, pixels);
+}
+
+bool Policy::try_set_size(std::optional<int> const& width, std::optional<int> const& height)
+{
+    Locker locker(self);
+    if (!state.active())
+        return false;
+
+    return state.active()->set_size(width, height);
 }
 
 bool Policy::try_move(miracle::Direction direction)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -775,6 +824,7 @@ bool Policy::try_move(miracle::Direction direction)
 
 bool Policy::try_move_by(miracle::Direction direction, int pixels)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -786,6 +836,7 @@ bool Policy::try_move_by(miracle::Direction direction, int pixels)
 
 bool Policy::try_move_to(int x, int y)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -797,6 +848,7 @@ bool Policy::try_move_to(int x, int y)
 
 void Policy::select_container(std::shared_ptr<Container> const& container)
 {
+    Locker locker(self);
     if (container->window())
         window_controller.select_active_window(container->window().value());
     else
@@ -808,6 +860,7 @@ void Policy::select_container(std::shared_ptr<Container> const& container)
 
 bool Policy::try_select(miracle::Direction direction)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -819,6 +872,7 @@ bool Policy::try_select(miracle::Direction direction)
 
 bool Policy::try_select_parent()
 {
+    Locker locker(self);
     if (state.mode != WindowManagerMode::normal)
         return false;
 
@@ -839,6 +893,7 @@ bool Policy::try_select_parent()
 
 bool Policy::try_select_child()
 {
+    Locker locker(self);
     if (state.mode != WindowManagerMode::normal)
         return false;
 
@@ -878,6 +933,7 @@ bool Policy::try_select_child()
 
 bool Policy::try_select_floating()
 {
+    Locker locker(self);
     if (state.mode != WindowManagerMode::normal)
         return false;
 
@@ -895,6 +951,7 @@ bool Policy::try_select_floating()
 
 bool Policy::try_select_tiling()
 {
+    Locker locker(self);
     if (state.mode != WindowManagerMode::normal)
         return false;
 
@@ -912,6 +969,7 @@ bool Policy::try_select_tiling()
 
 bool Policy::try_select_toggle()
 {
+    Locker locker(self);
     if (state.mode != WindowManagerMode::normal)
         return false;
 
@@ -928,6 +986,7 @@ bool Policy::try_select_toggle()
 
 bool Policy::try_close_window()
 {
+    Locker locker(self);
     if (!state.active())
         return false;
 
@@ -941,6 +1000,7 @@ bool Policy::try_close_window()
 
 bool Policy::quit()
 {
+    Locker locker(self);
     ipc->on_shutdown();
     runner.stop();
     return true;
@@ -948,6 +1008,7 @@ bool Policy::quit()
 
 bool Policy::try_toggle_fullscreen()
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -959,6 +1020,7 @@ bool Policy::try_toggle_fullscreen()
 
 bool Policy::select_workspace(int number, bool back_and_forth)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -971,6 +1033,7 @@ bool Policy::select_workspace(int number, bool back_and_forth)
 
 bool Policy::select_workspace(std::string const& name, bool back_and_forth)
 {
+    Locker locker(self);
     // TODO: Handle back_and_forth
     if (state.mode == WindowManagerMode::resizing)
         return false;
@@ -980,6 +1043,7 @@ bool Policy::select_workspace(std::string const& name, bool back_and_forth)
 
 bool Policy::next_workspace()
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -989,6 +1053,7 @@ bool Policy::next_workspace()
 
 bool Policy::prev_workspace()
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -998,6 +1063,7 @@ bool Policy::prev_workspace()
 
 bool Policy::back_and_forth_workspace()
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -1007,6 +1073,7 @@ bool Policy::back_and_forth_workspace()
 
 bool Policy::next_workspace_on_output(miracle::Output const& output)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -1015,6 +1082,7 @@ bool Policy::next_workspace_on_output(miracle::Output const& output)
 
 bool Policy::prev_workspace_on_output(miracle::Output const& output)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -1023,6 +1091,7 @@ bool Policy::prev_workspace_on_output(miracle::Output const& output)
 
 bool Policy::move_active_to_workspace(int number, bool back_and_forth)
 {
+    Locker locker(self);
     if (!can_move_container())
         return false;
 
@@ -1044,6 +1113,7 @@ bool Policy::move_active_to_workspace(int number, bool back_and_forth)
 
 bool Policy::move_active_to_workspace_named(std::string const& name, bool back_and_forth)
 {
+    Locker locker(self);
     if (!can_move_container())
         return false;
 
@@ -1060,8 +1130,9 @@ bool Policy::move_active_to_workspace_named(std::string const& name, bool back_a
     return false;
 }
 
-bool Policy::move_active_to_next()
+bool Policy::move_active_to_next_workspace()
 {
+    Locker locker(self);
     if (!can_move_container())
         return false;
 
@@ -1078,8 +1149,9 @@ bool Policy::move_active_to_next()
     return false;
 }
 
-bool Policy::move_active_to_prev()
+bool Policy::move_active_to_prev_workspace()
 {
+    Locker locker(self);
     if (!can_move_container())
         return false;
 
@@ -1098,6 +1170,7 @@ bool Policy::move_active_to_prev()
 
 bool Policy::move_active_to_back_and_forth()
 {
+    Locker locker(self);
     if (!can_move_container())
         return false;
 
@@ -1116,6 +1189,7 @@ bool Policy::move_active_to_back_and_forth()
 
 bool Policy::move_to_scratchpad()
 {
+    Locker locker(self);
     if (!can_move_container())
         return false;
 
@@ -1146,12 +1220,14 @@ bool Policy::move_to_scratchpad()
 
 bool Policy::show_scratchpad()
 {
+    Locker locker(self);
     // TODO: Only show the window that meets the criteria
     return scratchpad_.toggle_show_all();
 }
 
 bool Policy::can_move_container() const
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -1233,6 +1309,7 @@ std::shared_ptr<Container> Policy::toggle_floating_internal(std::shared_ptr<Cont
 
 bool Policy::toggle_floating()
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -1245,6 +1322,7 @@ bool Policy::toggle_floating()
 
 bool Policy::toggle_pinned_to_workspace()
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -1256,6 +1334,7 @@ bool Policy::toggle_pinned_to_workspace()
 
 bool Policy::set_is_pinned(bool pinned)
 {
+    Locker locker(self);
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
@@ -1267,6 +1346,7 @@ bool Policy::set_is_pinned(bool pinned)
 
 bool Policy::toggle_tabbing()
 {
+    Locker locker(self);
     if (!can_set_layout())
         return false;
 
@@ -1275,6 +1355,7 @@ bool Policy::toggle_tabbing()
 
 bool Policy::toggle_stacking()
 {
+    Locker locker(self);
     if (!can_set_layout())
         return false;
 
@@ -1283,6 +1364,7 @@ bool Policy::toggle_stacking()
 
 bool Policy::set_layout(LayoutScheme scheme)
 {
+    Locker locker(self);
     if (!can_set_layout())
         return false;
 
@@ -1291,6 +1373,7 @@ bool Policy::set_layout(LayoutScheme scheme)
 
 bool Policy::set_layout_default()
 {
+    Locker locker(self);
     if (!can_set_layout())
         return false;
 
@@ -1306,15 +1389,16 @@ void Policy::move_cursor_to_output(Output const& output)
 
 bool Policy::try_select_next_output()
 {
-    for (size_t i = 0; i < output_list.size(); i++)
+    Locker locker(self);
+    for (size_t i = 0; i < state.output_list.size(); i++)
     {
-        if (output_list[i] == state.active_output)
+        if (state.output_list[i] == state.active_output)
         {
             size_t j = i + 1;
-            if (j == output_list.size())
+            if (j == state.output_list.size())
                 j = 0;
 
-            move_cursor_to_output(*output_list[j]);
+            move_cursor_to_output(*state.output_list[j]);
             return true;
         }
     }
@@ -1324,15 +1408,16 @@ bool Policy::try_select_next_output()
 
 bool Policy::try_select_prev_output()
 {
-    for (int i = output_list.size() - 1; i >= 0; i++)
+    Locker locker(self);
+    for (int i = state.output_list.size() - 1; i >= 0; i++)
     {
-        if (output_list[i] == state.active_output)
+        if (state.output_list[i] == state.active_output)
         {
             size_t j = i - 1;
             if (j < 0)
-                j = output_list.size() - 1;
+                j = state.output_list.size() - 1;
 
-            move_cursor_to_output(*output_list[j]);
+            move_cursor_to_output(*state.output_list[j]);
             return true;
         }
     }
@@ -1340,15 +1425,75 @@ bool Policy::try_select_prev_output()
     return false;
 }
 
+std::shared_ptr<Output> const& Policy::_next_output_in_direction(Direction direction)
+{
+    auto const& active = state.active_output;
+    auto const& active_area = active->get_area();
+    for (auto const& output : state.output_list)
+    {
+        if (output == state.active_output)
+            continue;
+
+        auto const& other_area = output->get_area();
+        switch (direction)
+        {
+        case Direction::left:
+        {
+            if (active_area.top_left.x.as_int() == (other_area.top_left.x.as_int() + other_area.size.width.as_int()))
+            {
+                return output;
+            }
+            break;
+        }
+        case Direction::right:
+        {
+            if (active_area.top_left.x.as_int() + active_area.size.width.as_int() == other_area.top_left.x.as_int())
+            {
+                return output;
+            }
+            break;
+        }
+        case Direction::up:
+        {
+            if (active_area.top_left.y.as_int() == (other_area.top_left.y.as_int() + other_area.size.height.as_int()))
+            {
+                return output;
+            }
+            break;
+        }
+        case Direction::down:
+        {
+            if (active_area.top_left.y.as_int() + active_area.size.height.as_int() == other_area.top_left.y.as_int())
+            {
+                return output;
+            }
+            break;
+        }
+        default:
+            return active;
+        }
+    }
+
+    return active;
+}
+
 bool Policy::try_select_output(Direction direction)
 {
+    Locker locker(self);
+    auto const& next = _next_output_in_direction(direction);
+    if (next != state.active_output)
+    {
+        move_cursor_to_output(*next);
+        return true;
+    }
+
     return false;
 }
 
-bool Policy::try_select_output(std::vector<std::string> const& names)
+std::shared_ptr<Output> const& Policy::_next_output_in_list(std::vector<std::string> const& names)
 {
-    if (!state.active_output)
-        return false;
+    if (names.empty())
+        return state.active_output;
 
     auto current_name = state.active_output->get_output().name();
     size_t next = 0;
@@ -1364,16 +1509,171 @@ bool Policy::try_select_output(std::vector<std::string> const& names)
     if (next == names.size())
         next = 0;
 
-    for (auto const& output : output_list)
+    for (auto const& output : state.output_list)
     {
         if (output->get_output().name() == names[next])
-        {
-            move_cursor_to_output(*output);
-            return true;
-        }
+            return output;
+    }
+
+    return state.active_output;
+}
+
+bool Policy::try_select_output(std::vector<std::string> const& names)
+{
+    Locker locker(self);
+    if (!state.active_output)
+        return false;
+
+    auto const& output = _next_output_in_list(names);
+    if (output != state.active_output)
+        move_cursor_to_output(*output);
+    return true;
+}
+
+bool Policy::try_move_active_to_output(miracle::Direction direction)
+{
+    Locker locker(self);
+    if (!state.active_output)
+        return false;
+
+    if (!can_move_container())
+        return false;
+
+    auto const& next = _next_output_in_direction(direction);
+    if (next != state.active_output)
+    {
+        auto container = state.active();
+        container->get_output()->delete_container(container);
+        state.unfocus(container);
+
+        next->graft(container);
+        if (container->window().value())
+            window_controller.select_active_window(container->window().value());
+        return true;
     }
 
     return false;
+}
+
+bool Policy::try_move_active_to_current()
+{
+    Locker locker(self);
+    if (!state.active_output)
+        return false;
+
+    if (!can_move_container())
+        return false;
+
+    if (state.active()->get_output() == state.active_output.get())
+        return false;
+
+    auto container = state.active();
+    container->get_output()->delete_container(container);
+    state.unfocus(container);
+
+    state.active_output->graft(container);
+    if (container->window().value())
+        window_controller.select_active_window(container->window().value());
+    return true;
+}
+
+bool Policy::try_move_active_to_primary()
+{
+    Locker locker(self);
+    if (state.output_list.empty())
+        return false;
+
+    if (!can_move_container())
+        return false;
+
+    if (state.active()->get_output() == state.output_list[0].get())
+        return false;
+
+    auto container = state.active();
+    container->get_output()->delete_container(container);
+    state.unfocus(container);
+
+    state.output_list[0]->graft(container);
+    if (container->window().value())
+        window_controller.select_active_window(container->window().value());
+    return true;
+}
+
+bool Policy::try_move_active_to_nonprimary()
+{
+    Locker locker(self);
+    constexpr int MIN_SIZE_TO_HAVE_NONPRIMARY_OUTPUT = 2;
+    if (state.output_list.size() < MIN_SIZE_TO_HAVE_NONPRIMARY_OUTPUT)
+        return false;
+
+    if (!can_move_container())
+        return false;
+
+    if (state.active_output != state.output_list[0])
+        return false;
+
+    auto container = state.active();
+    container->get_output()->delete_container(container);
+    state.unfocus(container);
+
+    state.output_list[1]->graft(container);
+    if (container->window().value())
+        window_controller.select_active_window(container->window().value());
+    return true;
+}
+
+bool Policy::try_move_active_to_next()
+{
+    Locker locker(self);
+    if (!can_move_container())
+        return false;
+
+    auto it = std::find(state.output_list.begin(), state.output_list.end(), state.active_output);
+    if (it == state.output_list.end())
+    {
+        mir::log_error("Policy::try_move_active_to_next: cannot find active output in list");
+        return false;
+    }
+
+    it++;
+    if (it == state.output_list.end())
+        it = state.output_list.begin();
+
+    if (*it == state.active_output)
+        return false;
+
+    if ((*it).get() == state.active()->get_output())
+        return false;
+
+    auto container = state.active();
+    container->get_output()->delete_container(container);
+    state.unfocus(container);
+
+    (*it)->graft(container);
+    if (container->window().value())
+        window_controller.select_active_window(container->window().value());
+    return true;
+}
+
+bool Policy::try_move_active(std::vector<std::string> const& names)
+{
+    Locker locker(self);
+    if (!can_move_container())
+        return false;
+
+    auto const& output = _next_output_in_list(names);
+    if (output.get() != state.active()->get_output())
+    {
+        auto container = state.active();
+        container->get_output()->delete_container(container);
+        state.unfocus(container);
+
+        output->graft(container);
+        if (container->window().value())
+            window_controller.select_active_window(container->window().value());
+    }
+
+    return true;
 }
 
 bool Policy::can_set_layout() const
@@ -1385,4 +1685,106 @@ bool Policy::can_set_layout() const
         return false;
 
     return !state.active()->is_fullscreen();
+}
+
+bool Policy::reload_config()
+{
+    Locker locker(self);
+    config->reload();
+    return true;
+}
+
+nlohmann::json Policy::to_json() const
+{
+    Locker locker(self);
+    geom::Point top_left { INT_MAX, INT_MAX };
+    geom::Point bottom_right { 0, 0 };
+    nlohmann::json outputs_json = nlohmann::json::array();
+    for (auto const& output : state.output_list)
+    {
+        auto& area = output->get_area();
+
+        // Recalculate the total extents of the tree
+        if (area.top_left.x.as_int() < top_left.x.as_int())
+            top_left.x = geom::X { area.top_left.x.as_int() };
+        if (area.top_left.y.as_int() < top_left.y.as_int())
+            top_left.y = geom::Y { area.top_left.y.as_int() };
+
+        int bottom_x = area.top_left.x.as_int() + area.size.width.as_int();
+        int bottom_y = area.top_left.y.as_int() + area.size.height.as_int();
+        if (bottom_x > bottom_right.x.as_int())
+            bottom_right.x = geom::X { bottom_x };
+        if (bottom_y > bottom_right.y.as_int())
+            bottom_right.y = geom::Y { bottom_y };
+
+        outputs_json.push_back(output->to_json());
+    }
+
+    geom::Rectangle total_area {
+        top_left,
+        geom::Size {
+                    geom::Width(bottom_right.x.as_int() - top_left.x.as_int()),
+                    geom::Height(bottom_right.y.as_int() - top_left.y.as_int()) }
+    };
+    nlohmann::json root = {
+        { "id", 0 },
+        { "name", "root" },
+        {
+         "rect",
+         { { "x", total_area.top_left.x.as_int() }, { "y", total_area.top_left.y.as_int() }, { "width", total_area.size.width.as_int() }, { "height", total_area.size.height.as_int() } },
+         },
+        { "nodes", outputs_json },
+        { "type", "root" }
+    };
+    return root;
+}
+
+nlohmann::json Policy::outputs_json() const
+{
+    Locker locker(self);
+    nlohmann::json j = nlohmann::json::array();
+    for (auto const& output : state.output_list)
+        j.push_back(output->to_json());
+    return j;
+}
+
+nlohmann::json Policy::workspaces_json() const
+{
+    Locker locker(self);
+    nlohmann::json j = nlohmann::json::array();
+    for (auto workspace : workspace_manager.workspaces())
+        j.push_back(workspace->to_json());
+    return j;
+}
+
+nlohmann::json Policy::workspace_to_json(uint32_t id) const
+{
+    Locker locker(self);
+    auto workspace = workspace_manager.workspace(id);
+    return workspace->to_json();
+}
+
+nlohmann::json Policy::mode_to_json() const
+{
+    Locker locker(self);
+    switch (state.mode)
+    {
+    case WindowManagerMode::normal:
+        return {
+            { "name", "default" }
+        };
+    case WindowManagerMode::resizing:
+        return {
+            { "name", "resize" }
+        };
+    case WindowManagerMode::selecting:
+        return {
+            { "name", "selecting" }
+        };
+    default:
+    {
+        mir::fatal_error("handle_command: unknown binding state: %d", (int)state.mode);
+        return {};
+    }
+    }
 }

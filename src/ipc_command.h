@@ -52,7 +52,8 @@ enum class IpcCommandType
     nop,
     i3_bar,
     gaps,
-    input
+    input,
+    resize
 };
 
 // https://i3wm.org/docs/userguide.html#command_criteria

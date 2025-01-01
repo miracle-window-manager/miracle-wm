@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <cmath>
 #include <mir/scene/session.h>
+#include <mir/scene/surface.h>
 #include <mir_toolkit/common.h>
 
 using namespace miracle;
@@ -149,6 +150,9 @@ void LeafContainer::handle_modify(miral::WindowSpecification const& modification
     auto const& info = window_controller.info_for(window_);
 
     auto mods = modifications;
+    if (mods.size().is_set())
+        window_controller.set_size_hack(animation_handle_, mods.size().value());
+
     if (mods.state().is_set() && mods.state().value() != info.state())
     {
         set_state(mods.state().value());
@@ -160,15 +164,6 @@ void LeafContainer::handle_modify(miral::WindowSpecification const& modification
             tree->advise_restored_container(*this);
     }
 
-    // If we are trying to set the window size to something that we don't want it
-    // to be, then let's consume it.
-    if (!is_fullscreen()
-        && mods.size().is_set()
-        && get_visible_area().size != mods.size().value())
-    {
-        mods.size().consume();
-    }
-
     window_controller.modify(window_, mods);
 }
 
@@ -177,9 +172,14 @@ void LeafContainer::handle_raise()
     window_controller.select_active_window(window_);
 }
 
-bool LeafContainer::resize(miracle::Direction direction)
+bool LeafContainer::resize(miracle::Direction direction, int pixels)
 {
-    return tree->resize_container(direction, *this);
+    return tree->resize_container(direction, pixels, *this);
+}
+
+bool LeafContainer::set_size(std::optional<int> const& width, std::optional<int> const& height)
+{
+    return tree->set_size(width, height, *this);
 }
 
 void LeafContainer::show()
@@ -255,10 +255,7 @@ void LeafContainer::commit_changes()
         logical_area = next_logical_area.value();
         next_logical_area.reset();
         if (!window_controller.is_fullscreen(window_))
-        {
             window_controller.set_rectangle(window_, previous, get_visible_area());
-            constrain();
-        }
     }
 }
 
@@ -307,7 +304,11 @@ glm::mat4 LeafContainer::get_transform() const
 
 void LeafContainer::set_transform(glm::mat4 transform_)
 {
-    transform = transform_;
+    if (auto surface = window_.operator std::shared_ptr<mir::scene::Surface>())
+    {
+        surface->set_transformation(transform_);
+        transform = transform_;
+    }
 }
 
 uint32_t LeafContainer::animation_handle() const

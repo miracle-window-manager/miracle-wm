@@ -24,7 +24,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "workspace_manager.h"
 #include "workspace_observer.h"
 #include <mir/fd.h>
-#include <mir/server_action_queue.h>
 #include <miral/runner.h>
 #include <shared_mutex>
 #include <vector>
@@ -34,8 +33,7 @@ struct sockaddr_un;
 namespace miracle
 {
 
-class Policy;
-class Config;
+class CommandController;
 
 /// This it taken directly from SWAY
 enum IpcType
@@ -82,10 +80,8 @@ class Ipc : public virtual WorkspaceObserver, public virtual ModeObserver
 {
 public:
     Ipc(miral::MirRunner& runner,
-        WorkspaceManager&,
-        Policy& policy,
-        std::shared_ptr<mir::ServerActionQueue> const&,
-        I3CommandExecutor&,
+        CommandController&,
+        IpcCommandExecutor&,
         std::shared_ptr<Config> const&);
     ~Ipc();
 
@@ -107,16 +103,12 @@ private:
         int subscribed_events = 0;
     };
 
-    WorkspaceManager& workspace_manager;
-    Policy& policy;
+    CommandController& policy;
     mir::Fd ipc_socket;
     std::unique_ptr<miral::FdHandle> socket_handle;
     sockaddr_un* ipc_sockaddr = nullptr;
     std::vector<IpcClient> clients;
-    std::vector<IpcParseResult> pending_commands;
-    mutable std::shared_mutex pending_commands_mutex;
-    std::shared_ptr<mir::ServerActionQueue> queue;
-    I3CommandExecutor& executor;
+    IpcCommandExecutor& executor;
     std::shared_ptr<Config> config;
 
     void disconnect(IpcClient& client);
@@ -124,7 +116,7 @@ private:
     void handle_command(IpcClient& client, uint32_t payload_length, IpcType payload_type);
     void send_reply(IpcClient& client, IpcType command_type, std::string const& payload);
     void handle_writeable(IpcClient& client);
-    bool parse_i3_command(const char* command);
+    IpcValidationResult parse_i3_command(const char* command);
 };
 }
 
