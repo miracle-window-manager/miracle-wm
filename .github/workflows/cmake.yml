@@ -53,6 +53,9 @@ jobs:
     - name: IPC Tests
       run: |
         export NO_AT_BRIDGE=1
+        sudo mkdir /run/user/1000
+        export XDG_RUNTIME_DIR=/run/user/1000
+        export XDG_SESSION_TYPE=wayland
         sudo systemd-run --uid 1001 -p Environment=XDG_SESSION_TYPE=wayland -p PAMName=login -p TTYPath=/dev/tty1 -- tail -f /dev/null
 
         cd ${{github.workspace}}/tests/ipc
