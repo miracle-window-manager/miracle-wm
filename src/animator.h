@@ -34,8 +34,6 @@ class ServerActionQueue;
 
 namespace miracle
 {
-class Config;
-
 /// Unique handle provided to track animators
 typedef uint32_t AnimationHandle;
 
@@ -95,8 +93,6 @@ private:
 class Animator
 {
 public:
-    explicit Animator(std::shared_ptr<Config> const&);
-
     /// Animateable components must register with the Animator before being
     /// able to be animated.
     AnimationHandle register_animateable();
@@ -111,7 +107,6 @@ public:
     std::mutex& get_lock() { return processing_lock; }
 
 private:
-    std::shared_ptr<Config> config;
     std::vector<std::shared_ptr<Animation>> queued_animations;
     std::thread run_thread;
     std::condition_variable cv;

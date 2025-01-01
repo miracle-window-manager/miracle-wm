@@ -69,7 +69,7 @@ int main(int argc, char const* argv[])
     MirRunner runner { argc, argv };
     miracle::CompositorState compositor_state;
 
-    std::function<void()> shutdown_hook { [] { } };
+    std::function<void()> shutdown_hook { [] {} };
     runner.add_stop_callback([&]
     { shutdown_hook(); });
 
@@ -77,7 +77,7 @@ int main(int argc, char const* argv[])
     miracle::AutoRestartingLauncher auto_restarting_launcher(runner, external_client_launcher);
     miracle::SurfaceTracker surface_tracker;
     auto config = std::make_shared<miracle::FilesystemConfiguration>(runner);
-    auto animator = std::make_shared<miracle::Animator>(config);
+    auto animator = std::make_shared<miracle::Animator>();
     for (auto const& env : config->get_env_variables())
     {
         setenv(env.key.c_str(), env.value.c_str(), 1);

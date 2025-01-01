@@ -16,7 +16,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
 #include "animator.h"
-#include "config.h"
 #include <chrono>
 #include <mir/server_action_queue.h>
 #define MIR_LOG_COMPONENT "animator"
@@ -398,12 +397,6 @@ void Animation::mark_for_great_animator_in_the_sky()
 bool Animation::is_going_to_great_animator_in_the_sky() const
 {
     return should_leave_this_animator_for_the_great_animator_in_the_sky;
-}
-
-Animator::Animator(
-    std::shared_ptr<Config> const& config) :
-    config { config }
-{
 }
 
 AnimationHandle Animator::register_animateable()
