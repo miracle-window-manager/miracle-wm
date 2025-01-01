@@ -66,7 +66,7 @@ def multi_win_server():
     with process.stdout:
         for line in iter(process.stdout.readline, b''):
             data = line.decode("utf-8").strip()
-            # print(data)
+            print(data)
             if to_find in data:
                 i = data.index(to_find)
                 i = i + len(to_find)
