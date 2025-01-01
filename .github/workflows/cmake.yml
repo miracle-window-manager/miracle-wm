@@ -36,7 +36,7 @@ jobs:
           
         sudo apt install mir-platform-graphics-virtual xwayland \
           mir-platform-graphics-gbm-kms mir-platform-rendering-egl-generic gedit gnome-chess \
-          libegl1-mesa libgbm1
+          libegl1-mesa libgbm1 libwayland-dev gnome-calculator
 
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
@@ -52,9 +52,10 @@ jobs:
 
     - name: IPC Tests
       run: |
+        export NO_AT_BRIDGE=1
+        sudo systemd-run --uid 1001 -p Environment=XDG_SESSION_TYPE=wayland -p PAMName=login -p TTYPath=/dev/tty1 -- tail -f /dev/null
+
         cd ${{github.workspace}}/tests/ipc
-        python -m venv venv
-        source venv/bin/activate
         pip install -r requirements.txt
         MIRACLE_IPC_TEST_BIN=/usr/local/bin/miracle-wm pytest -s
 
