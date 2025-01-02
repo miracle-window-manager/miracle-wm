@@ -467,3 +467,46 @@ TEST_F(FilesystemConfigurationTest, BorderCanbeParsedObjectColor)
     EXPECT_EQ(config.get_border_config().color.b, 30.f / 255.f);
     EXPECT_EQ(config.get_border_config().color.a, 55.f / 255.f);
 }
+
+TEST_F(FilesystemConfigurationTest, DragAndDropAllValues)
+{
+    YAML::Node drag_and_drop;
+    drag_and_drop["enabled"] = true;
+    drag_and_drop["modifiers"].push_back("alt");
+
+    YAML::Node node;
+    node["drag_and_drop"] = drag_and_drop;
+    write_yaml_node(node);
+
+    FilesystemConfiguration config(runner, path, true);
+    EXPECT_EQ(config.drag_and_drop().enabled, true);
+    EXPECT_EQ(config.drag_and_drop().modifiers, mir_input_event_modifier_alt);
+}
+
+TEST_F(FilesystemConfigurationTest, DragAndDropMissingEnabled)
+{
+    YAML::Node drag_and_drop;
+    drag_and_drop["modifiers"].push_back("primary");
+
+    YAML::Node node;
+    node["drag_and_drop"] = drag_and_drop;
+    write_yaml_node(node);
+
+    FilesystemConfiguration config(runner, path, true);
+    EXPECT_EQ(config.drag_and_drop().enabled, true);
+    EXPECT_EQ(config.drag_and_drop().modifiers, miracle_input_event_modifier_default);
+}
+
+TEST_F(FilesystemConfigurationTest, DragAndDropMissingModifiers)
+{
+    YAML::Node drag_and_drop;
+    drag_and_drop["enabled"] = true;
+
+    YAML::Node node;
+    node["drag_and_drop"] = drag_and_drop;
+    write_yaml_node(node);
+
+    FilesystemConfiguration config(runner, path, true);
+    EXPECT_EQ(config.drag_and_drop().enabled, true);
+    EXPECT_EQ(config.drag_and_drop().modifiers, miracle_input_event_modifier_default);
+}

@@ -15,7 +15,7 @@ find_package(GTest REQUIRED)
 pkg_check_modules(YAML REQUIRED IMPORTED_TARGET yaml-cpp)
 
 add_executable(miracle-wm-tests
-    filesystem_configuration_test.cpp
+    test_filesystem_configuration.cpp
     tiling_window_tree_test.cpp
     test_ipc_command_parser.cpp
     test_animator.cpp
@@ -25,15 +25,17 @@ add_executable(miracle-wm-tests
     stub_surface.h)
 
 target_include_directories(miracle-wm-tests PUBLIC SYSTEM
-        ${GTEST_INCLUDE_DIRS}
-        ${MIRAL_INCLUDE_DIRS}
-        ${MIRSERVER_INCLUDE_DIRS})
+    ${GTEST_INCLUDE_DIRS}
+    ${MIRAL_INCLUDE_DIRS}
+    ${MIRSERVER_INCLUDE_DIRS})
+
 target_link_libraries(miracle-wm-tests
-        GTest::gtest_main
-        miracle-wm-implementation
-        ${GTEST_LIBRARIES}
-        ${MIRAL_LDFLAGS}
-        ${MIRSERVER_LDFLAGS}
-        PkgConfig::YAML
-        pthread)
+    GTest::gtest_main
+    miracle-wm-implementation
+    ${GTEST_LIBRARIES}
+    ${MIRAL_LDFLAGS}
+    ${MIRSERVER_LDFLAGS}
+    PkgConfig::YAML
+    pthread)
+
 gtest_discover_tests(miracle-wm-tests)

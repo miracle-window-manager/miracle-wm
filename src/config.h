@@ -52,6 +52,7 @@ class FdHandle;
 }
 namespace miracle
 {
+constexpr uint miracle_input_event_modifier_default = 1 << 18;
 
 enum class DefaultKeyCommand
 {
@@ -153,6 +154,12 @@ enum class RenderFilter : int
     tritanopia
 };
 
+struct DragAndDropConfiguration
+{
+    bool enabled = true;
+    uint modifiers = miracle_input_event_modifier_default;
+};
+
 class Config
 {
 public:
@@ -176,6 +183,7 @@ public:
     [[nodiscard]] virtual bool are_animations_enabled() const = 0;
     [[nodiscard]] virtual WorkspaceConfig get_workspace_config(std::optional<int> const& num, std::optional<std::string> const& name) const = 0;
     [[nodiscard]] virtual LayoutScheme get_default_layout_scheme() const = 0;
+    [[nodiscard]] virtual DragAndDropConfiguration drag_and_drop() const = 0;
 
     virtual int register_listener(std::function<void(miracle::Config&)> const&) = 0;
     /// Register a listener on configuration change. A lower "priority" number signifies that the
@@ -214,6 +222,7 @@ public:
     [[nodiscard]] bool are_animations_enabled() const override;
     [[nodiscard]] WorkspaceConfig get_workspace_config(std::optional<int> const& num, std::optional<std::string> const& name) const override;
     [[nodiscard]] LayoutScheme get_default_layout_scheme() const override;
+    [[nodiscard]] DragAndDropConfiguration drag_and_drop() const override;
     int register_listener(std::function<void(miracle::Config&)> const&) override;
     int register_listener(std::function<void(miracle::Config&)> const&, int priority) override;
     void unregister_listener(int handle) override;
@@ -239,6 +248,7 @@ private:
         bool animations_enabled = true;
         std::array<AnimationDefinition, static_cast<int>(AnimateableEvent::max)> animation_definitions;
         std::vector<WorkspaceConfig> workspace_configs;
+        DragAndDropConfiguration drag_and_drop;
     };
 
     struct ChangeListener
@@ -264,6 +274,7 @@ private:
     void read_workspaces(YAML::Node const&);
     void read_animation_definitions(YAML::Node const&);
     void read_enable_animations(YAML::Node const&);
+    void read_drag_and_drop(YAML::Node const&);
 
     static std::optional<uint> try_parse_modifier(std::string const& stringified_action_key);
 
@@ -337,6 +348,7 @@ private:
 
     bool try_parse_color(YAML::Node const& node, glm::vec4&);
     bool try_parse_color(YAML::Node const& root, const char* key, glm::vec4&);
+    bool try_parse_modifiers(YAML::Node const& node, uint& modifiers);
 
     miral::MirRunner& runner;
     int next_listener_handle = 0;
