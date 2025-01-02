@@ -121,6 +121,9 @@ public:
     virtual bool move_to(int x, int y) = 0;
     virtual bool toggle_tabbing() = 0;
     virtual bool toggle_stacking() = 0;
+    virtual bool drag_start() = 0;
+    virtual void drag(int x, int y) = 0;
+    virtual bool drag_stop() = 0;
     virtual bool set_layout(LayoutScheme scheme) = 0;
     virtual LayoutScheme get_layout() const = 0;
     virtual nlohmann::json to_json() const = 0;

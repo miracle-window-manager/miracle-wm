@@ -79,6 +79,9 @@ public:
     bool move_to(int x, int y) override;
     bool toggle_tabbing() override { return false; }
     bool toggle_stacking() override { return false; }
+    bool drag_start() override { return false; }
+    void drag(int, int) override { }
+    bool drag_stop() override { return false; }
     bool set_layout(LayoutScheme scheme) override { return false; }
     LayoutScheme get_layout() const override { return LayoutScheme::none; }
     bool is_fullscreen() const override;

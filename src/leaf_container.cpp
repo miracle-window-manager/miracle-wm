@@ -15,6 +15,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
+#define MIR_LOG_COMPONENT "leaf_container"
+
 #include "leaf_container.h"
 #include "compositor_state.h"
 #include "config.h"
@@ -26,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "workspace.h"
 
 #include <cmath>
+#include <mir/log.h>
 #include <mir/scene/session.h>
 #include <mir/scene/surface.h>
 #include <mir_toolkit/common.h>
@@ -389,6 +392,39 @@ bool LeafContainer::toggle_stacking()
         else
             tree->request_stacking_layout(*this);
     }
+    return true;
+}
+
+bool LeafContainer::drag_start()
+{
+    if (is_dragging_)
+        mir::log_error("Attempting to start a drag when we are already dragging");
+
+    is_dragging_ = true;
+    return true;
+}
+
+void LeafContainer::drag(int x, int y)
+{
+    if (!is_dragging_)
+        return;
+
+    miral::WindowSpecification spec;
+    spec.top_left() = { x, y };
+    window_controller.modify(window_, spec);
+}
+
+bool LeafContainer::drag_stop()
+{
+    if (!is_dragging_)
+        mir::log_error("Attempting to stop a drag when we are not dragging");
+
+    is_dragging_ = false;
+
+    miral::WindowSpecification spec;
+    spec.top_left() = get_visible_area().top_left;
+    window_controller.modify(window_, spec);
+
     return true;
 }
 

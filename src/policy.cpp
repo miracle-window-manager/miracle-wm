@@ -357,12 +357,26 @@ void Policy::handle_drag_and_drop_pointer_event(MirPointerEvent const* event)
     if (!MIRACLE_FEATURE_FLAG_DRAG_AND_DROP || !config->drag_and_drop().enabled)
         return;
 
+    auto x = static_cast<int>(miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_x));
+    auto y = static_cast<int>(miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_y));
     auto action = miral::toolkit::mir_pointer_event_action(event);
     if (state.mode() == WindowManagerMode::dragging)
     {
         if (action == mir_pointer_action_button_up)
         {
             set_mode(WindowManagerMode::normal);
+            if (state.focused_container())
+                state.focused_container()->drag_stop();
+            return;
+        }
+
+        if (state.focused_container())
+        {
+            int const diff_x = x - state.drag_and_drop_state().cursor_start_x;
+            int const diff_y = y - state.drag_and_drop_state().cursor_start_y;
+            state.focused_container()->drag(
+                state.drag_and_drop_state().container_start_x + diff_x,
+                state.drag_and_drop_state().container_start_y + diff_y);
         }
     }
     else if (action == mir_pointer_action_button_down)
@@ -377,13 +391,18 @@ void Policy::handle_drag_and_drop_pointer_event(MirPointerEvent const* event)
         if (!intersected)
             return;
 
-        if (intersected->get_type() != ContainerType::leaf)
+        if (!intersected->drag_start())
         {
             mir::log_warning("Cannot drag container of type %d", (int)intersected->get_type());
             return;
         }
 
+        select_container(intersected);
         set_mode(WindowManagerMode::dragging);
+        state.drag_and_drop_state({ .cursor_start_x = x,
+            .cursor_start_y = y,
+            .container_start_x = intersected->get_visible_area().top_left.x.as_int(),
+            .container_start_y = intersected->get_visible_area().top_left.y.as_int() });
     }
 }
 
