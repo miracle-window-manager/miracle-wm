@@ -189,6 +189,8 @@ private:
     void select_container(std::shared_ptr<Container> const&);
     std::shared_ptr<Output> _next_output_in_list(std::vector<std::string> const& names);
     std::shared_ptr<Output> _next_output_in_direction(Direction direction);
+    void handle_drag_and_drop_pointer_event(MirPointerEvent const* event);
+    void set_mode(WindowManagerMode mode);
 
     bool is_starting_ = true;
     CompositorState& state;

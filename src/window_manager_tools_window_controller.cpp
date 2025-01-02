@@ -155,7 +155,7 @@ void WindowManagerToolsWindowController::noclip(miral::Window const& window)
 
 void WindowManagerToolsWindowController::select_active_window(miral::Window const& window)
 {
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return;
 
     tools.select_active_window(window);

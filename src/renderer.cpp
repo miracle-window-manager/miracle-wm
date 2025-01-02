@@ -384,7 +384,7 @@ miracle::Renderer::DrawData Renderer::draw(
     if (prog->alpha_uniform >= 0)
         glUniform1f(prog->alpha_uniform, renderable.alpha());
 
-    switch (compositor_state.mode)
+    switch (compositor_state.mode())
     {
     case WindowManagerMode::selecting:
         glUniform1i(prog->mode_uniform, (int)(data.is_focused ? RenderFilter::none : RenderFilter::grayscale));
