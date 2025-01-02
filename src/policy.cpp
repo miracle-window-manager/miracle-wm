@@ -275,12 +275,11 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
     {
         if (output->point_is_in_output(static_cast<int>(x), static_cast<int>(y)))
         {
-            if (state.active_output != output)
+            if (state.focused_output() != output)
             {
-                if (state.active_output)
-                    state.active_output->set_is_active(false);
-                state.active_output = output;
-                state.active_output->set_is_active(true);
+                if (state.focused_output())
+                    state.unfocus_output(state.focused_output());
+                state.focus_output(output);
                 if (auto active = output->active())
                     workspace_manager.request_focus(active->id());
             }
@@ -288,7 +287,7 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
         }
     }
 
-    if (state.active_output && state.mode != WindowManagerMode::resizing)
+    if (state.focused_output() && state.mode != WindowManagerMode::resizing)
     {
         if (MIRACLE_FEATURE_FLAG_MULTI_SELECT && action == mir_pointer_action_button_down)
         {
@@ -314,7 +313,7 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
         }
 
         // Get Container intersection. Depending on the state, do something with that Container
-        std::shared_ptr<Container> intersected = state.active_output->intersect(event);
+        std::shared_ptr<Container> intersected = state.focused_output()->intersect(event);
         switch (state.mode)
         {
         case WindowManagerMode::normal:
@@ -323,12 +322,12 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
             {
                 if (auto window = intersected->window().value())
                 {
-                    if (state.active() != intersected)
+                    if (state.focused_container() != intersected)
                         window_controller.select_active_window(window);
                 }
             }
 
-            if (state.has_clicked_floating_window || (state.active() && state.active()->get_type() == ContainerType::floating_window))
+            if (state.has_clicked_floating_window || (state.focused_container() && state.focused_container()->get_type() == ContainerType::floating_window))
             {
                 if (action == mir_pointer_action_button_down)
                     state.has_clicked_floating_window = true;
@@ -358,21 +357,21 @@ auto Policy::place_new_window(
     const miral::WindowSpecification& requested_specification) -> miral::WindowSpecification
 {
     Locker locker(self);
-    if (!state.active_output)
+    if (!state.focused_output())
     {
         mir::log_warning("place_new_window: no output available");
         return requested_specification;
     }
 
     auto new_spec = requested_specification;
-    pending_allocation = state.active_output->allocate_position(app_info, new_spec, {});
+    pending_allocation = state.focused_output()->allocate_position(app_info, new_spec, {});
     return new_spec;
 }
 
 void Policy::advise_new_window(miral::WindowInfo const& window_info)
 {
     Locker locker(self);
-    if (!state.active_output)
+    if (!state.focused_output())
     {
         mir::log_warning("create_container: output unavailable");
         auto window = window_info.window();
@@ -393,7 +392,7 @@ void Policy::advise_new_window(miral::WindowInfo const& window_info)
         return;
     }
 
-    auto container = state.active_output->create_container(window_info, pending_allocation);
+    auto container = state.focused_output()->create_container(window_info, pending_allocation);
     container->animation_handle(animator->register_animateable());
     container->on_open();
     state.add(container);
@@ -451,12 +450,12 @@ void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
     default:
     {
         auto* workspace = container->get_workspace();
-        state.focus(container);
+        state.focus_container(container);
         container->on_focus_gained();
 
         // TODO: This logic was put in place to navigate to the focused
         //  workspace.
-        // if (workspace && workspace != state.active_output->active())
+        // if (workspace && workspace != state.focused_output()->active())
         //    workspace_manager.request_focus(workspace->id());
 
         if (workspace)
@@ -476,7 +475,7 @@ void Policy::advise_focus_lost(const miral::WindowInfo& window_info)
         return;
     }
 
-    state.unfocus(container);
+    state.unfocus_container(container);
     container->on_focus_lost();
 }
 
@@ -507,7 +506,7 @@ void Policy::advise_delete_window(const miral::WindowInfo& window_info)
 
     animator->remove_by_animation_handle(container->animation_handle());
     surface_tracker.remove(window_info.window());
-    state.unfocus(container);
+    state.unfocus_container(container);
 }
 
 void Policy::advise_move_to(miral::WindowInfo const& window_info, geom::Point top_left)
@@ -531,20 +530,16 @@ void Policy::advise_output_create(miral::Output const& output)
         floating_window_manager, state, config, window_controller, *animator);
     state.output_list.push_back(output_content);
     workspace_manager.request_first_available_workspace(output_content.get());
-    if (state.active_output == nullptr)
-    {
-        state.active_output = output_content;
-        state.active_output->set_is_active(true);
-    }
+    if (state.focused_output() == nullptr)
+        state.focus_output(output_content);
 
     // Let's rehome some orphan windows if we need to
     if (!orphaned_window_list.empty())
     {
         mir::log_info("Policy::advise_output_create: orphaned windows are being added to the new output, num=%zu", orphaned_window_list.size());
         for (auto& window : orphaned_window_list)
-        {
-            state.active_output->add_immediately(window);
-        }
+            state.focused_output()->add_immediately(window);
+
         orphaned_window_list.clear();
     }
 }
@@ -595,16 +590,13 @@ void Policy::advise_output_delete(miral::Output const& output)
                 remove_workspaces();
 
                 mir::log_info("Policy::advise_output_delete: final output has been removed and windows have been orphaned");
-                state.active_output = nullptr;
+                state.focus_output(nullptr);
             }
             else
             {
-                state.active_output = state.output_list.front();
-                state.active_output->set_is_active(true);
+                state.focus_output(state.output_list.front());
                 for (auto& window : other_output->collect_all_windows())
-                {
-                    state.active_output->add_immediately(window);
-                }
+                    state.focused_output()->add_immediately(window);
 
                 remove_workspaces();
             }
@@ -628,7 +620,7 @@ void Policy::handle_modify_window(
     auto const* workspace = container->get_workspace();
     if (workspace)
     {
-        if (workspace != state.active_output->active())
+        if (workspace != state.focused_output()->active())
             return;
     }
     else if (scratchpad_.contains(container) && !scratchpad_.is_showing(container))
@@ -733,13 +725,13 @@ void Policy::advise_end()
 void Policy::try_toggle_resize_mode()
 {
     Locker locker(self);
-    if (!state.active())
+    if (!state.focused_container())
     {
         state.mode = WindowManagerMode::normal;
         return;
     }
 
-    if (state.active()->get_type() != ContainerType::leaf)
+    if (state.focused_container()->get_type() != ContainerType::leaf)
     {
         state.mode = WindowManagerMode::normal;
         return;
@@ -759,10 +751,10 @@ bool Policy::try_request_vertical()
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    state.active()->request_vertical_layout();
+    state.focused_container()->request_vertical_layout();
     return true;
 }
 
@@ -772,10 +764,10 @@ bool Policy::try_toggle_layout(bool cycle_thru_all)
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    state.active()->toggle_layout(cycle_thru_all);
+    state.focused_container()->toggle_layout(cycle_thru_all);
     return true;
 }
 
@@ -785,29 +777,29 @@ bool Policy::try_request_horizontal()
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    state.active()->request_horizontal_layout();
+    state.focused_container()->request_horizontal_layout();
     return true;
 }
 
 bool Policy::try_resize(miracle::Direction direction, int pixels)
 {
     Locker locker(self);
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    return state.active()->resize(direction, pixels);
+    return state.focused_container()->resize(direction, pixels);
 }
 
 bool Policy::try_set_size(std::optional<int> const& width, std::optional<int> const& height)
 {
     Locker locker(self);
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    return state.active()->set_size(width, height);
+    return state.focused_container()->set_size(width, height);
 }
 
 bool Policy::try_move(miracle::Direction direction)
@@ -816,10 +808,10 @@ bool Policy::try_move(miracle::Direction direction)
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    return state.active()->move(direction);
+    return state.focused_container()->move(direction);
 }
 
 bool Policy::try_move_by(miracle::Direction direction, int pixels)
@@ -828,10 +820,10 @@ bool Policy::try_move_by(miracle::Direction direction, int pixels)
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    return state.active()->move_by(direction, pixels);
+    return state.focused_container()->move_by(direction, pixels);
 }
 
 bool Policy::try_move_to(int x, int y)
@@ -840,10 +832,10 @@ bool Policy::try_move_to(int x, int y)
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    return state.active()->move_to(x, y);
+    return state.focused_container()->move_to(x, y);
 }
 
 void Policy::select_container(std::shared_ptr<Container> const& container)
@@ -854,7 +846,7 @@ void Policy::select_container(std::shared_ptr<Container> const& container)
     else
     {
         window_controller.select_active_window(miral::Window {});
-        state.focus(container, true);
+        state.focus_container(container, true);
     }
 }
 
@@ -864,10 +856,10 @@ bool Policy::try_select(miracle::Direction direction)
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    return state.active()->select_next(direction);
+    return state.focused_container()->select_next(direction);
 }
 
 bool Policy::try_select_parent()
@@ -876,12 +868,12 @@ bool Policy::try_select_parent()
     if (state.mode != WindowManagerMode::normal)
         return false;
 
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    if (!state.active()->get_parent().expired())
+    if (!state.focused_container()->get_parent().expired())
     {
-        select_container(state.active()->get_parent().lock());
+        select_container(state.focused_container()->get_parent().lock());
         return true;
     }
     else
@@ -897,10 +889,10 @@ bool Policy::try_select_child()
     if (state.mode != WindowManagerMode::normal)
         return false;
 
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    if (state.active()->get_type() != ContainerType::parent)
+    if (state.focused_container()->get_type() != ContainerType::parent)
     {
         mir::log_info("Policy::try_select_child: parent is not selected");
         return false;
@@ -914,14 +906,14 @@ bool Policy::try_select_child()
             if (lock_container->get_parent().expired())
                 continue;
 
-            if (lock_container->get_parent().lock() == state.active())
+            if (lock_container->get_parent().lock() == state.focused_container())
                 select_container(lock_container);
         }
     }
 
-    if (!state.active()->get_parent().expired())
+    if (!state.focused_container()->get_parent().expired())
     {
-        state.focus(state.active()->get_parent().lock());
+        state.focus_container(state.focused_container()->get_parent().lock());
         return true;
     }
     else
@@ -973,7 +965,7 @@ bool Policy::try_select_toggle()
     if (state.mode != WindowManagerMode::normal)
         return false;
 
-    if (auto const active = state.active())
+    if (auto const active = state.focused_container())
     {
         if (active->get_type() == ContainerType::leaf)
             return try_select_floating();
@@ -987,10 +979,10 @@ bool Policy::try_select_toggle()
 bool Policy::try_close_window()
 {
     Locker locker(self);
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    auto window = state.active()->window();
+    auto window = state.focused_container()->window();
     if (!window)
         return false;
 
@@ -1012,10 +1004,10 @@ bool Policy::try_toggle_fullscreen()
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    return state.active()->toggle_fullscreen();
+    return state.focused_container()->toggle_fullscreen();
 }
 
 bool Policy::select_workspace(int number, bool back_and_forth)
@@ -1024,10 +1016,10 @@ bool Policy::select_workspace(int number, bool back_and_forth)
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    if (!state.active_output)
+    if (!state.focused_output())
         return false;
 
-    workspace_manager.request_workspace(state.active_output.get(), number, back_and_forth);
+    workspace_manager.request_workspace(state.focused_output().get(), number, back_and_forth);
     return true;
 }
 
@@ -1038,7 +1030,7 @@ bool Policy::select_workspace(std::string const& name, bool back_and_forth)
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    return workspace_manager.request_workspace(state.active_output.get(), name, back_and_forth);
+    return workspace_manager.request_workspace(state.focused_output().get(), name, back_and_forth);
 }
 
 bool Policy::next_workspace()
@@ -1047,7 +1039,7 @@ bool Policy::next_workspace()
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    workspace_manager.request_next(state.active_output);
+    workspace_manager.request_next(state.focused_output());
     return true;
 }
 
@@ -1057,7 +1049,7 @@ bool Policy::prev_workspace()
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    workspace_manager.request_prev(state.active_output);
+    workspace_manager.request_prev(state.focused_output());
     return true;
 }
 
@@ -1095,14 +1087,14 @@ bool Policy::move_active_to_workspace(int number, bool back_and_forth)
     if (!can_move_container())
         return false;
 
-    auto container = state.active();
+    auto container = state.focused_container();
     container->get_output()->delete_container(container);
-    state.unfocus(container);
+    state.unfocus_container(container);
 
     if (workspace_manager.request_workspace(
-            state.active_output.get(), number, back_and_forth))
+            state.focused_output().get(), number, back_and_forth))
     {
-        state.active_output->graft(container);
+        state.focused_output()->graft(container);
         if (container->window().value())
             window_controller.select_active_window(container->window().value());
         return true;
@@ -1117,13 +1109,13 @@ bool Policy::move_active_to_workspace_named(std::string const& name, bool back_a
     if (!can_move_container())
         return false;
 
-    auto container = state.active();
+    auto container = state.focused_container();
     container->get_output()->delete_container(container);
-    state.unfocus(nullptr);
+    state.unfocus_container(container);
 
-    if (workspace_manager.request_workspace(state.active_output.get(), name, back_and_forth))
+    if (workspace_manager.request_workspace(state.focused_output().get(), name, back_and_forth))
     {
-        state.active_output->graft(container);
+        state.focused_output()->graft(container);
         return true;
     }
 
@@ -1136,13 +1128,13 @@ bool Policy::move_active_to_next_workspace()
     if (!can_move_container())
         return false;
 
-    auto container = state.active();
+    auto container = state.focused_container();
     container->get_output()->delete_container(container);
-    state.unfocus(container);
+    state.unfocus_container(container);
 
-    if (workspace_manager.request_next(state.active_output))
+    if (workspace_manager.request_next(state.focused_output()))
     {
-        state.active_output->graft(container);
+        state.focused_output()->graft(container);
         return true;
     }
 
@@ -1155,13 +1147,13 @@ bool Policy::move_active_to_prev_workspace()
     if (!can_move_container())
         return false;
 
-    auto container = state.active();
+    auto container = state.focused_container();
     container->get_output()->delete_container(container);
-    state.unfocus(container);
+    state.unfocus_container(container);
 
-    if (workspace_manager.request_prev(state.active_output))
+    if (workspace_manager.request_prev(state.focused_output()))
     {
-        state.active_output->graft(container);
+        state.focused_output()->graft(container);
         return true;
     }
 
@@ -1174,13 +1166,13 @@ bool Policy::move_active_to_back_and_forth()
     if (!can_move_container())
         return false;
 
-    auto container = state.active();
+    auto container = state.focused_container();
     container->get_output()->delete_container(container);
-    state.unfocus(container);
+    state.unfocus_container(container);
 
     if (workspace_manager.request_back_and_forth())
     {
-        state.active_output->graft(container);
+        state.focused_output()->graft(container);
         return true;
     }
 
@@ -1194,7 +1186,7 @@ bool Policy::move_to_scratchpad()
         return false;
 
     // Only floating or tiled windows can be moved to the scratchpad
-    auto container = state.active();
+    auto container = state.focused_container();
     if (container->get_type() != ContainerType::floating_window
         && container->get_type() != ContainerType::leaf)
     {
@@ -1205,7 +1197,7 @@ bool Policy::move_to_scratchpad()
     // If the window isn't floating already, we should make it floating
     if (container->get_type() != ContainerType::floating_window)
     {
-        if (!state.active_output)
+        if (!state.focused_output())
             return false;
 
         container = toggle_floating_internal(container);
@@ -1231,10 +1223,10 @@ bool Policy::can_move_container() const
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    if (state.active()->is_fullscreen())
+    if (state.focused_container()->is_fullscreen())
         return false;
 
     return true;
@@ -1247,10 +1239,10 @@ std::shared_ptr<Container> Policy::toggle_floating_internal(std::shared_ptr<Cont
                                   AllocationHint const& result)
     {
         auto& info = window_controller.info_for(window);
-        auto new_container = state.active_output->create_container(info, result);
+        auto new_container = state.focused_output()->create_container(info, result);
         new_container->handle_ready();
         state.add(new_container);
-        window_controller.select_active_window(state.active()->window().value());
+        window_controller.select_active_window(state.focused_container()->window().value());
         return new_container;
     };
 
@@ -1270,7 +1262,7 @@ std::shared_ptr<Container> Policy::toggle_floating_internal(std::shared_ptr<Cont
         auto spec = window_helpers::copy_from(prev_info);
         spec.top_left() = geom::Point { window->top_left().x.as_int() + 20, window->top_left().y.as_int() + 20 };
         window_controller.noclip(*window);
-        auto result = state.active_output->allocate_position(window_manager_tools.info_for(window->application()), spec, { ContainerType::floating_window });
+        auto result = state.focused_output()->allocate_position(window_manager_tools.info_for(window->application()), spec, { ContainerType::floating_window });
         window_controller.modify(*window, spec);
 
         state.remove(container);
@@ -1293,7 +1285,7 @@ std::shared_ptr<Container> Policy::toggle_floating_internal(std::shared_ptr<Cont
         // Next, place the container
         auto& prev_info = window_controller.info_for(*window);
         miral::WindowSpecification spec = window_helpers::copy_from(prev_info);
-        auto result = state.active_output->allocate_position(window_manager_tools.info_for(window->application()), spec, { ContainerType::leaf });
+        auto result = state.focused_output()->allocate_position(window_manager_tools.info_for(window->application()), spec, { ContainerType::leaf });
         window_controller.modify(*window, spec);
 
         state.remove(container);
@@ -1313,10 +1305,10 @@ bool Policy::toggle_floating()
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    toggle_floating_internal(state.active());
+    toggle_floating_internal(state.focused_container());
     return true;
 }
 
@@ -1326,10 +1318,10 @@ bool Policy::toggle_pinned_to_workspace()
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    return state.active()->pinned(!state.active()->pinned());
+    return state.focused_container()->pinned(!state.focused_container()->pinned());
 }
 
 bool Policy::set_is_pinned(bool pinned)
@@ -1338,10 +1330,10 @@ bool Policy::set_is_pinned(bool pinned)
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    return state.active()->pinned(pinned);
+    return state.focused_container()->pinned(pinned);
 }
 
 bool Policy::toggle_tabbing()
@@ -1350,7 +1342,7 @@ bool Policy::toggle_tabbing()
     if (!can_set_layout())
         return false;
 
-    return state.active()->toggle_tabbing();
+    return state.focused_container()->toggle_tabbing();
 }
 
 bool Policy::toggle_stacking()
@@ -1359,7 +1351,7 @@ bool Policy::toggle_stacking()
     if (!can_set_layout())
         return false;
 
-    return state.active()->toggle_stacking();
+    return state.focused_container()->toggle_stacking();
 }
 
 bool Policy::set_layout(LayoutScheme scheme)
@@ -1368,7 +1360,7 @@ bool Policy::set_layout(LayoutScheme scheme)
     if (!can_set_layout())
         return false;
 
-    return state.active()->set_layout(scheme);
+    return state.focused_container()->set_layout(scheme);
 }
 
 bool Policy::set_layout_default()
@@ -1377,7 +1369,7 @@ bool Policy::set_layout_default()
     if (!can_set_layout())
         return false;
 
-    return state.active()->set_layout(config->get_default_layout_scheme());
+    return state.focused_container()->set_layout(config->get_default_layout_scheme());
 }
 
 void Policy::move_cursor_to_output(Output const& output)
@@ -1392,7 +1384,7 @@ bool Policy::try_select_next_output()
     Locker locker(self);
     for (size_t i = 0; i < state.output_list.size(); i++)
     {
-        if (state.output_list[i] == state.active_output)
+        if (state.output_list[i] == state.focused_output())
         {
             size_t j = i + 1;
             if (j == state.output_list.size())
@@ -1411,7 +1403,7 @@ bool Policy::try_select_prev_output()
     Locker locker(self);
     for (int i = state.output_list.size() - 1; i >= 0; i++)
     {
-        if (state.output_list[i] == state.active_output)
+        if (state.output_list[i] == state.focused_output())
         {
             size_t j = i - 1;
             if (j < 0)
@@ -1425,13 +1417,13 @@ bool Policy::try_select_prev_output()
     return false;
 }
 
-std::shared_ptr<Output> const& Policy::_next_output_in_direction(Direction direction)
+std::shared_ptr<Output> Policy::_next_output_in_direction(Direction direction)
 {
-    auto const& active = state.active_output;
+    auto const& active = state.focused_output();
     auto const& active_area = active->get_area();
     for (auto const& output : state.output_list)
     {
-        if (output == state.active_output)
+        if (output == state.focused_output())
             continue;
 
         auto const& other_area = output->get_area();
@@ -1481,7 +1473,7 @@ bool Policy::try_select_output(Direction direction)
 {
     Locker locker(self);
     auto const& next = _next_output_in_direction(direction);
-    if (next != state.active_output)
+    if (next != state.focused_output())
     {
         move_cursor_to_output(*next);
         return true;
@@ -1490,12 +1482,12 @@ bool Policy::try_select_output(Direction direction)
     return false;
 }
 
-std::shared_ptr<Output> const& Policy::_next_output_in_list(std::vector<std::string> const& names)
+std::shared_ptr<Output> Policy::_next_output_in_list(std::vector<std::string> const& names)
 {
     if (names.empty())
-        return state.active_output;
+        return state.focused_output();
 
-    auto current_name = state.active_output->get_output().name();
+    auto current_name = state.focused_output()->get_output().name();
     size_t next = 0;
     for (size_t i = 0; i < names.size(); i++)
     {
@@ -1515,17 +1507,17 @@ std::shared_ptr<Output> const& Policy::_next_output_in_list(std::vector<std::str
             return output;
     }
 
-    return state.active_output;
+    return state.focused_output();
 }
 
 bool Policy::try_select_output(std::vector<std::string> const& names)
 {
     Locker locker(self);
-    if (!state.active_output)
+    if (!state.focused_output())
         return false;
 
     auto const& output = _next_output_in_list(names);
-    if (output != state.active_output)
+    if (output != state.focused_output())
         move_cursor_to_output(*output);
     return true;
 }
@@ -1533,18 +1525,18 @@ bool Policy::try_select_output(std::vector<std::string> const& names)
 bool Policy::try_move_active_to_output(miracle::Direction direction)
 {
     Locker locker(self);
-    if (!state.active_output)
+    if (!state.focused_output())
         return false;
 
     if (!can_move_container())
         return false;
 
     auto const& next = _next_output_in_direction(direction);
-    if (next != state.active_output)
+    if (next != state.focused_output())
     {
-        auto container = state.active();
+        auto container = state.focused_container();
         container->get_output()->delete_container(container);
-        state.unfocus(container);
+        state.unfocus_container(container);
 
         next->graft(container);
         if (container->window().value())
@@ -1558,20 +1550,20 @@ bool Policy::try_move_active_to_output(miracle::Direction direction)
 bool Policy::try_move_active_to_current()
 {
     Locker locker(self);
-    if (!state.active_output)
+    if (!state.focused_output())
         return false;
 
     if (!can_move_container())
         return false;
 
-    if (state.active()->get_output() == state.active_output.get())
+    if (state.focused_container()->get_output() == state.focused_output().get())
         return false;
 
-    auto container = state.active();
+    auto container = state.focused_container();
     container->get_output()->delete_container(container);
-    state.unfocus(container);
+    state.unfocus_container(container);
 
-    state.active_output->graft(container);
+    state.focused_output()->graft(container);
     if (container->window().value())
         window_controller.select_active_window(container->window().value());
     return true;
@@ -1586,12 +1578,12 @@ bool Policy::try_move_active_to_primary()
     if (!can_move_container())
         return false;
 
-    if (state.active()->get_output() == state.output_list[0].get())
+    if (state.focused_container()->get_output() == state.output_list[0].get())
         return false;
 
-    auto container = state.active();
+    auto container = state.focused_container();
     container->get_output()->delete_container(container);
-    state.unfocus(container);
+    state.unfocus_container(container);
 
     state.output_list[0]->graft(container);
     if (container->window().value())
@@ -1609,12 +1601,12 @@ bool Policy::try_move_active_to_nonprimary()
     if (!can_move_container())
         return false;
 
-    if (state.active_output != state.output_list[0])
+    if (state.focused_output() != state.output_list[0])
         return false;
 
-    auto container = state.active();
+    auto container = state.focused_container();
     container->get_output()->delete_container(container);
-    state.unfocus(container);
+    state.unfocus_container(container);
 
     state.output_list[1]->graft(container);
     if (container->window().value())
@@ -1628,7 +1620,7 @@ bool Policy::try_move_active_to_next()
     if (!can_move_container())
         return false;
 
-    auto it = std::find(state.output_list.begin(), state.output_list.end(), state.active_output);
+    auto it = std::find(state.output_list.begin(), state.output_list.end(), state.focused_output());
     if (it == state.output_list.end())
     {
         mir::log_error("Policy::try_move_active_to_next: cannot find active output in list");
@@ -1639,15 +1631,15 @@ bool Policy::try_move_active_to_next()
     if (it == state.output_list.end())
         it = state.output_list.begin();
 
-    if (*it == state.active_output)
+    if (*it == state.focused_output())
         return false;
 
-    if ((*it).get() == state.active()->get_output())
+    if ((*it).get() == state.focused_container()->get_output())
         return false;
 
-    auto container = state.active();
+    auto container = state.focused_container();
     container->get_output()->delete_container(container);
-    state.unfocus(container);
+    state.unfocus_container(container);
 
     (*it)->graft(container);
     if (container->window().value())
@@ -1662,11 +1654,11 @@ bool Policy::try_move_active(std::vector<std::string> const& names)
         return false;
 
     auto const& output = _next_output_in_list(names);
-    if (output.get() != state.active()->get_output())
+    if (output.get() != state.focused_container()->get_output())
     {
-        auto container = state.active();
+        auto container = state.focused_container();
         container->get_output()->delete_container(container);
-        state.unfocus(container);
+        state.unfocus_container(container);
 
         output->graft(container);
         if (container->window().value())
@@ -1681,10 +1673,10 @@ bool Policy::can_set_layout() const
     if (state.mode == WindowManagerMode::resizing)
         return false;
 
-    if (!state.active())
+    if (!state.focused_container())
         return false;
 
-    return !state.active()->is_fullscreen();
+    return !state.focused_container()->is_fullscreen();
 }
 
 bool Policy::reload_config()

@@ -128,7 +128,7 @@ public:
 
         state.add(leaf);
         tree.advise_focus_gained(*leaf);
-        state.focus(leaf);
+        state.focus_container(leaf);
         return leaf;
     }
 

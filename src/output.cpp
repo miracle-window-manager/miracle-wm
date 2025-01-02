@@ -417,6 +417,11 @@ geom::Rectangle Output::get_workspace_rectangle(size_t i) const
     return nullptr;
 }
 
+bool Output::is_active() const
+{
+    return state.focused_output().get() == this;
+}
+
 glm::mat4 Output::get_transform() const
 {
     return final_transform;

@@ -323,10 +323,10 @@ void LeafContainer::animation_handle(uint32_t handle)
 
 bool LeafContainer::is_focused() const
 {
-    if (state.active().get() == this || parent.lock()->is_focused())
+    if (state.focused_container().get() == this || parent.lock()->is_focused())
         return true;
 
-    auto group = Container::as_group(state.active());
+    auto group = Container::as_group(state.focused_container());
     if (!group)
         return false;
 

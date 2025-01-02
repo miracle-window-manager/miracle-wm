@@ -255,12 +255,12 @@ ContainerGroupContainer::confirm_placement(MirWindowState state, mir::geometry::
 
 Workspace* ContainerGroupContainer::get_workspace() const
 {
-    return state.active_output->active();
+    return state.focused_output()->active();
 }
 
 Output* ContainerGroupContainer::get_output() const
 {
-    return state.active_output.get();
+    return state.focused_output().get();
 }
 
 glm::mat4 ContainerGroupContainer::get_transform() const
@@ -293,7 +293,7 @@ void ContainerGroupContainer::animation_handle(uint32_t uint_32)
 
 bool ContainerGroupContainer::is_focused() const
 {
-    return state.active().get() == this;
+    return state.focused_container().get() == this;
 }
 
 bool ContainerGroupContainer::is_fullscreen() const

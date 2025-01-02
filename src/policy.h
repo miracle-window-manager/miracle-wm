@@ -163,7 +163,7 @@ public:
 
     // Getters
 
-    [[nodiscard]] Output const* get_active_output() const { return state.active_output.get(); }
+    [[nodiscard]] Output const* get_active_output() const { return state.focused_output().get(); }
     [[nodiscard]] std::vector<std::shared_ptr<Output>> const& get_output_list() const { return state.output_list; }
     [[nodiscard]] geom::Point const& get_cursor_position() const { return state.cursor_position; }
     [[nodiscard]] CompositorState const& get_state() const { return state; }
@@ -187,8 +187,8 @@ private:
 
     /// Selects any type of container, including those that do not directly reference a window.
     void select_container(std::shared_ptr<Container> const&);
-    std::shared_ptr<Output> const& _next_output_in_list(std::vector<std::string> const& names);
-    std::shared_ptr<Output> const& _next_output_in_direction(Direction direction);
+    std::shared_ptr<Output> _next_output_in_list(std::vector<std::string> const& names);
+    std::shared_ptr<Output> _next_output_in_direction(Direction direction);
 
     bool is_starting_ = true;
     CompositorState& state;
