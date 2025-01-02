@@ -632,7 +632,7 @@ bool TilingWindowTree::advise_fullscreen_container(LeafContainer& container)
 
 bool TilingWindowTree::advise_restored_container(LeafContainer& container)
 {
-    auto active = state.active();
+    auto active = state.focused_container();
     if (active && active->window() == container.window().value())
     {
         container.set_logical_area(container.get_logical_area());
@@ -645,7 +645,7 @@ bool TilingWindowTree::advise_restored_container(LeafContainer& container)
 bool TilingWindowTree::handle_container_ready(LeafContainer& container)
 {
     constrain(container);
-    if (state.active() && state.active()->is_fullscreen())
+    if (state.focused_container() && state.focused_container()->is_fullscreen())
         return true;
 
     auto window = container.window().value();

@@ -290,7 +290,7 @@ IpcValidationResult IpcCommandExecutor::process_focus(IpcCommand const& command,
         policy.try_select_child();
     else if (arg == "prev")
     {
-        auto container = state.active();
+        auto container = state.focused_container();
         if (!container)
             return parse_error("Active container does nto exist");
 
@@ -309,7 +309,7 @@ IpcValidationResult IpcCommandExecutor::process_focus(IpcCommand const& command,
     }
     else if (arg == "next")
     {
-        auto container = state.active();
+        auto container = state.focused_container();
         if (!container)
             return parse_error("No container is selected");
 
@@ -393,7 +393,7 @@ bool parse_move_distance(std::vector<std::string> const& arguments, int& index, 
 
 IpcValidationResult IpcCommandExecutor::process_move(IpcCommand const& command, IpcParseResult const& command_list)
 {
-    auto const& active_output = state.active_output;
+    auto const& active_output = state.focused_output();
     if (!active_output)
         return parse_error("process_move: output is not set");
 
@@ -433,7 +433,7 @@ IpcValidationResult IpcCommandExecutor::process_move(IpcCommand const& command, 
         auto const& arg1 = command.arguments[index++];
         if (arg1 == "center")
         {
-            auto active = state.active().get();
+            auto active = state.focused_container().get();
             auto area = active_output->get_area();
             float x = (float)area.size.width.as_int() / 2.f - (float)active->get_visible_area().size.width.as_int() / 2.f;
             float y = (float)area.size.height.as_int() / 2.f - (float)active->get_visible_area().size.height.as_int() / 2.f;
@@ -482,7 +482,7 @@ IpcValidationResult IpcCommandExecutor::process_move(IpcCommand const& command, 
                 y = end_y;
         }
 
-        auto active = state.active();
+        auto active = state.focused_container();
         float x_pos = x / 2.f - (float)active->get_visible_area().size.width.as_int() / 2.f;
         float y_pos = y / 2.f - (float)active->get_visible_area().size.height.as_int() / 2.f;
         policy.try_move_to((int)x_pos, (int)y_pos);
@@ -663,14 +663,14 @@ IpcValidationResult IpcCommandExecutor::process_workspace(IpcCommand const& comm
         policy.prev_workspace();
     else if (arg0 == "next_on_output")
     {
-        if (auto const& output = state.active_output)
+        if (auto const& output = state.focused_output())
             policy.next_workspace_on_output(*output);
         else
             mir::log_error("process_workspace: next_on_output has no output to go next on");
     }
     else if (arg0 == "prev_on_output")
     {
-        if (auto const& output = state.active_output)
+        if (auto const& output = state.focused_output())
             policy.prev_workspace_on_output(*output);
         else
             mir::log_error("process_workspace: prev_on_output has no output to go prev on");
@@ -741,7 +741,7 @@ IpcValidationResult IpcCommandExecutor::process_layout(IpcCommand const& command
         }
         else
         {
-            auto container = state.active();
+            auto container = state.focused_container();
             if (!container)
                 return parse_error("process_layout: container unavailable");
 
@@ -842,7 +842,7 @@ ResizeAdjust parse_resize(CompositorState const& state, ArgumentsIndexer& indexe
     if (!indexer.next())
         return { .success = false, .error = "process_resize: expected argument after 'resize grow'" };
 
-    auto const& container = state.active();
+    auto const& container = state.focused_container();
     if (!container)
         return { .success = false, .error = "No container is selcted" };
 
@@ -915,7 +915,7 @@ struct SetResizeResult
 
 SetResizeResult parse_set_resize(CompositorState const& state, ArgumentsIndexer& indexer)
 {
-    auto const& container = state.active();
+    auto const& container = state.focused_container();
     if (!container)
         return { .success = false, .error = "Container is not selected" };
 

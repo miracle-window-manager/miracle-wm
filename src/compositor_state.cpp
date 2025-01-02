@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace miracle;
 
-[[nodiscard]] std::shared_ptr<Container> CompositorState::active() const
+std::shared_ptr<Container> CompositorState::focused_container() const
 {
     if (!focused.expired())
         return focused.lock();
@@ -27,7 +27,15 @@ using namespace miracle;
     return nullptr;
 }
 
-void CompositorState::focus(std::shared_ptr<Container> const& container, bool is_anonymous)
+std::shared_ptr<Output> CompositorState::focused_output() const
+{
+    if (!output.expired())
+        return output.lock();
+
+    return nullptr;
+}
+
+void CompositorState::focus_container(std::shared_ptr<Container> const& container, bool is_anonymous)
 {
     if (is_anonymous)
     {
@@ -47,12 +55,26 @@ void CompositorState::focus(std::shared_ptr<Container> const& container, bool is
     }
 }
 
-void CompositorState::unfocus(std::shared_ptr<Container> const& container)
+void CompositorState::unfocus_container(std::shared_ptr<Container> const& container)
 {
     if (!focused.expired())
     {
         if (focused.lock() == container)
             focused.reset();
+    }
+}
+
+void CompositorState::focus_output(std::shared_ptr<Output> const& next)
+{
+    output = next;
+}
+
+void CompositorState::unfocus_output(std::shared_ptr<Output> const& prev)
+{
+    if (!output.expired())
+    {
+        if (output.lock() == prev)
+            output.reset();
     }
 }
 

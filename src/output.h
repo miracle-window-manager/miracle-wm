@@ -85,7 +85,6 @@ public:
     /// Takes an existing [Container] object and places it in an appropriate position
     /// on the active [Workspace].
     void graft(std::shared_ptr<Container> const& container);
-    void set_is_active(bool new_is_active) { is_active_ = new_is_active; }
     void set_transform(glm::mat4 const& in);
     void set_position(glm::vec2 const&);
 
@@ -97,7 +96,7 @@ public:
     [[nodiscard]] geom::Rectangle const& get_area() const { return area; }
     [[nodiscard]] std::vector<miral::Zone> const& get_app_zones() const { return application_zone_list; }
     [[nodiscard]] miral::Output const& get_output() const { return output; }
-    [[nodiscard]] bool is_active() const { return is_active_; }
+    [[nodiscard]] bool is_active() const;
     [[nodiscard]] glm::mat4 get_transform() const;
     /// Gets the relative position of the current rectangle (e.g. the active
     /// rectangle with be at position (0, 0))

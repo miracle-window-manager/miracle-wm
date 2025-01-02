@@ -177,8 +177,8 @@ void Workspace::handle_ready_hack(LeafContainer& container)
     for (auto const& window : floating_windows)
         window_controller.raise(window->window().value());
 
-    if (state.active() && state.active()->is_fullscreen())
-        window_controller.raise(state.active()->window().value());
+    if (state.focused_container() && state.focused_container()->is_fullscreen())
+        window_controller.raise(state.focused_container()->window().value());
 }
 
 void Workspace::delete_container(std::shared_ptr<Container> const& container)
@@ -317,7 +317,7 @@ void Workspace::remove_floating_hack(std::shared_ptr<Container> const& container
 void Workspace::select_first_window()
 {
     // Check if the selected container is already on this workspace
-    if (state.active() && state.active()->get_workspace() == this)
+    if (state.focused_container() && state.focused_container()->get_workspace() == this)
         return;
 
     // First, try and select the previously selected container if it is still around
@@ -428,10 +428,10 @@ void Workspace::graft(std::shared_ptr<Container> const& container)
 
 std::shared_ptr<ParentContainer> Workspace::get_layout_container()
 {
-    if (!state.active())
+    if (!state.focused_container())
         return nullptr;
 
-    auto parent = state.active()->get_parent().lock();
+    auto parent = state.focused_container()->get_parent().lock();
     if (!parent)
         return nullptr;
 
