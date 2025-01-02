@@ -17,8 +17,9 @@ pkg_check_modules(YAML REQUIRED IMPORTED_TARGET yaml-cpp)
 add_executable(miracle-wm-tests
     filesystem_configuration_test.cpp
     tiling_window_tree_test.cpp
-        test_ipc_command_parser.cpp
+    test_ipc_command_parser.cpp
     test_animator.cpp
+    test_feature_flags.cpp
     stub_configuration.h
     stub_session.h
     stub_surface.h)

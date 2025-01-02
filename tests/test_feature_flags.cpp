@@ -15,10 +15,15 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef MIRACLE_WM_FEATURE_FLAGS_H
-#define MIRACLE_WM_FEATURE_FLAGS_H
+#include "feature_flags.h"
+#include <gtest/gtest.h>
 
-#define MIRACLE_FEATURE_FLAG_MULTI_SELECT false
-#define MIRACLE_FEATURE_FLAG_DRAG_AND_DROP false
+class FeatureFlagsTest : public testing::Test
+{
+public:
+};
 
-#endif // MIRACLE_WM_FEATURE_FLAGS_H
+TEST_F(FeatureFlagsTest, DragAndDropIsFalse)
+{
+    EXPECT_EQ(MIRACLE_FEATURE_FLAG_DRAG_AND_DROP, false);
+}
