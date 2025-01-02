@@ -37,7 +37,6 @@ using namespace miracle;
 namespace
 {
 const char* MIRACLE_DEFAULT_CONFIG_DIR = "/usr/share/miracle-wm/default-config";
-constexpr uint miracle_input_event_modifier_default = 1 << 18;
 
 int program_exists(std::string const& name)
 {
@@ -236,6 +235,8 @@ void FilesystemConfiguration::reload()
         read_animation_definitions(config["animations"]);
     if (config["enable_animations"])
         read_enable_animations(config["enable_animations"]);
+    if (config["drag_and_drop"])
+        read_drag_and_drop(config["drag_and_drop"]);
 
     error_handler.on_complete();
 }
@@ -295,27 +296,8 @@ void FilesystemConfiguration::read_custom_actions(YAML::Node const& custom_actio
             continue;
         }
 
-        if (!modifiers_node.IsSequence())
-        {
-            builder << "Modifiers list must be an array";
-            add_error(modifiers_node);
-            continue;
-        }
-
         uint modifiers = 0;
-        bool is_invalid = false;
-        for (auto const& modifier_item : modifiers_node)
-        {
-            if (auto const modifier = try_parse_string_to_optional_value<std::optional<uint>>(modifier_item, try_parse_modifier))
-                modifiers = modifiers | modifier.value();
-            else
-            {
-                is_invalid = true;
-                break;
-            }
-        }
-
-        if (is_invalid)
+        if (!try_parse_modifiers(modifiers_node, modifiers))
             continue;
 
         options.custom_key_commands.push_back({ keyboard_action.value(),
@@ -499,6 +481,31 @@ bool FilesystemConfiguration::try_parse_color(YAML::Node const& root, const char
     return try_parse_color(root[key], color);
 }
 
+bool FilesystemConfiguration::try_parse_modifiers(YAML::Node const& node, uint& modifiers)
+{
+    if (!node.IsSequence())
+    {
+        builder << "Modifiers list must be an array";
+        add_error(node);
+        return false;
+    }
+
+    modifiers = 0;
+    for (auto const& modifier_item : node)
+    {
+        if (auto const modifier = try_parse_string_to_optional_value<std::optional<uint>>(modifier_item, try_parse_modifier))
+            modifiers = modifiers | modifier.value();
+        else
+        {
+            builder << "Modifier is invalid";
+            add_error(modifier_item);
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void FilesystemConfiguration::read_border(YAML::Node const& border)
 {
     int size;
@@ -680,27 +687,8 @@ void FilesystemConfiguration::read_default_action_overrides(YAML::Node const& de
             continue;
         }
 
-        if (!modifiers_node.IsSequence())
-        {
-            builder << "Modifiers list must be an array";
-            add_error(modifiers_node);
-            continue;
-        }
-
         uint modifiers = 0;
-        bool is_invalid = false;
-        for (auto const& modifier_item : modifiers_node)
-        {
-            if (auto const modifier = try_parse_string_to_optional_value<std::optional<uint>>(modifier_item, try_parse_modifier))
-                modifiers = modifiers | modifier.value();
-            else
-            {
-                is_invalid = true;
-                break;
-            }
-        }
-
-        if (is_invalid)
+        if (!try_parse_modifiers(modifiers_node, modifiers))
             continue;
 
         options.key_commands[static_cast<int>(key_command)].push_back({ keyboard_action.value(),
@@ -757,6 +745,19 @@ void FilesystemConfiguration::read_animation_definitions(YAML::Node const& anima
 void FilesystemConfiguration::read_enable_animations(YAML::Node const& node)
 {
     try_parse_value(node, options.animations_enabled);
+}
+
+void FilesystemConfiguration::read_drag_and_drop(YAML::Node const& node)
+{
+    try_parse_value(node, "enabled", options.drag_and_drop.enabled, true);
+    uint modifiers = 0;
+    if (node["modifiers"])
+    {
+        if (!try_parse_modifiers(node["modifiers"], modifiers))
+            return;
+
+        options.drag_and_drop.modifiers = modifiers;
+    }
 }
 
 void FilesystemConfiguration::_watch(miral::MirRunner& runner)
@@ -1016,6 +1017,11 @@ WorkspaceConfig FilesystemConfiguration::get_workspace_config(std::optional<int>
 LayoutScheme FilesystemConfiguration::get_default_layout_scheme() const
 {
     return LayoutScheme::horizontal;
+}
+
+DragAndDropConfiguration FilesystemConfiguration::drag_and_drop() const
+{
+    return options.drag_and_drop;
 }
 
 FilesystemConfiguration::ConfigDetails::ConfigDetails()

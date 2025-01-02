@@ -129,6 +129,11 @@ namespace test
             return LayoutScheme::horizontal;
         }
 
+        [[nodiscard]] DragAndDropConfiguration drag_and_drop() const override
+        {
+            return {};
+        }
+
     private:
         miracle::BorderConfig border_config;
         std::array<AnimationDefinition, static_cast<int>(AnimateableEvent::max)> animations;
