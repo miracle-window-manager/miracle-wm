@@ -177,13 +177,13 @@ bool Policy::handle_keyboard_event(MirKeyboardEvent const* event)
             try_toggle_resize_mode();
             return true;
         case DefaultKeyCommand::ResizeUp:
-            return state.mode == WindowManagerMode::resizing && try_resize(Direction::up, config->get_resize_jump());
+            return state.mode() != WindowManagerMode::normal && try_resize(Direction::up, config->get_resize_jump());
         case DefaultKeyCommand::ResizeDown:
-            return state.mode == WindowManagerMode::resizing && try_resize(Direction::down, config->get_resize_jump());
+            return state.mode() != WindowManagerMode::normal && try_resize(Direction::down, config->get_resize_jump());
         case DefaultKeyCommand::ResizeLeft:
-            return state.mode == WindowManagerMode::resizing && try_resize(Direction::left, config->get_resize_jump());
+            return state.mode() != WindowManagerMode::normal && try_resize(Direction::left, config->get_resize_jump());
         case DefaultKeyCommand::ResizeRight:
-            return state.mode == WindowManagerMode::resizing && try_resize(Direction::right, config->get_resize_jump());
+            return state.mode() != WindowManagerMode::normal && try_resize(Direction::right, config->get_resize_jump());
         case DefaultKeyCommand::MoveUp:
             return try_move(Direction::up);
         case DefaultKeyCommand::MoveDown:
@@ -287,34 +287,34 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
         }
     }
 
-    if (state.focused_output() && state.mode != WindowManagerMode::resizing)
+    handle_drag_and_drop_pointer_event(event);
+
+    if (state.focused_output() && state.mode() != WindowManagerMode::resizing)
     {
         if (MIRACLE_FEATURE_FLAG_MULTI_SELECT && action == mir_pointer_action_button_down)
         {
             if (state.modifiers == config->get_primary_modifier())
             {
                 // We clicked while holding the modifier, so we're probably in the middle of a multi-selection.
-                if (state.mode != WindowManagerMode::selecting)
+                if (state.mode() != WindowManagerMode::selecting)
                 {
-                    state.mode = WindowManagerMode::selecting;
+                    set_mode(WindowManagerMode::selecting);
                     group_selection = std::make_shared<ContainerGroupContainer>(state);
                     state.add(group_selection);
-                    mode_observer_registrar.advise_changed(state.mode);
                 }
             }
-            else if (state.mode == WindowManagerMode::selecting)
+            else if (state.mode() == WindowManagerMode::selecting)
             {
                 // We clicked while we were in selection mode, so let's stop being in selection mode
                 // TODO: Would it be better to check what we clicked in case it's in the group? Then we wouldn't
                 //  exit selection mode in this case.
-                state.mode = WindowManagerMode::normal;
-                mode_observer_registrar.advise_changed(state.mode);
+                set_mode(WindowManagerMode::normal);
             }
         }
 
         // Get Container intersection. Depending on the state, do something with that Container
         std::shared_ptr<Container> intersected = state.focused_output()->intersect(event);
-        switch (state.mode)
+        switch (state.mode())
         {
         case WindowManagerMode::normal:
         {
@@ -350,6 +350,41 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
     }
 
     return false;
+}
+
+void Policy::handle_drag_and_drop_pointer_event(MirPointerEvent const* event)
+{
+    if (!MIRACLE_FEATURE_FLAG_DRAG_AND_DROP || !config->drag_and_drop().enabled)
+        return;
+
+    auto action = miral::toolkit::mir_pointer_event_action(event);
+    if (state.mode() == WindowManagerMode::dragging)
+    {
+        if (action == mir_pointer_action_button_up)
+        {
+            set_mode(WindowManagerMode::normal);
+        }
+    }
+    else if (action == mir_pointer_action_button_down)
+    {
+        if (state.mode() != WindowManagerMode::normal)
+        {
+            mir::log_warning("Must be in normal mode before we can start dragging");
+            return;
+        }
+
+        std::shared_ptr<Container> intersected = state.focused_output()->intersect(event);
+        if (!intersected)
+            return;
+
+        if (intersected->get_type() != ContainerType::leaf)
+        {
+            mir::log_warning("Cannot drag container of type %d", (int)intersected->get_type());
+            return;
+        }
+
+        set_mode(WindowManagerMode::dragging);
+    }
 }
 
 auto Policy::place_new_window(
@@ -441,7 +476,7 @@ void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
         return;
     }
 
-    switch (state.mode)
+    switch (state.mode())
     {
     case WindowManagerMode::selecting:
         group_selection->add(container);
@@ -727,28 +762,26 @@ void Policy::try_toggle_resize_mode()
     Locker locker(self);
     if (!state.focused_container())
     {
-        state.mode = WindowManagerMode::normal;
+        set_mode(WindowManagerMode::normal);
         return;
     }
 
     if (state.focused_container()->get_type() != ContainerType::leaf)
     {
-        state.mode = WindowManagerMode::normal;
+        set_mode(WindowManagerMode::normal);
         return;
     }
 
-    if (state.mode == WindowManagerMode::resizing)
-        state.mode = WindowManagerMode::normal;
+    if (state.mode() != WindowManagerMode::normal)
+        set_mode(WindowManagerMode::normal);
     else
-        state.mode = WindowManagerMode::resizing;
-
-    mode_observer_registrar.advise_changed(state.mode);
+        set_mode(WindowManagerMode::resizing);
 }
 
 bool Policy::try_request_vertical()
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (!state.focused_container())
@@ -761,7 +794,7 @@ bool Policy::try_request_vertical()
 bool Policy::try_toggle_layout(bool cycle_thru_all)
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (!state.focused_container())
@@ -774,7 +807,7 @@ bool Policy::try_toggle_layout(bool cycle_thru_all)
 bool Policy::try_request_horizontal()
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (!state.focused_container())
@@ -805,7 +838,7 @@ bool Policy::try_set_size(std::optional<int> const& width, std::optional<int> co
 bool Policy::try_move(miracle::Direction direction)
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (!state.focused_container())
@@ -817,7 +850,7 @@ bool Policy::try_move(miracle::Direction direction)
 bool Policy::try_move_by(miracle::Direction direction, int pixels)
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (!state.focused_container())
@@ -829,7 +862,7 @@ bool Policy::try_move_by(miracle::Direction direction, int pixels)
 bool Policy::try_move_to(int x, int y)
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (!state.focused_container())
@@ -853,7 +886,7 @@ void Policy::select_container(std::shared_ptr<Container> const& container)
 bool Policy::try_select(miracle::Direction direction)
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (!state.focused_container())
@@ -865,7 +898,7 @@ bool Policy::try_select(miracle::Direction direction)
 bool Policy::try_select_parent()
 {
     Locker locker(self);
-    if (state.mode != WindowManagerMode::normal)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (!state.focused_container())
@@ -886,7 +919,7 @@ bool Policy::try_select_parent()
 bool Policy::try_select_child()
 {
     Locker locker(self);
-    if (state.mode != WindowManagerMode::normal)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (!state.focused_container())
@@ -926,7 +959,7 @@ bool Policy::try_select_child()
 bool Policy::try_select_floating()
 {
     Locker locker(self);
-    if (state.mode != WindowManagerMode::normal)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (auto to_select = state.get_first_with_type(ContainerType::floating_window))
@@ -944,7 +977,7 @@ bool Policy::try_select_floating()
 bool Policy::try_select_tiling()
 {
     Locker locker(self);
-    if (state.mode != WindowManagerMode::normal)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (auto to_select = state.get_first_with_type(ContainerType::leaf))
@@ -962,7 +995,7 @@ bool Policy::try_select_tiling()
 bool Policy::try_select_toggle()
 {
     Locker locker(self);
-    if (state.mode != WindowManagerMode::normal)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (auto const active = state.focused_container())
@@ -1001,7 +1034,7 @@ bool Policy::quit()
 bool Policy::try_toggle_fullscreen()
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (!state.focused_container())
@@ -1013,7 +1046,7 @@ bool Policy::try_toggle_fullscreen()
 bool Policy::select_workspace(int number, bool back_and_forth)
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (!state.focused_output())
@@ -1027,7 +1060,7 @@ bool Policy::select_workspace(std::string const& name, bool back_and_forth)
 {
     Locker locker(self);
     // TODO: Handle back_and_forth
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     return workspace_manager.request_workspace(state.focused_output().get(), name, back_and_forth);
@@ -1036,7 +1069,7 @@ bool Policy::select_workspace(std::string const& name, bool back_and_forth)
 bool Policy::next_workspace()
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     workspace_manager.request_next(state.focused_output());
@@ -1046,7 +1079,7 @@ bool Policy::next_workspace()
 bool Policy::prev_workspace()
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     workspace_manager.request_prev(state.focused_output());
@@ -1056,7 +1089,7 @@ bool Policy::prev_workspace()
 bool Policy::back_and_forth_workspace()
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     workspace_manager.request_back_and_forth();
@@ -1066,7 +1099,7 @@ bool Policy::back_and_forth_workspace()
 bool Policy::next_workspace_on_output(miracle::Output const& output)
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     return workspace_manager.request_next_on_output(output);
@@ -1075,7 +1108,7 @@ bool Policy::next_workspace_on_output(miracle::Output const& output)
 bool Policy::prev_workspace_on_output(miracle::Output const& output)
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     return workspace_manager.request_prev_on_output(output);
@@ -1220,7 +1253,7 @@ bool Policy::show_scratchpad()
 bool Policy::can_move_container() const
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (!state.focused_container())
@@ -1302,7 +1335,7 @@ std::shared_ptr<Container> Policy::toggle_floating_internal(std::shared_ptr<Cont
 bool Policy::toggle_floating()
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (!state.focused_container())
@@ -1315,7 +1348,7 @@ bool Policy::toggle_floating()
 bool Policy::toggle_pinned_to_workspace()
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (!state.focused_container())
@@ -1327,7 +1360,7 @@ bool Policy::toggle_pinned_to_workspace()
 bool Policy::set_is_pinned(bool pinned)
 {
     Locker locker(self);
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (!state.focused_container())
@@ -1670,7 +1703,7 @@ bool Policy::try_move_active(std::vector<std::string> const& names)
 
 bool Policy::can_set_layout() const
 {
-    if (state.mode == WindowManagerMode::resizing)
+    if (state.mode() != WindowManagerMode::normal)
         return false;
 
     if (!state.focused_container())
@@ -1756,10 +1789,16 @@ nlohmann::json Policy::workspace_to_json(uint32_t id) const
     return workspace->to_json();
 }
 
+void Policy::set_mode(WindowManagerMode mode)
+{
+    state.mode(mode);
+    mode_observer_registrar.advise_changed(state.mode());
+}
+
 nlohmann::json Policy::mode_to_json() const
 {
     Locker locker(self);
-    switch (state.mode)
+    switch (state.mode())
     {
     case WindowManagerMode::normal:
         return {
@@ -1773,9 +1812,13 @@ nlohmann::json Policy::mode_to_json() const
         return {
             { "name", "selecting" }
         };
+    case WindowManagerMode::dragging:
+        return {
+            { "name", "dragging" }
+        };
     default:
     {
-        mir::fatal_error("handle_command: unknown binding state: %d", (int)state.mode);
+        mir::fatal_error("handle_command: unknown binding state: %d", (int)state.mode());
         return {};
     }
     }

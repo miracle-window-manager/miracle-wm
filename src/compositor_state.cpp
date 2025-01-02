@@ -101,3 +101,13 @@ std::shared_ptr<Container> CompositorState::get_first_with_type(ContainerType ty
 
     return nullptr;
 }
+
+WindowManagerMode CompositorState::mode() const
+{
+    return mode_;
+}
+
+void CompositorState::mode(WindowManagerMode next)
+{
+    mode_ = next;
+}

@@ -40,13 +40,14 @@ enum class WindowManagerMode
 
     /// While [selecting], only [Container]s selected with the multi-select
     /// keybind/mousebind can be selected or deselected.
-    selecting
+    selecting,
+
+    dragging
 };
 
 class CompositorState
 {
 public:
-    WindowManagerMode mode = WindowManagerMode::normal;
     mir::geometry::Point cursor_position;
     uint32_t modifiers = 0;
     bool has_clicked_floating_window = false;
@@ -65,11 +66,14 @@ public:
     void remove(std::shared_ptr<Container> const& container);
     [[nodiscard]] std::shared_ptr<Container> get_first_with_type(ContainerType type) const;
     [[nodiscard]] std::vector<std::weak_ptr<Container>> const& containers() const { return focus_order; }
+    WindowManagerMode mode() const;
+    void mode(WindowManagerMode);
 
 private:
     std::weak_ptr<Container> focused;
     std::vector<std::weak_ptr<Container>> focus_order;
     std::weak_ptr<Output> output;
+    WindowManagerMode mode_ = WindowManagerMode::normal;
 };
 }
 
