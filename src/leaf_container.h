@@ -97,6 +97,9 @@ public:
     bool move_to(int, int) override;
     bool toggle_tabbing() override;
     bool toggle_stacking() override;
+    bool drag_start() override;
+    void drag(int x, int y) override;
+    bool drag_stop() override;
     bool set_layout(LayoutScheme) override;
     LayoutScheme get_layout() const override;
     nlohmann::json to_json() const override;
@@ -116,6 +119,7 @@ private:
     LayoutScheme tentative_direction = LayoutScheme::none;
     glm::mat4 transform = glm::mat4(1.f);
     uint32_t animation_handle_ = 0;
+    bool is_dragging_ = false;
 };
 
 } // miracle

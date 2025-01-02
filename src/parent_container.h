@@ -108,6 +108,9 @@ public:
     bool is_fullscreen() const override;
     bool toggle_tabbing() override;
     bool toggle_stacking() override;
+    bool drag_start() override { return false; }
+    void drag(int, int) override { }
+    bool drag_stop() override { return false; }
     bool set_layout(LayoutScheme scheme) override;
     LayoutScheme get_layout() const override;
     nlohmann::json to_json() const override;

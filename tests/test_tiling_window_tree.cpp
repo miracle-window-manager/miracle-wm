@@ -52,33 +52,61 @@ private:
     std::vector<miral::Zone> zones = { r };
 };
 
+struct StubWindowData
+{
+    miral::Window window;
+    std::shared_ptr<Container> container;
+    mir::geometry::Rectangle rectangle;
+    MirWindowState state;
+    std::optional<mir::geometry::Rectangle> clip;
+};
+
 class StubWindowController : public miracle::WindowController
 {
 public:
-    StubWindowController(std::vector<std::pair<miral::Window, std::shared_ptr<Container>>>& pairs) :
+    explicit StubWindowController(std::vector<StubWindowData>& pairs) :
         pairs { pairs }
     {
     }
+
     bool is_fullscreen(miral::Window const&) override
     {
         return false;
     }
-    void set_rectangle(miral::Window const&, geom::Rectangle const&, geom::Rectangle const&) override { }
-    MirWindowState get_state(miral::Window const&) override
+
+    void set_rectangle(miral::Window const& window, geom::Rectangle const& from, geom::Rectangle const& to) override
     {
-        return mir_window_state_restored;
+        get_window_data(window).rectangle = to;
     }
 
-    void change_state(miral::Window const&, MirWindowState state) override { }
-    void clip(miral::Window const&, geom::Rectangle const&) override { }
-    void noclip(miral::Window const&) override { }
+    MirWindowState get_state(miral::Window const& window) override
+    {
+        return get_window_data(window).state;
+    }
+
+    void change_state(miral::Window const& window, MirWindowState state) override
+    {
+        get_window_data(window).state = state;
+    }
+
+    void clip(miral::Window const& window, geom::Rectangle const& clip) override
+    {
+        get_window_data(window).clip = clip;
+    }
+
+    void noclip(miral::Window const& window) override
+    {
+        get_window_data(window).clip = std::nullopt;
+    }
+
     void select_active_window(miral::Window const&) override { }
+
     std::shared_ptr<Container> get_container(miral::Window const& window) override
     {
         for (auto const& p : pairs)
         {
-            if (p.first == window)
-                return p.second;
+            if (p.window == window)
+                return p.container;
         }
         return nullptr;
     }
@@ -88,13 +116,52 @@ public:
     void open(miral::Window const&) override { }
     void close(miral::Window const&) override { }
     void set_user_data(miral::Window const&, std::shared_ptr<void> const&) override { }
-    void modify(miral::Window const&, miral::WindowSpecification const&) override { }
-    miral::WindowInfo& info_for(miral::Window const&) override { }
-    miral::ApplicationInfo& app_info(miral::Window const&) override { }
-    void set_size_hack(AnimationHandle, mir::geometry::Size const&) { }
+    void modify(miral::Window const& window, miral::WindowSpecification const& spec) override
+    {
+        if (spec.top_left())
+            get_window_data(window).rectangle.top_left = spec.top_left().value();
+        if (spec.size())
+            get_window_data(window).rectangle.size = spec.size().value();
+    }
+
+    miral::WindowInfo& info_for(miral::Window const& window) override
+    {
+        return stub_win_info;
+    }
+
+    miral::ApplicationInfo& app_info(miral::Window const&) override
+    {
+        return stub_app_info;
+    }
+
+    void set_size_hack(AnimationHandle, mir::geometry::Size const&) override { }
+
+    StubWindowData const& get_window_data(std::shared_ptr<Container> const& container)
+    {
+        for (auto const& p : pairs)
+        {
+            if (p.container == container)
+                return p;
+        }
+
+        throw std::runtime_error("get_window_data should resolve");
+    }
 
 private:
-    std::vector<std::pair<miral::Window, std::shared_ptr<Container>>>& pairs;
+    std::vector<StubWindowData>& pairs;
+    miral::WindowInfo stub_win_info;
+    miral::ApplicationInfo stub_app_info;
+
+    StubWindowData& get_window_data(miral::Window const& window)
+    {
+        for (auto& p : pairs)
+        {
+            if (p.window == window)
+                return p;
+        }
+
+        throw std::runtime_error("get_window_data should resolve");
+    }
 };
 
 class TilingWindowTreeTest : public testing::Test
@@ -135,7 +202,7 @@ public:
     CompositorState state;
     std::vector<std::shared_ptr<test::StubSession>> sessions;
     std::vector<std::shared_ptr<test::StubSurface>> surfaces;
-    std::vector<std::pair<miral::Window, std::shared_ptr<Container>>> pairs;
+    std::vector<StubWindowData> pairs;
     StubWindowController window_controller { pairs };
     TilingWindowTree tree;
 };
@@ -187,4 +254,31 @@ TEST_F(TilingWindowTreeTest, can_add_three_windows_horizontally_without_border_a
 
     ASSERT_EQ(leaf3->get_logical_area().size, geom::Size(floorf(1280 / 3.f), 720));
     ASSERT_EQ(leaf3->get_logical_area().top_left, geom::Point(floorf(1280 * (2.f / 3.f)) - 1, 0));
+}
+
+TEST_F(TilingWindowTreeTest, can_start_dragging_a_leaf)
+{
+    auto leaf1 = create_leaf();
+    ASSERT_TRUE(leaf1->drag_start());
+}
+
+TEST_F(TilingWindowTreeTest, can_drag_a_leaf_to_a_position)
+{
+    auto leaf1 = create_leaf();
+    leaf1->drag_start();
+    leaf1->drag(50, 50);
+    auto const& data = window_controller.get_window_data(leaf1);
+    ASSERT_EQ(data.rectangle.top_left.x.as_int(), 50);
+    ASSERT_EQ(data.rectangle.top_left.y.as_int(), 50);
+}
+
+TEST_F(TilingWindowTreeTest, can_stop_dragging_a_leaf)
+{
+    auto leaf1 = create_leaf();
+    leaf1->drag_start();
+    leaf1->drag(50, 50);
+    leaf1->drag_stop();
+    auto const& data = window_controller.get_window_data(leaf1);
+    ASSERT_EQ(data.rectangle.top_left.x.as_int(), 0);
+    ASSERT_EQ(data.rectangle.top_left.y.as_int(), 0);
 }
