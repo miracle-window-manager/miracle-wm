@@ -51,7 +51,7 @@ class ContainerGroupContainer;
 class WindowToolsAccessor;
 class AnimatorLoop;
 
-class Policy : public miral::WindowManagementPolicy, public CommandController
+class Policy : public miral::WindowManagementPolicy
 {
 public:
     Policy(
@@ -102,65 +102,6 @@ public:
     void advise_application_zone_delete(miral::Zone const& application_zone) override;
     void advise_end() override;
 
-    // Requests
-
-    bool try_request_horizontal() override;
-    bool try_request_vertical() override;
-    bool try_toggle_layout(bool cycle_through_all) override;
-    void try_toggle_resize_mode() override;
-    bool try_resize(Direction direction, int pixels) override;
-    bool try_set_size(std::optional<int> const& width, std::optional<int> const& height) override;
-    bool try_move(Direction direction) override;
-    bool try_move_by(Direction direction, int pixels) override;
-    bool try_move_to(int x, int y) override;
-    bool try_select(Direction direction) override;
-    bool try_select_parent() override;
-    bool try_select_child() override;
-    bool try_select_floating() override;
-    bool try_select_tiling() override;
-    bool try_select_toggle() override;
-    bool try_close_window() override;
-    bool quit() override;
-    bool try_toggle_fullscreen() override;
-    bool select_workspace(int number, bool back_and_forth = true) override;
-    bool select_workspace(std::string const& name, bool back_and_forth) override;
-    bool next_workspace() override;
-    bool prev_workspace() override;
-    bool back_and_forth_workspace() override;
-    bool next_workspace_on_output(Output const&) override;
-    bool prev_workspace_on_output(Output const&) override;
-    bool move_active_to_workspace(int number, bool back_and_forth = true) override;
-    bool move_active_to_workspace_named(std::string const&, bool back_and_forth) override;
-    bool move_active_to_next_workspace() override;
-    bool move_active_to_prev_workspace() override;
-    bool move_active_to_back_and_forth() override;
-    bool move_to_scratchpad() override;
-    bool show_scratchpad() override;
-    bool toggle_floating() override;
-    bool toggle_pinned_to_workspace() override;
-    bool set_is_pinned(bool) override;
-    bool toggle_tabbing() override;
-    bool toggle_stacking() override;
-    bool set_layout(LayoutScheme scheme) override;
-    bool set_layout_default() override;
-    void move_cursor_to_output(Output const&) override;
-    bool try_select_next_output() override;
-    bool try_select_prev_output() override;
-    bool try_select_output(Direction direction) override;
-    bool try_select_output(std::vector<std::string> const& names) override;
-    bool try_move_active_to_output(Direction direction) override;
-    bool try_move_active_to_current() override;
-    bool try_move_active_to_primary() override;
-    bool try_move_active_to_nonprimary() override;
-    bool try_move_active_to_next() override;
-    bool try_move_active(std::vector<std::string> const& names) override;
-    bool reload_config() override;
-    [[nodiscard]] nlohmann::json to_json() const override;
-    [[nodiscard]] nlohmann::json outputs_json() const override;
-    [[nodiscard]] nlohmann::json workspaces_json() const override;
-    [[nodiscard]] nlohmann::json workspace_to_json(uint32_t) const override;
-    [[nodiscard]] nlohmann::json mode_to_json() const override;
-
     // Getters
 
     [[nodiscard]] Output const* get_active_output() const { return state.focused_output().get(); }
@@ -171,26 +112,7 @@ public:
 private:
     class Self;
 
-    class Locker
-    {
-    public:
-        explicit Locker(std::shared_ptr<Self> const&);
-        ~Locker();
-
-    private:
-        std::lock_guard<std::recursive_mutex> lock_guard;
-    };
-
-    bool can_move_container() const;
-    bool can_set_layout() const;
-    std::shared_ptr<Container> toggle_floating_internal(std::shared_ptr<Container> const& container);
-
-    /// Selects any type of container, including those that do not directly reference a window.
-    void select_container(std::shared_ptr<Container> const&);
-    std::shared_ptr<Output> _next_output_in_list(std::vector<std::string> const& names);
-    std::shared_ptr<Output> _next_output_in_direction(Direction direction);
     void handle_drag_and_drop_pointer_event(MirPointerEvent const* event);
-    void set_mode(WindowManagerMode mode);
 
     bool is_starting_ = true;
     CompositorState& state;
@@ -199,11 +121,13 @@ private:
     miral::WindowManagerTools window_manager_tools;
     std::shared_ptr<MinimalWindowManager> floating_window_manager;
     AutoRestartingLauncher& external_client_launcher;
-    miral::MirRunner& runner;
     std::shared_ptr<Config> config;
     WorkspaceObserverRegistrar workspace_observer_registrar;
     ModeObserverRegistrar mode_observer_registrar;
     WorkspaceManager workspace_manager;
+    std::shared_ptr<Self> self;
+    Scratchpad scratchpad_;
+    CommandController command_controller;
     std::shared_ptr<Ipc> ipc;
     std::shared_ptr<Animator> animator;
     std::unique_ptr<AnimatorLoop> animator_loop;
@@ -211,8 +135,6 @@ private:
     IpcCommandExecutor i3_command_executor;
     SurfaceTracker& surface_tracker;
     std::shared_ptr<ContainerGroupContainer> group_selection;
-    Scratchpad scratchpad_;
-    std::shared_ptr<Self> self;
     mir::Server const& server;
 };
 }

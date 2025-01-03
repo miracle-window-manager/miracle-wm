@@ -54,8 +54,10 @@ public:
     void set_user_data(miral::Window const&, std::shared_ptr<void> const&) override;
     void modify(miral::Window const&, miral::WindowSpecification const&) override;
     miral::WindowInfo& info_for(miral::Window const&) override;
+    miral::ApplicationInfo& info_for(miral::Application const&) override;
     miral::ApplicationInfo& app_info(miral::Window const&) override;
     void close(miral::Window const& window) override;
+    void move_cursor_to(float x, float y) override;
     void set_size_hack(AnimationHandle handle, mir::geometry::Size const& size) override;
 
 private:

@@ -276,6 +276,11 @@ miral::WindowInfo& WindowManagerToolsWindowController::info_for(miral::Window co
     return tools.info_for(window);
 }
 
+miral::ApplicationInfo& WindowManagerToolsWindowController::info_for(miral::Application const& app)
+{
+    return tools.info_for(app);
+}
+
 miral::ApplicationInfo& WindowManagerToolsWindowController::app_info(miral::Window const& window)
 {
     return tools.info_for(window.application());
@@ -284,6 +289,11 @@ miral::ApplicationInfo& WindowManagerToolsWindowController::app_info(miral::Wind
 void WindowManagerToolsWindowController::close(miral::Window const& window)
 {
     tools.ask_client_to_close(window);
+}
+
+void WindowManagerToolsWindowController::move_cursor_to(float x, float y)
+{
+    tools.move_cursor_to(geom::PointF { x, y });
 }
 
 void WindowManagerToolsWindowController::set_size_hack(AnimationHandle handle, mir::geometry::Size const& size)
