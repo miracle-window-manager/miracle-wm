@@ -18,75 +18,118 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef MIRACLE_WM_COMMAND_CONTROLLER_H
 #define MIRACLE_WM_COMMAND_CONTROLLER_H
 
+#include "compositor_state.h"
 #include "direction.h"
 #include "output.h"
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 
+namespace miral
+{
+class MirRunner;
+}
+
 namespace miracle
 {
+class Scratchpad;
+class ModeObserverRegistrar;
 
-/// Abstract interface used to send commands to miracle.
+/// Responsible for fielding requests from the system and forwarding
+/// them to an appropriate handler. Requests can come from any thread
+/// (e.g. the keyboard input thread, the ipc thread, etc.).
+/// This class behaves similar to a controller pattern in a server
+/// whereby requests are made on the controller that are then sent
+/// to the proper subsystem for processing. In this case, the subsystem
+/// may be anything from the tiles in the grid, the scratchpad, etc.
 class CommandController
 {
 public:
-    virtual bool try_request_horizontal() = 0;
-    virtual bool try_request_vertical() = 0;
-    virtual bool try_toggle_layout(bool cycle_through_all) = 0;
-    virtual void try_toggle_resize_mode() = 0;
-    virtual bool try_resize(Direction direction, int pixels) = 0;
-    virtual bool try_set_size(std::optional<int> const& width, std::optional<int> const& height) = 0;
-    virtual bool try_move(Direction direction) = 0;
-    virtual bool try_move_by(Direction direction, int pixels) = 0;
-    virtual bool try_move_to(int x, int y) = 0;
-    virtual bool try_select(Direction direction) = 0;
-    virtual bool try_select_parent() = 0;
-    virtual bool try_select_child() = 0;
-    virtual bool try_select_floating() = 0;
-    virtual bool try_select_tiling() = 0;
-    virtual bool try_select_toggle() = 0;
-    virtual bool try_close_window() = 0;
-    virtual bool quit() = 0;
-    virtual bool try_toggle_fullscreen() = 0;
-    virtual bool select_workspace(int number, bool back_and_forth = true) = 0;
-    virtual bool select_workspace(std::string const& name, bool back_and_forth) = 0;
-    virtual bool next_workspace() = 0;
-    virtual bool prev_workspace() = 0;
-    virtual bool back_and_forth_workspace() = 0;
-    virtual bool next_workspace_on_output(Output const&) = 0;
-    virtual bool prev_workspace_on_output(Output const&) = 0;
-    virtual bool move_active_to_workspace(int number, bool back_and_forth = true) = 0;
-    virtual bool move_active_to_workspace_named(std::string const&, bool back_and_forth) = 0;
-    virtual bool move_active_to_next_workspace() = 0;
-    virtual bool move_active_to_prev_workspace() = 0;
-    virtual bool move_active_to_back_and_forth() = 0;
-    virtual bool move_to_scratchpad() = 0;
-    virtual bool show_scratchpad() = 0;
-    virtual bool toggle_floating() = 0;
-    virtual bool toggle_pinned_to_workspace() = 0;
-    virtual bool set_is_pinned(bool) = 0;
-    virtual bool toggle_tabbing() = 0;
-    virtual bool toggle_stacking() = 0;
-    virtual bool set_layout(LayoutScheme scheme) = 0;
-    virtual bool set_layout_default() = 0;
-    virtual void move_cursor_to_output(Output const&) = 0;
-    virtual bool try_select_next_output() = 0;
-    virtual bool try_select_prev_output() = 0;
-    virtual bool try_select_output(Direction direction) = 0;
-    virtual bool try_select_output(std::vector<std::string> const& names) = 0;
-    virtual bool try_move_active_to_output(Direction direction) = 0;
-    virtual bool try_move_active_to_current() = 0;
-    virtual bool try_move_active_to_primary() = 0;
-    virtual bool try_move_active_to_nonprimary() = 0;
-    virtual bool try_move_active_to_next() = 0;
-    virtual bool try_move_active(std::vector<std::string> const& names) = 0;
-    virtual bool reload_config() = 0;
-    [[nodiscard]] virtual nlohmann::json to_json() const = 0;
-    [[nodiscard]] virtual nlohmann::json outputs_json() const = 0;
-    [[nodiscard]] virtual nlohmann::json workspaces_json() const = 0;
-    [[nodiscard]] virtual nlohmann::json workspace_to_json(uint32_t) const = 0;
-    [[nodiscard]] virtual nlohmann::json mode_to_json() const = 0;
+    CommandController(
+        std::shared_ptr<Config> config,
+        std::recursive_mutex& mutex,
+        CompositorState& state,
+        WindowController& window_controller,
+        WorkspaceManager& workspace_manager,
+        ModeObserverRegistrar& mode_observer_registrar,
+        miral::MirRunner& runner,
+        Scratchpad& scratchpad_);
+
+    bool try_request_horizontal();
+    bool try_request_vertical();
+    bool try_toggle_layout(bool cycle_through_all);
+    void try_toggle_resize_mode();
+    bool try_resize(Direction direction, int pixels);
+    bool try_set_size(std::optional<int> const& width, std::optional<int> const& height);
+    bool try_move(Direction direction);
+    bool try_move_by(Direction direction, int pixels);
+    bool try_move_to(int x, int y);
+    bool try_select(Direction direction);
+    bool try_select_parent();
+    bool try_select_child();
+    bool try_select_floating();
+    bool try_select_tiling();
+    bool try_select_toggle();
+    bool try_close_window();
+    bool quit();
+    bool try_toggle_fullscreen();
+    bool select_workspace(int number, bool back_and_forth = true);
+    bool select_workspace(std::string const& name, bool back_and_forth);
+    bool next_workspace();
+    bool prev_workspace();
+    bool back_and_forth_workspace();
+    bool next_workspace_on_output(Output const&);
+    bool prev_workspace_on_output(Output const&);
+    bool move_active_to_workspace(int number, bool back_and_forth = true);
+    bool move_active_to_workspace_named(std::string const&, bool back_and_forth);
+    bool move_active_to_next_workspace();
+    bool move_active_to_prev_workspace();
+    bool move_active_to_back_and_forth();
+    bool move_to_scratchpad();
+    bool show_scratchpad();
+    bool toggle_floating();
+    bool toggle_pinned_to_workspace();
+    bool set_is_pinned(bool);
+    bool toggle_tabbing();
+    bool toggle_stacking();
+    bool set_layout(LayoutScheme scheme);
+    bool set_layout_default();
+    void move_cursor_to_output(Output const&);
+    bool try_select_next_output();
+    bool try_select_prev_output();
+    bool try_select_output(Direction direction);
+    bool try_select_output(std::vector<std::string> const& names);
+    bool try_move_active_to_output(Direction direction);
+    bool try_move_active_to_current();
+    bool try_move_active_to_primary();
+    bool try_move_active_to_nonprimary();
+    bool try_move_active_to_next();
+    bool try_move_active(std::vector<std::string> const& names);
+    bool reload_config();
+    void set_mode(WindowManagerMode mode);
+    void select_container(std::shared_ptr<Container> const&);
+    [[nodiscard]] nlohmann::json to_json() const;
+    [[nodiscard]] nlohmann::json outputs_json() const;
+    [[nodiscard]] nlohmann::json workspaces_json() const;
+    [[nodiscard]] nlohmann::json workspace_to_json(uint32_t) const;
+    [[nodiscard]] nlohmann::json mode_to_json() const;
+
+private:
+    std::shared_ptr<Config> config;
+    std::recursive_mutex& mutex;
+    CompositorState& state;
+    WindowController& window_controller;
+    WorkspaceManager& workspace_manager;
+    ModeObserverRegistrar& mode_observer_registrar;
+    miral::MirRunner& runner;
+    Scratchpad& scratchpad_;
+
+    bool can_move_container() const;
+    bool can_set_layout() const;
+    std::shared_ptr<Container> toggle_floating_internal(std::shared_ptr<Container> const& container);
+
+    std::shared_ptr<Output> _next_output_in_list(std::vector<std::string> const& names);
+    std::shared_ptr<Output> _next_output_in_direction(Direction direction);
 };
 }
 

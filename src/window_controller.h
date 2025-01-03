@@ -53,7 +53,9 @@ public:
     virtual void set_user_data(miral::Window const&, std::shared_ptr<void> const&) = 0;
     virtual void modify(miral::Window const&, miral::WindowSpecification const&) = 0;
     virtual miral::WindowInfo& info_for(miral::Window const&) = 0;
+    virtual miral::ApplicationInfo& info_for(miral::Application const&) = 0;
     virtual miral::ApplicationInfo& app_info(miral::Window const&) = 0;
+    virtual void move_cursor_to(float x, float y) = 0;
     virtual void set_size_hack(AnimationHandle handle, geom::Size const& size) = 0;
 };
 
