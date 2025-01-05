@@ -66,7 +66,6 @@ private:
 
 Workspace::Workspace(
     miracle::Output* output,
-    miral::WindowManagerTools const& tools,
     uint32_t id,
     std::optional<int> num,
     std::optional<std::string> name,
@@ -75,7 +74,6 @@ Workspace::Workspace(
     CompositorState const& state,
     std::shared_ptr<MinimalWindowManager> const& floating_window_manager) :
     output { output },
-    tools { tools },
     id_ { id },
     num_ { num },
     name_ { name },

@@ -300,3 +300,8 @@ void WindowManagerToolsWindowController::set_size_hack(AnimationHandle handle, m
 {
     animator.set_size_hack(handle, size);
 }
+
+miral::Window WindowManagerToolsWindowController::window_at(float x, float y)
+{
+    return tools.window_at({ x, y });
+}

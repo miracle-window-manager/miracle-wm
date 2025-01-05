@@ -133,6 +133,11 @@ public:
         throw std::runtime_error("get_window_data should resolve");
     }
 
+    miral::Window window_at(float x, float y)
+    {
+        return miral::Window();
+    }
+
 private:
     std::vector<StubWindowData>& pairs;
     miral::WindowInfo stub_win_info;

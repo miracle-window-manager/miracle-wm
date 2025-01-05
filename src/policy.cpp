@@ -46,6 +46,23 @@ using namespace miracle;
 namespace
 {
 const int MODIFIER_MASK = mir_input_event_modifier_alt | mir_input_event_modifier_shift | mir_input_event_modifier_sym | mir_input_event_modifier_ctrl | mir_input_event_modifier_meta;
+
+class MirRunnerCommandControllerInterface : public CommandControllerInterface
+{
+public:
+    explicit MirRunnerCommandControllerInterface(miral::MirRunner& runner)
+      : runner {runner}
+    {
+    }
+
+    void quit() override
+    {
+        runner.stop();
+    }
+
+private:
+    miral::MirRunner& runner;
+};
 }
 
 class Policy::Self : public WorkspaceObserver
@@ -95,31 +112,23 @@ Policy::Policy(
     mir::Server const& server,
     CompositorState& compositor_state,
     std::shared_ptr<WindowToolsAccessor> const& window_tools_accessor) :
-    window_manager_tools { tools },
-    state { compositor_state },
-    floating_window_manager(std::make_shared<MinimalWindowManager>(tools, config)),
     external_client_launcher { external_client_launcher },
     config { config },
     animator { animator },
-    animator_loop { std::make_unique<ThreadedAnimatorLoop>(animator) },
-    workspace_manager { WorkspaceManager(
-        tools,
-        workspace_observer_registrar,
-        config,
-        [this]()
-{ return get_active_output(); },
-        [this]()
-{ return get_output_list(); }) },
-    window_controller(tools, *animator, state, config, server.the_main_loop()),
     surface_tracker { surface_tracker },
+    state { compositor_state },
+    floating_window_manager(std::make_unique<MinimalWindowManager>(tools, config)),
+    animator_loop(std::make_unique<ThreadedAnimatorLoop>(animator)),
+    workspace_manager(workspace_observer_registrar, config, state),
+    window_controller(tools, *animator, state, config, server.the_main_loop()),
     scratchpad_(window_controller, state),
-    self { std::make_shared<Self>(*this) },
+    self(std::make_shared<Self>(*this)),
     command_controller(
         config, self->mutex, state, window_controller,
-        workspace_manager, mode_observer_registrar, runner, scratchpad_),
+        workspace_manager, mode_observer_registrar,
+        std::make_unique<MirRunnerCommandControllerInterface>(runner), scratchpad_),
     i3_command_executor(command_controller, workspace_manager, compositor_state, external_client_launcher, window_controller),
-    ipc { std::make_shared<Ipc>(runner, command_controller, i3_command_executor, config) },
-    server { server }
+    ipc(std::make_shared<Ipc>(runner, command_controller, i3_command_executor, config))
 {
     workspace_observer_registrar.register_interest(ipc);
     workspace_observer_registrar.register_interest(self);
@@ -576,8 +585,8 @@ void Policy::advise_output_create(miral::Output const& output)
 {
     std::lock_guard lock(self->mutex);
     auto output_content = std::make_shared<Output>(
-        output, workspace_manager, output.extents(), window_manager_tools,
-        floating_window_manager, state, config, window_controller, *animator);
+        output, workspace_manager, output.extents(), floating_window_manager,
+        state, config, window_controller, *animator);
     state.output_list.push_back(output_content);
     workspace_manager.request_first_available_workspace(output_content.get());
     if (state.focused_output() == nullptr)

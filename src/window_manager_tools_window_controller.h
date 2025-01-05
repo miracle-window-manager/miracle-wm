@@ -59,6 +59,7 @@ public:
     void close(miral::Window const& window) override;
     void move_cursor_to(float x, float y) override;
     void set_size_hack(AnimationHandle handle, mir::geometry::Size const& size) override;
+    miral::Window window_at(float x, float y) override;
 
 private:
     miral::WindowManagerTools tools;
