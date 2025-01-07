@@ -49,7 +49,6 @@ class Workspace
 public:
     Workspace(
         Output* output,
-        miral::WindowManagerTools const& tools,
         uint32_t id,
         std::optional<int> num,
         std::optional<std::string> name,
@@ -99,7 +98,6 @@ public:
 
 private:
     Output* output;
-    miral::WindowManagerTools tools;
     uint32_t id_;
     std::optional<int> num_;
     std::optional<std::string> name_;

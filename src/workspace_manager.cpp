@@ -16,8 +16,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
 #define MIR_LOG_COMPONENT "workspace_manager"
-#include "workspace_manager.h"
 
+#include "workspace_manager.h"
+#include "compositor_state.h"
 #include "config.h"
 #include "output.h"
 #include "vector_helpers.h"
@@ -27,22 +28,18 @@ using namespace mir::geometry;
 using namespace miracle;
 
 WorkspaceManager::WorkspaceManager(
-    miral::WindowManagerTools const& tools,
     WorkspaceObserverRegistrar& registry,
     std::shared_ptr<Config> const& config,
-    std::function<Output const*()> const& get_active,
-    std::function<std::vector<std::shared_ptr<Output>>()> const& get_outputs) :
-    tools_ { tools },
+    CompositorState const& state) :
     registry { registry },
     config { config },
-    get_active { get_active },
-    get_outputs { get_outputs }
+    state { state }
 {
 }
 
 bool WorkspaceManager::focus_existing(Workspace const* existing, bool back_and_forth)
 {
-    auto const& active_workspace = get_active()->active();
+    auto const& active_workspace = state.focused_output()->active();
     if (active_workspace == existing)
     {
         if (last_selected)
@@ -232,7 +229,7 @@ bool WorkspaceManager::request_focus(uint32_t id)
     if (!existing)
         return false;
 
-    auto active_screen = get_active();
+    auto active_screen = state.focused_output();
     if (active_screen)
         last_selected = active_screen->active();
     else
@@ -253,7 +250,7 @@ bool WorkspaceManager::request_focus(uint32_t id)
 
 Workspace* WorkspaceManager::workspace(int num) const
 {
-    for (auto const& output : get_outputs())
+    for (auto const& output : state.output_list)
     {
         for (auto const& workspace : output->get_workspaces())
         {
@@ -267,7 +264,7 @@ Workspace* WorkspaceManager::workspace(int num) const
 
 Workspace* WorkspaceManager::workspace(uint32_t id) const
 {
-    for (auto const& output : get_outputs())
+    for (auto const& output : state.output_list)
     {
         for (auto const& workspace : output->get_workspaces())
         {
@@ -281,7 +278,7 @@ Workspace* WorkspaceManager::workspace(uint32_t id) const
 
 Workspace* WorkspaceManager::workspace(std::string const& name) const
 {
-    for (auto const& output : get_outputs())
+    for (auto const& output : state.output_list)
     {
         for (auto const& workspace : output->get_workspaces())
         {
@@ -296,7 +293,7 @@ Workspace* WorkspaceManager::workspace(std::string const& name) const
 std::vector<Workspace const*> WorkspaceManager::workspaces() const
 {
     std::vector<Workspace const*> result;
-    for (auto const& output : get_outputs())
+    for (auto const& output : state.output_list)
     {
         for (auto const& w : output->get_workspaces())
         {

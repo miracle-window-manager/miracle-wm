@@ -20,10 +20,12 @@ add_executable(miracle-wm-tests
     test_ipc_command_parser.cpp
     test_animator.cpp
     test_feature_flags.cpp
+    test_command_controller.cpp
     stub_configuration.h
     stub_session.h
     stub_surface.h
-    stub_window_controller.h)
+    stub_window_controller.h
+    stub_container.h)
 
 target_include_directories(miracle-wm-tests PUBLIC SYSTEM
     ${GTEST_INCLUDE_DIRS}

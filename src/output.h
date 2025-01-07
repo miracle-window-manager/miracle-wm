@@ -51,7 +51,6 @@ public:
         miral::Output const& output,
         WorkspaceManager& workspace_manager,
         geom::Rectangle const& area,
-        miral::WindowManagerTools const& tools,
         std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
         CompositorState& state,
         std::shared_ptr<Config> const& options,
@@ -133,7 +132,6 @@ private:
 
     miral::Output output;
     WorkspaceManager& workspace_manager;
-    miral::WindowManagerTools tools;
     std::shared_ptr<MinimalWindowManager> floating_window_manager;
     CompositorState& state;
     geom::Rectangle area;

@@ -37,7 +37,7 @@ CommandController::CommandController(
     WindowController& window_controller,
     WorkspaceManager& workspace_manager,
     ModeObserverRegistrar& mode_observer_registrar,
-    miral::MirRunner& runner,
+    std::unique_ptr<CommandControllerInterface> interface,
     Scratchpad& scratchpad_) :
     config { config },
     mutex { mutex },
@@ -45,7 +45,7 @@ CommandController::CommandController(
     window_controller { window_controller },
     workspace_manager { workspace_manager },
     mode_observer_registrar { mode_observer_registrar },
-    runner { runner },
+    interface { std::move(interface) },
     scratchpad_ { scratchpad_ }
 {
 }
@@ -319,7 +319,7 @@ bool CommandController::try_close_window()
 bool CommandController::quit()
 {
     std::lock_guard lock(mutex);
-    runner.stop();
+    interface->quit();
     return true;
 }
 

@@ -42,7 +42,6 @@ Output::Output(
     miral::Output const& output,
     WorkspaceManager& workspace_manager,
     geom::Rectangle const& area,
-    miral::WindowManagerTools const& tools,
     std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
     CompositorState& state,
     std::shared_ptr<Config> const& config,
@@ -51,7 +50,6 @@ Output::Output(
     output { output },
     workspace_manager { workspace_manager },
     area { area },
-    tools { tools },
     floating_window_manager { floating_window_manager },
     state { state },
     config { config },
@@ -79,7 +77,7 @@ std::shared_ptr<Container> Output::intersect(const MirPointerEvent* event)
 
     auto x = miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_x);
     auto y = miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_y);
-    if (auto const window = tools.window_at({ x, y }))
+    if (auto const window = window_controller.window_at(x, y))
         return window_controller.get_container(window);
 
     return nullptr;
@@ -118,7 +116,7 @@ void Output::advise_new_workspace(WorkspaceCreationData const&& data)
 {
     // Workspaces are always kept in sorted order with numbered workspaces in front followed by all other workspaces
     auto new_workspace = std::make_shared<Workspace>(
-        this, tools, data.id, data.num, data.name, config, window_controller, state, floating_window_manager);
+        this, data.id, data.num, data.name, config, window_controller, state, floating_window_manager);
     insert_sorted(workspaces, new_workspace, [](std::shared_ptr<Workspace> const& a, std::shared_ptr<Workspace> const& b)
     {
         if (a->num() && b->num())
@@ -369,8 +367,8 @@ void Output::add_immediately(miral::Window& window, AllocationHint hint)
     if (spec.state() == mir_window_state_hidden)
         spec.state() = mir_window_state_restored;
 
-    AllocationHint result = allocate_position(tools.info_for(window.application()), spec, hint);
-    tools.modify_window(window, spec);
+    AllocationHint result = allocate_position(window_controller.info_for(window.application()), spec, hint);
+    window_controller.modify(window, spec);
     auto container = create_container(window_controller.info_for(window), result);
     container->handle_ready();
 }

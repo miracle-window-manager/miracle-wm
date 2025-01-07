@@ -66,8 +66,6 @@ public:
         std::shared_ptr<WindowToolsAccessor> const&);
     ~Policy() override;
 
-    // Interactions with the engine
-
     bool handle_keyboard_event(MirKeyboardEvent const* event) override;
     bool handle_pointer_event(MirPointerEvent const* event) override;
     auto place_new_window(
@@ -102,26 +100,21 @@ public:
     void advise_application_zone_delete(miral::Zone const& application_zone) override;
     void advise_end() override;
 
-    // Getters
-
-    [[nodiscard]] Output const* get_active_output() const { return state.focused_output().get(); }
-    [[nodiscard]] std::vector<std::shared_ptr<Output>> const& get_output_list() const { return state.output_list; }
-    [[nodiscard]] geom::Point const& get_cursor_position() const { return state.cursor_position; }
-    [[nodiscard]] CompositorState const& get_state() const { return state; }
-
 private:
     class Self;
 
     void handle_drag_and_drop_pointer_event(MirPointerEvent const* event);
 
-    bool is_starting_ = true;
-    CompositorState& state;
-    AllocationHint pending_allocation;
-    std::vector<miral::Window> orphaned_window_list;
-    miral::WindowManagerTools window_manager_tools;
-    std::shared_ptr<MinimalWindowManager> floating_window_manager;
     AutoRestartingLauncher& external_client_launcher;
     std::shared_ptr<Config> config;
+    std::shared_ptr<Animator> animator;
+    SurfaceTracker& surface_tracker;
+    CompositorState& state;
+
+    bool is_starting_ = true;
+    AllocationHint pending_allocation;
+    std::vector<miral::Window> orphaned_window_list;
+    std::shared_ptr<MinimalWindowManager> floating_window_manager;
     WorkspaceObserverRegistrar workspace_observer_registrar;
     ModeObserverRegistrar mode_observer_registrar;
     WorkspaceManager workspace_manager;
@@ -129,13 +122,10 @@ private:
     Scratchpad scratchpad_;
     CommandController command_controller;
     std::shared_ptr<Ipc> ipc;
-    std::shared_ptr<Animator> animator;
     std::unique_ptr<AnimatorLoop> animator_loop;
     WindowManagerToolsWindowController window_controller;
     IpcCommandExecutor i3_command_executor;
-    SurfaceTracker& surface_tracker;
     std::shared_ptr<ContainerGroupContainer> group_selection;
-    mir::Server const& server;
 };
 }
 

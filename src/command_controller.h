@@ -35,6 +35,13 @@ namespace miracle
 class Scratchpad;
 class ModeObserverRegistrar;
 
+class CommandControllerInterface
+{
+public:
+    virtual ~CommandControllerInterface() = default;
+    virtual void quit() = 0;
+};
+
 /// Responsible for fielding requests from the system and forwarding
 /// them to an appropriate handler. Requests can come from any thread
 /// (e.g. the keyboard input thread, the ipc thread, etc.).
@@ -52,8 +59,8 @@ public:
         WindowController& window_controller,
         WorkspaceManager& workspace_manager,
         ModeObserverRegistrar& mode_observer_registrar,
-        miral::MirRunner& runner,
-        Scratchpad& scratchpad_);
+        std::unique_ptr<CommandControllerInterface> interface,
+        Scratchpad& scratchpad);
 
     bool try_request_horizontal();
     bool try_request_vertical();
@@ -121,7 +128,7 @@ private:
     WindowController& window_controller;
     WorkspaceManager& workspace_manager;
     ModeObserverRegistrar& mode_observer_registrar;
-    miral::MirRunner& runner;
+    std::unique_ptr<CommandControllerInterface> interface;
     Scratchpad& scratchpad_;
 
     bool can_move_container() const;
