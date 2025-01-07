@@ -24,7 +24,8 @@ add_executable(miracle-wm-tests
     stub_configuration.h
     stub_session.h
     stub_surface.h
-    stub_window_controller.h)
+    stub_window_controller.h
+    stub_container.h)
 
 target_include_directories(miracle-wm-tests PUBLIC SYSTEM
     ${GTEST_INCLUDE_DIRS}

@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "scratchpad.h"
 #include "stub_configuration.h"
 #include "stub_window_controller.h"
+#include "stub_container.h"
 #include "workspace_manager.h"
 #include "workspace_observer.h"
 
@@ -66,8 +67,3 @@ public:
     Scratchpad scratchpad;
     CommandController command_controller;
 };
-
-TEST_F(CommandControllerTest, x)
-{
-
-}
