@@ -38,6 +38,7 @@ class ModeObserverRegistrar;
 class CommandControllerInterface
 {
 public:
+    virtual ~CommandControllerInterface() = default;
     virtual void quit() = 0;
 };
 

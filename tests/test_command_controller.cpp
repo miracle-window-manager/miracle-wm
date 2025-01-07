@@ -29,7 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace miracle;
 
-class StubCommandControllerInteface : public CommandControllerInterface
+class StubCommandControllerInterface : public CommandControllerInterface
 {
 public:
     void quit() override { }
@@ -50,7 +50,7 @@ public:
             window_controller,
             workspace_manager,
             mode_observer_registrar,
-            std::make_unique<StubCommandControllerInteface>(),
+            std::make_unique<StubCommandControllerInterface>(),
             scratchpad)
     {
     }
