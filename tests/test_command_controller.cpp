@@ -19,8 +19,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "mode_observer.h"
 #include "scratchpad.h"
 #include "stub_configuration.h"
-#include "stub_window_controller.h"
 #include "stub_container.h"
+#include "stub_window_controller.h"
 #include "workspace_manager.h"
 #include "workspace_observer.h"
 
@@ -32,27 +32,26 @@ using namespace miracle;
 class StubCommandControllerInteface : public CommandControllerInterface
 {
 public:
-    void quit() override {}
+    void quit() override { }
 };
 
 class CommandControllerTest : public testing::Test
 {
 public:
-    CommandControllerTest()
-    : config(std::make_shared<test::StubConfiguration>()),
-      window_controller(data),
-      workspace_manager(workspace_registry, config, state),
-      scratchpad(window_controller, state),
-      command_controller(
-        config,
-        mutex,
-        state,
-        window_controller,
-        workspace_manager,
-        mode_observer_registrar,
-        std::make_unique<StubCommandControllerInteface>(),
-        scratchpad
-      )
+    CommandControllerTest() :
+        config(std::make_shared<test::StubConfiguration>()),
+        window_controller(data),
+        workspace_manager(workspace_registry, config, state),
+        scratchpad(window_controller, state),
+        command_controller(
+            config,
+            mutex,
+            state,
+            window_controller,
+            workspace_manager,
+            mode_observer_registrar,
+            std::make_unique<StubCommandControllerInteface>(),
+            scratchpad)
     {
     }
 

@@ -50,8 +50,8 @@ const int MODIFIER_MASK = mir_input_event_modifier_alt | mir_input_event_modifie
 class MirRunnerCommandControllerInterface : public CommandControllerInterface
 {
 public:
-    explicit MirRunnerCommandControllerInterface(miral::MirRunner& runner)
-      : runner {runner}
+    explicit MirRunnerCommandControllerInterface(miral::MirRunner& runner) :
+        runner { runner }
     {
     }
 
