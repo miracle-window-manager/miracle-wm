@@ -90,18 +90,24 @@ std::shared_ptr<LeafContainer> TilingWindowTree::confirm_window(
     return parent->confirm_window(window_info.window());
 }
 
-void TilingWindowTree::graft(std::shared_ptr<ParentContainer> const& parent)
+void TilingWindowTree::graft(
+    std::shared_ptr<ParentContainer> const& incoming,
+    std::shared_ptr<ParentContainer> const& parent,
+    int index)
 {
-    parent->set_tree(this);
-    root_lane->graft_existing(parent, root_lane->num_nodes());
-    root_lane->commit_changes();
+    incoming->set_tree(this);
+    parent->graft_existing(incoming, index == -1 ? (int)parent->num_nodes() : index);
+    parent->commit_changes();
 }
 
-void TilingWindowTree::graft(std::shared_ptr<LeafContainer> const& leaf)
+void TilingWindowTree::graft(
+    std::shared_ptr<LeafContainer> const& leaf,
+    std::shared_ptr<ParentContainer> const& parent,
+    int index)
 {
     leaf->set_tree(this);
-    root_lane->graft_existing(leaf, root_lane->num_nodes());
-    root_lane->commit_changes();
+    parent->graft_existing(leaf, index == -1 ? (int)parent->num_nodes() : index);
+    parent->commit_changes();
 }
 
 bool TilingWindowTree::resize_container(miracle::Direction direction, int pixels, Container& container)
@@ -224,6 +230,29 @@ bool TilingWindowTree::move_container(miracle::Direction direction, Container& c
     }
     }
 
+    return true;
+}
+
+bool TilingWindowTree::move_to(Container& to_move, Container& target)
+{
+    auto target_parent = target.get_parent().lock();
+    if (!target_parent)
+    {
+        mir::log_warning("Unable to move active window: second_window has no second_parent");
+        return false;
+    }
+
+    auto active_parent = Container::as_parent(to_move.get_parent().lock());
+    if (active_parent == target_parent)
+    {
+        active_parent->swap_nodes(to_move.shared_from_this(), target.shared_from_this());
+        active_parent->commit_changes();
+        return true;
+    }
+
+    auto [first, second] = transfer_node(to_move.shared_from_this(), target.shared_from_this());
+    first->commit_changes();
+    second->commit_changes();
     return true;
 }
 

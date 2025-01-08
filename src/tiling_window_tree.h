@@ -47,6 +47,12 @@ public:
     virtual Workspace* get_workspace() const = 0;
 };
 
+struct GraftRequest
+{
+    std::shared_ptr<Container> const& parent;
+    int index = -1;
+};
+
 class TilingWindowTree
 {
 public:
@@ -68,8 +74,8 @@ public:
         miral::WindowInfo const&,
         std::shared_ptr<ParentContainer> const& container);
 
-    void graft(std::shared_ptr<ParentContainer> const&);
-    void graft(std::shared_ptr<LeafContainer> const&);
+    void graft(std::shared_ptr<ParentContainer> const&, std::shared_ptr<ParentContainer> const& parent, int index = -1);
+    void graft(std::shared_ptr<LeafContainer> const&, std::shared_ptr<ParentContainer> const& parent, int index = -1);
 
     /// Try to resize the current active window in the provided direction
     bool resize_container(Direction direction, int pixels, Container&);
@@ -78,6 +84,9 @@ public:
 
     /// Move the active window in the provided direction
     bool move_container(Direction direction, Container&);
+
+    /// Move [to_move] to the current position of [target].
+    bool move_to(Container& to_move, Container& target);
 
     /// Select the next window in the provided direction
     bool select_next(Direction direction, Container&);

@@ -375,14 +375,26 @@ void Policy::handle_drag_and_drop_pointer_event(MirPointerEvent const* event)
             return;
         }
 
-        if (state.focused_container())
+        if (!state.focused_container())
         {
-            int const diff_x = x - state.drag_and_drop_state().cursor_start_x;
-            int const diff_y = y - state.drag_and_drop_state().cursor_start_y;
-            state.focused_container()->drag(
-                state.drag_and_drop_state().container_start_x + diff_x,
-                state.drag_and_drop_state().container_start_y + diff_y);
+            mir::log_warning("handle_drag_and_drop_pointer_event: focused container no longer exists while dragging");
+            return;
         }
+
+        // Drag the container to the new position
+        int const diff_x = x - state.drag_and_drop_state().cursor_start_x;
+        int const diff_y = y - state.drag_and_drop_state().cursor_start_y;
+        state.focused_container()->drag(
+            state.drag_and_drop_state().container_start_x + diff_x,
+            state.drag_and_drop_state().container_start_y + diff_y);
+
+        // Get the intersection and try to move ourselves there. We only care if we're intersecting
+        // a leaf container, as those would be the only one in the grid.
+        std::shared_ptr<Container> intersected = state.focused_output()->intersect(event);
+        if (!intersected)
+            return;
+
+        command_controller.drag_to(state.focused_container(), intersected);
     }
     else if (action == mir_pointer_action_button_down)
     {
