@@ -740,7 +740,7 @@ std::shared_ptr<Container> foreach_node_internal(
 }
 }
 
-void TilingWindowTree::foreach_node(std::function<void(std::shared_ptr<Container> const&)> const& f)
+void TilingWindowTree::foreach_node(std::function<void(std::shared_ptr<Container> const&)> const& f) const
 {
     foreach_node_internal(
         [&](auto const& node)
@@ -748,7 +748,7 @@ void TilingWindowTree::foreach_node(std::function<void(std::shared_ptr<Container
         root_lane);
 }
 
-bool TilingWindowTree::foreach_node_pred(std::function<bool(std::shared_ptr<Container> const&)> const& f)
+bool TilingWindowTree::foreach_node_pred(std::function<bool(std::shared_ptr<Container> const&)> const& f) const
 {
     return foreach_node_internal(
                [&](auto const& node)

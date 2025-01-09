@@ -77,10 +77,34 @@ std::shared_ptr<Container> Output::intersect(const MirPointerEvent* event)
 
     auto x = miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_x);
     auto y = miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_y);
-    if (auto const window = window_controller.window_at(x, y))
-        return window_controller.get_container(window);
 
-    return nullptr;
+    std::shared_ptr<Container> result = nullptr;
+    for (auto const& workspace : workspaces)
+    {
+        workspace->get_tree()->foreach_node_pred([&](std::shared_ptr<Container> const& container)
+        {
+            if (container->is_leaf() && container->get_visible_area().contains({ x, y }))
+            {
+                result = container;
+                return true;
+            }
+            return false;
+        });
+    }
+
+    if (!result)
+    {
+        if (auto const window = window_controller.window_at(x, y))
+        {
+            result = window_controller.get_container(window);
+
+            // We do not want to select leaf windows by their actual position, only their tiled position
+            if (result->get_type() == ContainerType::leaf)
+                result = nullptr;
+        }
+    }
+
+    return result;
 }
 
 AllocationHint Output::allocate_position(

@@ -1034,7 +1034,8 @@ void CommandController::drag_to(
 
     // TODO: Assuming that these containers are in the same tiling tree for now
     auto to_leaf = Container::as_leaf(to);
-    to_leaf->get_tree()->move_to(*dragging, *to);
+    auto tree = to_leaf->get_tree();
+    tree->move_to(*dragging, *to);
 }
 
 nlohmann::json CommandController::to_json() const
