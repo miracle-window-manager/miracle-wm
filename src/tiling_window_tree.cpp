@@ -91,21 +91,11 @@ std::shared_ptr<LeafContainer> TilingWindowTree::confirm_window(
 }
 
 void TilingWindowTree::graft(
-    std::shared_ptr<ParentContainer> const& incoming,
+    std::shared_ptr<Container> const& leaf,
     std::shared_ptr<ParentContainer> const& parent,
     int index)
 {
-    incoming->set_tree(this);
-    parent->graft_existing(incoming, index == -1 ? (int)parent->num_nodes() : index);
-    parent->commit_changes();
-}
-
-void TilingWindowTree::graft(
-    std::shared_ptr<LeafContainer> const& leaf,
-    std::shared_ptr<ParentContainer> const& parent,
-    int index)
-{
-    leaf->set_tree(this);
+    leaf->tree(this);
     parent->graft_existing(leaf, index == -1 ? (int)parent->num_nodes() : index);
     parent->commit_changes();
 }
@@ -250,6 +240,7 @@ bool TilingWindowTree::move_to(Container& to_move, Container& target)
         return true;
     }
 
+    // Transfer the node to the new parent.
     auto [first, second] = transfer_node(to_move.shared_from_this(), target.shared_from_this());
     first->commit_changes();
     second->commit_changes();
@@ -629,14 +620,14 @@ std::shared_ptr<ParentContainer> TilingWindowTree::handle_remove(std::shared_ptr
 std::tuple<std::shared_ptr<ParentContainer>, std::shared_ptr<ParentContainer>> TilingWindowTree::transfer_node(
     std::shared_ptr<Container> const& node, std::shared_ptr<Container> const& to)
 {
-    // We are moving the active window to a new lane
     auto to_update = handle_remove(node);
 
-    // Note: When we remove moving_node from its initial position, there's a chance
-    // that the target_lane was melted into another lane. Hence, we need to run it
+    // When we remove [node] from its initial position, there's a chance
+    // that the target_lane was melted into another lane. Hence, we need to return it
     auto target_parent = Container::as_parent(to->get_parent().lock());
     auto index = target_parent->get_index_of_node(to);
     target_parent->graft_existing(node, index + 1);
+    node->tree(target_parent->tree());
 
     return { target_parent, to_update };
 }

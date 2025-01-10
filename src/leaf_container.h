@@ -74,9 +74,8 @@ public:
     void request_horizontal_layout() override;
     void request_vertical_layout() override;
     void toggle_layout(bool cycle_thru_all) override;
-    void set_tree(TilingWindowTree* tree);
-
-    [[nodiscard]] TilingWindowTree* get_tree() const { return tree; }
+    [[nodiscard]] TilingWindowTree* tree() const override;
+    void tree(TilingWindowTree* tree) override;
     [[nodiscard]] std::optional<miral::Window> window() const override { return window_; }
     void commit_changes() override;
     void show() override;
@@ -109,7 +108,7 @@ private:
     geom::Rectangle logical_area;
     std::optional<geom::Rectangle> next_logical_area;
     std::shared_ptr<Config> config;
-    TilingWindowTree* tree;
+    TilingWindowTree* tree_;
     miral::Window window_;
     std::weak_ptr<ParentContainer> parent;
     CompositorState const& state;

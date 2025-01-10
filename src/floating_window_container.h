@@ -99,6 +99,8 @@ public:
     bool set_layout(LayoutScheme scheme) override { return false; }
     LayoutScheme get_layout() const override { return LayoutScheme::none; }
     std::weak_ptr<ParentContainer> get_parent() const override;
+    void tree(TilingWindowTree*) override { }
+    TilingWindowTree* tree() const override { return nullptr; }
     void set_scratchpad_state(ScratchpadState state);
     nlohmann::json to_json() const override;
 

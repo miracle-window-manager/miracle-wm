@@ -42,6 +42,7 @@ class FloatingWindowContainer;
 class ContainerGroupContainer;
 class Workspace;
 class Output;
+class TilingWindowTree;
 
 enum class ContainerType
 {
@@ -104,6 +105,8 @@ public:
         = 0;
     virtual Workspace* get_workspace() const = 0;
     virtual Output* get_output() const = 0;
+    virtual TilingWindowTree* tree() const = 0;
+    virtual void tree(TilingWindowTree*) = 0;
     virtual glm::mat4 get_transform() const = 0;
     virtual void set_transform(glm::mat4 transform) = 0;
     virtual glm::mat4 get_workspace_transform() const;

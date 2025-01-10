@@ -92,6 +92,8 @@ public:
     void drag(int, int) override { }
     bool drag_stop() override { return false; }
     bool set_layout(LayoutScheme scheme) override { return false; }
+    void tree(TilingWindowTree*) override { }
+    TilingWindowTree* tree() const override { return nullptr; }
     LayoutScheme get_layout() const override { return LayoutScheme::none; }
     nlohmann::json to_json() const override { return {}; }
 

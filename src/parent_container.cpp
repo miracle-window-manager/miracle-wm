@@ -94,7 +94,7 @@ ParentContainer::ParentContainer(
     CompositorState const& state) :
     node_interface { node_interface },
     logical_area { std::move(area) },
-    tree { tree },
+    tree_ { tree },
     config { config },
     parent { parent },
     state { state },
@@ -217,7 +217,7 @@ std::shared_ptr<LeafContainer> ParentContainer::create_space_for_window(int pend
         node_interface,
         create_space(pending_index),
         config,
-        tree,
+        tree_,
         as_parent(shared_from_this()),
         state);
     sub_nodes.insert(sub_nodes.begin() + pending_index, pending_node);
@@ -263,7 +263,7 @@ std::shared_ptr<ParentContainer> ParentContainer::convert_to_parent(std::shared_
         node_interface,
         container->get_logical_area(),
         config,
-        tree,
+        tree_,
         Container::as_parent(shared_from_this()),
         state);
     new_parent_node->sub_nodes.push_back(container);
@@ -634,9 +634,14 @@ void ParentContainer::toggle_layout(bool cycle_thru_all)
     relayout();
 }
 
-void ParentContainer::set_tree(TilingWindowTree* tree_)
+TilingWindowTree* ParentContainer::tree() const
 {
-    tree = tree_;
+    return tree_;
+}
+
+void ParentContainer::tree(TilingWindowTree* in)
+{
+    tree_ = in;
 }
 
 void ParentContainer::on_focus_gained()
@@ -688,12 +693,12 @@ void ParentContainer::on_open()
 
 Workspace* ParentContainer::get_workspace() const
 {
-    return tree->get_workspace();
+    return tree_->get_workspace();
 }
 
 Output* ParentContainer::get_output() const
 {
-    return tree->get_workspace()->get_output();
+    return tree_->get_workspace()->get_output();
 }
 
 glm::mat4 ParentContainer::get_transform() const

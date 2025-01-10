@@ -84,6 +84,8 @@ public:
     bool drag_stop() override { return false; }
     bool set_layout(LayoutScheme scheme) override { return false; }
     LayoutScheme get_layout() const override { return LayoutScheme::none; }
+    void tree(TilingWindowTree*) override { }
+    TilingWindowTree* tree() const override { return nullptr; }
     bool is_fullscreen() const override;
     nlohmann::json to_json() const override;
 

@@ -74,8 +74,7 @@ public:
         miral::WindowInfo const&,
         std::shared_ptr<ParentContainer> const& container);
 
-    void graft(std::shared_ptr<ParentContainer> const&, std::shared_ptr<ParentContainer> const& parent, int index = -1);
-    void graft(std::shared_ptr<LeafContainer> const&, std::shared_ptr<ParentContainer> const& parent, int index = -1);
+    void graft(std::shared_ptr<Container> const&, std::shared_ptr<ParentContainer> const& parent, int index = -1);
 
     /// Try to resize the current active window in the provided direction
     bool resize_container(Direction direction, int pixels, Container&);
@@ -85,7 +84,8 @@ public:
     /// Move the active window in the provided direction
     bool move_container(Direction direction, Container&);
 
-    /// Move [to_move] to the current position of [target].
+    /// Move [to_move] to the current position of [target]. [target] does
+    /// not have to be in the tree.
     bool move_to(Container& to_move, Container& target);
 
     /// Select the next window in the provided direction

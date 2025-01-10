@@ -1034,7 +1034,7 @@ void CommandController::drag_to(
 
     // TODO: Assuming that these containers are in the same tiling tree for now
     auto to_leaf = Container::as_leaf(to);
-    auto tree = to_leaf->get_tree();
+    auto tree = to_leaf->tree();
     tree->move_to(*dragging, *to);
 }
 
