@@ -258,7 +258,13 @@ void LeafContainer::commit_changes()
         logical_area = next_logical_area.value();
         next_logical_area.reset();
         if (!window_controller.is_fullscreen(window_))
-            window_controller.set_rectangle(window_, previous, get_visible_area());
+        {
+            auto next_visible_area = get_visible_area();
+            if (is_dragging_ && next_visible_area.top_left != dragged_position)
+                next_visible_area.top_left = dragged_position;
+
+            window_controller.set_rectangle(window_, previous, next_visible_area);
+        }
     }
 }
 
@@ -416,6 +422,7 @@ void LeafContainer::drag(int x, int y)
 
     miral::WindowSpecification spec;
     spec.top_left() = { x, y };
+    dragged_position = { x, y };
     window_controller.modify(window_, spec);
 }
 

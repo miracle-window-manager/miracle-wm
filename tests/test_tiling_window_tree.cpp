@@ -225,3 +225,14 @@ TEST_F(TilingWindowTreeTest, can_move_container_to_other_tree)
 
     ASSERT_EQ(leaf2->tree(), &other_tree);
 }
+
+TEST_F(TilingWindowTreeTest, dragged_windows_do_not_change_their_position_when_a_new_window_is_added)
+{
+    auto leaf1 = create_leaf();
+    leaf1->drag_start();
+    leaf1->drag(100, 100);
+
+    auto leaf2 = create_leaf();
+    ASSERT_EQ(window_controller.get_window_data(leaf1).rectangle.top_left, mir::geometry::Point(100, 100));
+    ASSERT_EQ(window_controller.get_window_data(leaf1).rectangle.size, geom::Size(OUTPUT_WIDTH / 2.f, OUTPUT_HEIGHT));
+}

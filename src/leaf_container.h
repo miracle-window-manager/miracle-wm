@@ -119,6 +119,7 @@ private:
     glm::mat4 transform = glm::mat4(1.f);
     uint32_t animation_handle_ = 0;
     bool is_dragging_ = false;
+    geom::Point dragged_position;
 };
 
 } // miracle
