@@ -52,7 +52,7 @@ FloatingTreeContainer::FloatingTreeContainer(
     WindowController& window_controller,
     CompositorState const& compositor_state,
     std::shared_ptr<Config> const& config) :
-    tree {
+    tree_ {
         std::make_unique<TilingWindowTree>(
             std::make_unique<FloatingTreeTilingWindowTreeInterface>(workspace),
             window_controller,
@@ -72,12 +72,12 @@ ContainerType FloatingTreeContainer::get_type() const
 
 void FloatingTreeContainer::show()
 {
-    tree->show();
+    tree_->show();
 }
 
 void FloatingTreeContainer::hide()
 {
-    tree->hide();
+    tree_->hide();
 }
 
 void FloatingTreeContainer::commit_changes()
@@ -86,12 +86,12 @@ void FloatingTreeContainer::commit_changes()
 
 mir::geometry::Rectangle FloatingTreeContainer::get_logical_area() const
 {
-    return tree->get_area();
+    return tree_->get_area();
 }
 
 void FloatingTreeContainer::set_logical_area(mir::geometry::Rectangle const& rectangle)
 {
-    tree->set_area(rectangle);
+    tree_->set_area(rectangle);
 }
 
 mir::geometry::Rectangle FloatingTreeContainer::get_visible_area() const
@@ -189,9 +189,9 @@ void FloatingTreeContainer::on_focus_lost()
 
 void FloatingTreeContainer::on_move_to(mir::geometry::Point const& top_left)
 {
-    auto area = tree->get_area();
+    auto area = tree_->get_area();
     area.top_left = top_left;
-    tree->set_area(area);
+    tree_->set_area(area);
 }
 
 mir::geometry::Rectangle
@@ -286,9 +286,9 @@ bool FloatingTreeContainer::move_by(Direction direction, int pixels)
 
 bool FloatingTreeContainer::move_to(int x, int y)
 {
-    auto area = tree->get_area();
+    auto area = tree_->get_area();
     area.top_left = geom::Point { x, y };
-    tree->set_area(area);
+    tree_->set_area(area);
     return true;
 }
 } // miracle

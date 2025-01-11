@@ -54,12 +54,12 @@ std::string size_to_string(mir::optional_value<mir::geometry::Size> const& size)
     return ss.str();
 }
 
-void print_specification(std::string const& label, miral::WindowSpecification const& spec)
+void print_specification(std::string const& label, mir::geometry::Rectangle const& spec)
 {
     std::stringstream ss;
     ss << label << ": \n";
-    ss << "  top_left(): " << point_to_string(spec.top_left()) << "\n";
-    ss << "  size(): " << size_to_string(spec.size()) << "\n";
+    ss << "  top_left(): " << point_to_string(spec.top_left) << "\n";
+    ss << "  size(): " << size_to_string(spec.size) << "\n";
     mir::log_info(ss.str());
 }
 }

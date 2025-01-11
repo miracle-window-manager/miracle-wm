@@ -37,7 +37,6 @@ public:
         WindowController&,
         CompositorState const&,
         std::shared_ptr<Config> const&);
-    [[nodiscard]] TilingWindowTree* get_tree() const { return tree.get(); }
 
     ContainerType get_type() const override;
     void show() override;
@@ -91,11 +90,13 @@ public:
     void drag(int, int) override { }
     bool drag_stop() override { return false; }
     bool set_layout(LayoutScheme) override { return false; }
+    void tree(TilingWindowTree*) override { }
+    TilingWindowTree* tree() const override { return tree_.get(); }
     LayoutScheme get_layout() const override { return LayoutScheme::none; }
     nlohmann::json to_json() const override { return {}; }
 
 private:
-    std::unique_ptr<TilingWindowTree> tree;
+    std::unique_ptr<TilingWindowTree> tree_;
     Workspace* workspace_;
 };
 

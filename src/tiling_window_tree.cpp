@@ -90,18 +90,14 @@ std::shared_ptr<LeafContainer> TilingWindowTree::confirm_window(
     return parent->confirm_window(window_info.window());
 }
 
-void TilingWindowTree::graft(std::shared_ptr<ParentContainer> const& parent)
+void TilingWindowTree::graft(
+    std::shared_ptr<Container> const& leaf,
+    std::shared_ptr<ParentContainer> const& parent,
+    int index)
 {
-    parent->set_tree(this);
-    root_lane->graft_existing(parent, root_lane->num_nodes());
-    root_lane->commit_changes();
-}
-
-void TilingWindowTree::graft(std::shared_ptr<LeafContainer> const& leaf)
-{
-    leaf->set_tree(this);
-    root_lane->graft_existing(leaf, root_lane->num_nodes());
-    root_lane->commit_changes();
+    leaf->tree(this);
+    parent->graft_existing(leaf, index == -1 ? (int)parent->num_nodes() : index);
+    parent->commit_changes();
 }
 
 bool TilingWindowTree::resize_container(miracle::Direction direction, int pixels, Container& container)
@@ -172,31 +168,7 @@ bool TilingWindowTree::move_container(miracle::Direction direction, Container& c
     {
     case MoveResult::traversal_type_insert:
     {
-        auto target_node = traversal_result.node;
-        if (!target_node)
-        {
-            mir::log_warning("Unable to move active window: target_window not found");
-            return false;
-        }
-
-        auto target_parent = target_node->get_parent().lock();
-        if (!target_parent)
-        {
-            mir::log_warning("Unable to move active window: second_window has no second_parent");
-            return false;
-        }
-
-        auto active_parent = Container::as_parent(container.get_parent().lock());
-        if (active_parent == target_parent)
-        {
-            active_parent->swap_nodes(container.shared_from_this(), target_node);
-            active_parent->commit_changes();
-            break;
-        }
-
-        auto [first, second] = transfer_node(container.shared_from_this(), target_node);
-        first->commit_changes();
-        second->commit_changes();
+        move_to(container, *traversal_result.node);
         break;
     }
     case MoveResult::traversal_type_append:
@@ -224,6 +196,30 @@ bool TilingWindowTree::move_container(miracle::Direction direction, Container& c
     }
     }
 
+    return true;
+}
+
+bool TilingWindowTree::move_to(Container& to_move, Container& target)
+{
+    auto target_parent = target.get_parent().lock();
+    if (!target_parent)
+    {
+        mir::log_warning("Unable to move active window: second_window has no second_parent");
+        return false;
+    }
+
+    auto active_parent = Container::as_parent(to_move.get_parent().lock());
+    if (active_parent == target_parent)
+    {
+        active_parent->swap_nodes(to_move.shared_from_this(), target.shared_from_this());
+        active_parent->commit_changes();
+        return true;
+    }
+
+    // Transfer the node to the new parent.
+    auto [first, second] = transfer_node(to_move.shared_from_this(), target.shared_from_this());
+    first->commit_changes();
+    second->commit_changes();
     return true;
 }
 
@@ -600,14 +596,14 @@ std::shared_ptr<ParentContainer> TilingWindowTree::handle_remove(std::shared_ptr
 std::tuple<std::shared_ptr<ParentContainer>, std::shared_ptr<ParentContainer>> TilingWindowTree::transfer_node(
     std::shared_ptr<Container> const& node, std::shared_ptr<Container> const& to)
 {
-    // We are moving the active window to a new lane
     auto to_update = handle_remove(node);
 
-    // Note: When we remove moving_node from its initial position, there's a chance
-    // that the target_lane was melted into another lane. Hence, we need to run it
+    // When we remove [node] from its initial position, there's a chance
+    // that the target_lane was melted into another lane. Hence, we need to return it
     auto target_parent = Container::as_parent(to->get_parent().lock());
     auto index = target_parent->get_index_of_node(to);
     target_parent->graft_existing(node, index + 1);
+    node->tree(target_parent->tree());
 
     return { target_parent, to_update };
 }
@@ -711,7 +707,7 @@ std::shared_ptr<Container> foreach_node_internal(
 }
 }
 
-void TilingWindowTree::foreach_node(std::function<void(std::shared_ptr<Container> const&)> const& f)
+void TilingWindowTree::foreach_node(std::function<void(std::shared_ptr<Container> const&)> const& f) const
 {
     foreach_node_internal(
         [&](auto const& node)
@@ -719,7 +715,7 @@ void TilingWindowTree::foreach_node(std::function<void(std::shared_ptr<Container
         root_lane);
 }
 
-bool TilingWindowTree::foreach_node_pred(std::function<bool(std::shared_ptr<Container> const&)> const& f)
+bool TilingWindowTree::foreach_node_pred(std::function<bool(std::shared_ptr<Container> const&)> const& f) const
 {
     return foreach_node_internal(
                [&](auto const& node)

@@ -413,10 +413,10 @@ void Workspace::graft(std::shared_ptr<Container> const& container)
         break;
     }
     case ContainerType::parent:
-        tree->graft(Container::as_parent(container));
+        tree->graft(Container::as_parent(container), tree->get_root());
         break;
     case ContainerType::leaf:
-        tree->graft(Container::as_leaf(container));
+        tree->graft(Container::as_leaf(container), tree->get_root());
         break;
     default:
         mir::log_error("Workspace::graft: ungraftable container type: %d", (int)container->get_type());

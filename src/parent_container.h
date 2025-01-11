@@ -79,7 +79,8 @@ public:
     void request_horizontal_layout() override;
     void request_vertical_layout() override;
     void toggle_layout(bool cycle_thru_all) override;
-    void set_tree(TilingWindowTree*);
+    TilingWindowTree* tree() const override;
+    void tree(TilingWindowTree*) override;
     void on_focus_gained() override;
     void on_focus_lost() override;
     void on_move_to(mir::geometry::Point const& top_left) override;
@@ -119,7 +120,7 @@ public:
 private:
     WindowController& node_interface;
     geom::Rectangle logical_area;
-    TilingWindowTree* tree;
+    TilingWindowTree* tree_;
     std::shared_ptr<Config> config;
     std::weak_ptr<ParentContainer> parent;
     CompositorState const& state;

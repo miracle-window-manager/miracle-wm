@@ -17,6 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "compositor_state.h"
 #include "leaf_container.h"
+#include "parent_container.h"
 #include "stub_configuration.h"
 #include "stub_session.h"
 #include "stub_surface.h"
@@ -30,9 +31,12 @@ using namespace miracle;
 
 namespace
 {
-geom::Rectangle r {
+const float OUTPUT_WIDTH = 1280;
+const float OUTPUT_HEIGHT = 720;
+
+const geom::Rectangle TREE_BOUNDS {
     geom::Point(0, 0),
-    geom::Size(1280, 720)
+    geom::Size(OUTPUT_WIDTH, OUTPUT_HEIGHT)
 };
 }
 
@@ -50,7 +54,7 @@ public:
     }
 
 private:
-    std::vector<miral::Zone> zones = { r };
+    std::vector<miral::Zone> zones = { TREE_BOUNDS };
 };
 
 class TilingWindowTreeTest : public testing::Test
@@ -62,14 +66,18 @@ public:
             window_controller,
             state,
             std::make_shared<test::StubConfiguration>(),
-            r)
+            TREE_BOUNDS)
     {
     }
 
-    std::shared_ptr<LeafContainer> create_leaf()
+    std::shared_ptr<LeafContainer> create_leaf(
+        std::shared_ptr<ParentContainer> parent = nullptr,
+        TilingWindowTree* target_tree = nullptr)
     {
+        if (target_tree == nullptr)
+            target_tree = &tree;
         miral::WindowSpecification spec;
-        spec = tree.place_new_window(spec, nullptr);
+        spec = target_tree->place_new_window(spec, parent);
 
         auto session = std::make_shared<test::StubSession>();
         sessions.push_back(session);
@@ -79,11 +87,11 @@ public:
         miral::Window window(session, surface);
         miral::WindowInfo info(window, spec);
 
-        auto leaf = tree.confirm_window(info, nullptr);
+        auto leaf = target_tree->confirm_window(info, parent);
         pairs.push_back({ window, leaf });
 
         state.add(leaf);
-        tree.advise_focus_gained(*leaf);
+        target_tree->advise_focus_gained(*leaf);
         state.focus_container(leaf);
         return leaf;
     }
@@ -99,7 +107,7 @@ public:
 TEST_F(TilingWindowTreeTest, can_add_single_window_without_border_and_gaps)
 {
     auto leaf = create_leaf();
-    ASSERT_EQ(leaf->get_logical_area().size, geom::Size(1280, 720));
+    ASSERT_EQ(leaf->get_logical_area().size, geom::Size(OUTPUT_WIDTH, OUTPUT_HEIGHT));
     ASSERT_EQ(leaf->get_logical_area().top_left, geom::Point(0, 0));
 }
 
@@ -108,11 +116,11 @@ TEST_F(TilingWindowTreeTest, can_add_two_windows_horizontally_without_border_and
     auto leaf1 = create_leaf();
     auto leaf2 = create_leaf();
 
-    ASSERT_EQ(leaf1->get_logical_area().size, geom::Size(1280 / 2.f, 720));
+    ASSERT_EQ(leaf1->get_logical_area().size, geom::Size(OUTPUT_WIDTH / 2.f, OUTPUT_HEIGHT));
     ASSERT_EQ(leaf1->get_logical_area().top_left, geom::Point(0, 0));
 
-    ASSERT_EQ(leaf2->get_logical_area().size, geom::Size(1280 / 2.f, 720));
-    ASSERT_EQ(leaf2->get_logical_area().top_left, geom::Point(1280 / 2.f, 0));
+    ASSERT_EQ(leaf2->get_logical_area().size, geom::Size(OUTPUT_WIDTH / 2.f, OUTPUT_HEIGHT));
+    ASSERT_EQ(leaf2->get_logical_area().top_left, geom::Point(OUTPUT_WIDTH / 2.f, 0));
 }
 
 TEST_F(TilingWindowTreeTest, can_add_two_windows_vertically_without_border_and_gaps)
@@ -122,11 +130,11 @@ TEST_F(TilingWindowTreeTest, can_add_two_windows_vertically_without_border_and_g
     tree.request_vertical_layout(*leaf1);
 
     auto leaf2 = create_leaf();
-    ASSERT_EQ(leaf1->get_logical_area().size, geom::Size(1280, 720 / 2.f));
+    ASSERT_EQ(leaf1->get_logical_area().size, geom::Size(OUTPUT_WIDTH, OUTPUT_HEIGHT / 2.f));
     ASSERT_EQ(leaf1->get_logical_area().top_left, geom::Point(0, 0));
 
-    ASSERT_EQ(leaf2->get_logical_area().size, geom::Size(1280, 720 / 2.f));
-    ASSERT_EQ(leaf2->get_logical_area().top_left, geom::Point(0, 720 / 2.f));
+    ASSERT_EQ(leaf2->get_logical_area().size, geom::Size(OUTPUT_WIDTH, OUTPUT_HEIGHT / 2.f));
+    ASSERT_EQ(leaf2->get_logical_area().top_left, geom::Point(0, OUTPUT_HEIGHT / 2.f));
 }
 
 TEST_F(TilingWindowTreeTest, can_add_three_windows_horizontally_without_border_and_gaps)
@@ -135,14 +143,14 @@ TEST_F(TilingWindowTreeTest, can_add_three_windows_horizontally_without_border_a
     auto leaf2 = create_leaf();
     auto leaf3 = create_leaf();
 
-    ASSERT_EQ(leaf1->get_logical_area().size, geom::Size(ceilf(1280 / 3.f), 720));
+    ASSERT_EQ(leaf1->get_logical_area().size, geom::Size(ceilf(OUTPUT_WIDTH / 3.f), OUTPUT_HEIGHT));
     ASSERT_EQ(leaf1->get_logical_area().top_left, geom::Point(0, 0));
 
-    ASSERT_EQ(leaf2->get_logical_area().size, geom::Size(ceilf(1280 / 3.f), 720));
-    ASSERT_EQ(leaf2->get_logical_area().top_left, geom::Point(ceilf(1280 / 3.f), 0));
+    ASSERT_EQ(leaf2->get_logical_area().size, geom::Size(ceilf(OUTPUT_WIDTH / 3.f), OUTPUT_HEIGHT));
+    ASSERT_EQ(leaf2->get_logical_area().top_left, geom::Point(ceilf(OUTPUT_WIDTH / 3.f), 0));
 
-    ASSERT_EQ(leaf3->get_logical_area().size, geom::Size(floorf(1280 / 3.f), 720));
-    ASSERT_EQ(leaf3->get_logical_area().top_left, geom::Point(floorf(1280 * (2.f / 3.f)) - 1, 0));
+    ASSERT_EQ(leaf3->get_logical_area().size, geom::Size(floorf(OUTPUT_WIDTH / 3.f), OUTPUT_HEIGHT));
+    ASSERT_EQ(leaf3->get_logical_area().top_left, geom::Point(floorf(OUTPUT_WIDTH * (2.f / 3.f)) - 1, 0));
 }
 
 TEST_F(TilingWindowTreeTest, can_start_dragging_a_leaf)
@@ -170,4 +178,50 @@ TEST_F(TilingWindowTreeTest, can_stop_dragging_a_leaf)
     auto const& data = window_controller.get_window_data(leaf1);
     ASSERT_EQ(data.rectangle.top_left.x.as_int(), 0);
     ASSERT_EQ(data.rectangle.top_left.y.as_int(), 0);
+}
+
+TEST_F(TilingWindowTreeTest, can_move_container_to_sibling)
+{
+    auto leaf1 = create_leaf();
+    auto leaf2 = create_leaf();
+
+    ASSERT_TRUE(tree.move_to(*leaf1, *leaf2));
+
+    // Assert that leaf2 is in the first position
+    ASSERT_EQ(leaf2->get_logical_area().top_left, geom::Point(0, 0));
+    ASSERT_EQ(leaf1->get_logical_area().top_left, geom::Point(OUTPUT_WIDTH / 2.f, 0));
+}
+
+TEST_F(TilingWindowTreeTest, can_move_container_to_different_parent)
+{
+    auto leaf1 = create_leaf();
+    auto leaf2 = create_leaf();
+    tree.request_vertical_layout(*leaf2);
+    auto leaf3 = create_leaf(leaf2->get_parent().lock());
+
+    ASSERT_TRUE(tree.move_to(*leaf1, *leaf3));
+
+    ASSERT_EQ(leaf2->get_logical_area().top_left, geom::Point(0, 0));
+    ASSERT_EQ(leaf3->get_logical_area().top_left, geom::Point(0, ceilf(OUTPUT_HEIGHT / 3.f)));
+    ASSERT_EQ(leaf1->get_logical_area().top_left, geom::Point(0, ceilf(OUTPUT_HEIGHT * (2.f / 3.f))));
+    ASSERT_EQ(tree.get_root()->num_nodes(), 3);
+}
+
+TEST_F(TilingWindowTreeTest, can_move_container_to_other_tree)
+{
+    TilingWindowTree other_tree(
+        std::make_unique<SimpleTilingWindowTreeInterface>(),
+        window_controller,
+        state,
+        std::make_shared<test::StubConfiguration>(),
+        TREE_BOUNDS);
+    auto leaf1 = create_leaf();
+    auto leaf2 = create_leaf(nullptr, &other_tree);
+
+    ASSERT_EQ(leaf1->tree(), &tree);
+    ASSERT_EQ(leaf2->tree(), &other_tree);
+
+    ASSERT_TRUE(tree.move_to(*leaf1, *leaf2));
+
+    ASSERT_EQ(leaf2->tree(), &other_tree);
 }

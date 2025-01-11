@@ -45,7 +45,7 @@ LeafContainer::LeafContainer(
     window_controller { node_interface },
     logical_area { std::move(area) },
     config { config },
-    tree { tree },
+    tree_ { tree },
     parent { parent },
     state { state }
 {
@@ -142,7 +142,7 @@ size_t LeafContainer::get_min_height() const
 
 void LeafContainer::handle_ready()
 {
-    tree->handle_container_ready(*this);
+    tree_->handle_container_ready(*this);
     get_workspace()->handle_ready_hack(*this);
     if (window_controller.is_fullscreen(window_))
         toggle_fullscreen();
@@ -162,9 +162,9 @@ void LeafContainer::handle_modify(miral::WindowSpecification const& modification
         commit_changes();
 
         if (window_helpers::is_window_fullscreen(mods.state().value()))
-            tree->advise_fullscreen_container(*this);
+            tree_->advise_fullscreen_container(*this);
         else if (mods.state().value() == mir_window_state_restored)
-            tree->advise_restored_container(*this);
+            tree_->advise_restored_container(*this);
     }
 
     window_controller.modify(window_, mods);
@@ -177,12 +177,12 @@ void LeafContainer::handle_raise()
 
 bool LeafContainer::resize(miracle::Direction direction, int pixels)
 {
-    return tree->resize_container(direction, pixels, *this);
+    return tree_->resize_container(direction, pixels, *this);
 }
 
 bool LeafContainer::set_size(std::optional<int> const& width, std::optional<int> const& height)
 {
-    return tree->set_size(width, height, *this);
+    return tree_->set_size(width, height, *this);
 }
 
 void LeafContainer::show()
@@ -209,14 +209,14 @@ bool LeafContainer::toggle_fullscreen()
         next_state = mir_window_state_fullscreen;
 
     commit_changes();
-    return tree->toggle_fullscreen(*this);
+    return tree_->toggle_fullscreen(*this);
 }
 
 mir::geometry::Rectangle LeafContainer::confirm_placement(
     MirWindowState state, mir::geometry::Rectangle const& placement)
 {
     auto new_placement = placement;
-    tree->confirm_placement_on_display(*this, state, new_placement);
+    tree_->confirm_placement_on_display(*this, state, new_placement);
     return new_placement;
 }
 
@@ -227,7 +227,7 @@ void LeafContainer::on_open()
 
 void LeafContainer::on_focus_gained()
 {
-    tree->advise_focus_gained(*this);
+    tree_->advise_focus_gained(*this);
 }
 
 void LeafContainer::on_focus_lost()
@@ -272,27 +272,32 @@ void LeafContainer::handle_request_resize(MirInputEvent const* input_event, MirR
 
 void LeafContainer::request_horizontal_layout()
 {
-    tree->request_horizontal_layout(*this);
+    tree_->request_horizontal_layout(*this);
 }
 
 void LeafContainer::request_vertical_layout()
 {
-    tree->request_vertical_layout(*this);
+    tree_->request_vertical_layout(*this);
 }
 
 void LeafContainer::toggle_layout(bool cycle_thru_all)
 {
-    tree->toggle_layout(*this, cycle_thru_all);
+    tree_->toggle_layout(*this, cycle_thru_all);
 }
 
-void LeafContainer::set_tree(TilingWindowTree* tree_)
+TilingWindowTree* LeafContainer::tree() const
 {
-    tree = tree_;
+    return tree_;
+}
+
+void LeafContainer::tree(TilingWindowTree* in)
+{
+    tree_ = in;
 }
 
 Workspace* LeafContainer::get_workspace() const
 {
-    return tree->get_workspace();
+    return tree_->get_workspace();
 }
 
 Output* LeafContainer::get_output() const
@@ -343,7 +348,7 @@ ContainerType LeafContainer::get_type() const
 
 bool LeafContainer::select_next(miracle::Direction direction)
 {
-    return tree->select_next(direction, *this);
+    return tree_->select_next(direction, *this);
 }
 
 bool LeafContainer::pinned(bool)
@@ -358,7 +363,7 @@ bool LeafContainer::pinned() const
 
 bool LeafContainer::move(miracle::Direction direction)
 {
-    return tree->move_container(direction, *this);
+    return tree_->move_container(direction, *this);
 }
 
 bool LeafContainer::move_by(Direction, int)
@@ -376,9 +381,9 @@ bool LeafContainer::toggle_tabbing()
     if (auto sh_parent = parent.lock())
     {
         if (sh_parent->get_direction() == LayoutScheme::tabbing)
-            tree->request_horizontal_layout(*this);
+            tree_->request_horizontal_layout(*this);
         else
-            tree->request_tabbing_layout(*this);
+            tree_->request_tabbing_layout(*this);
     }
     return true;
 }
@@ -388,9 +393,9 @@ bool LeafContainer::toggle_stacking()
     if (auto sh_parent = parent.lock())
     {
         if (sh_parent->get_direction() == LayoutScheme::stacking)
-            tree->request_horizontal_layout(*this);
+            tree_->request_horizontal_layout(*this);
         else
-            tree->request_stacking_layout(*this);
+            tree_->request_stacking_layout(*this);
     }
     return true;
 }
@@ -430,7 +435,7 @@ bool LeafContainer::drag_stop()
 
 bool LeafContainer::set_layout(LayoutScheme scheme)
 {
-    tree->request_layout(*this, scheme);
+    tree_->request_layout(*this, scheme);
     return true;
 }
 

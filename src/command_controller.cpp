@@ -1014,6 +1014,27 @@ bool CommandController::reload_config()
     return true;
 }
 
+void CommandController::set_mode(WindowManagerMode mode)
+{
+    state.mode(mode);
+    mode_observer_registrar.advise_changed(state.mode());
+}
+
+void CommandController::drag_to(
+    std::shared_ptr<Container> const& dragging,
+    std::shared_ptr<Container> const& to)
+{
+    if (dragging == to)
+        return;
+
+    // TODO: Convert dragging to a leaf beforehand
+    if (!to->is_leaf() || !dragging->is_leaf())
+        return;
+
+    auto tree = to->tree();
+    tree->move_to(*dragging, *to);
+}
+
 nlohmann::json CommandController::to_json() const
 {
     std::lock_guard lock(mutex);
@@ -1082,12 +1103,6 @@ nlohmann::json CommandController::workspace_to_json(uint32_t id) const
     std::lock_guard lock(mutex);
     auto workspace = workspace_manager.workspace(id);
     return workspace->to_json();
-}
-
-void CommandController::set_mode(WindowManagerMode mode)
-{
-    state.mode(mode);
-    mode_observer_registrar.advise_changed(state.mode());
 }
 
 nlohmann::json CommandController::mode_to_json() const
