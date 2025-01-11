@@ -70,10 +70,14 @@ public:
     {
     }
 
-    std::shared_ptr<LeafContainer> create_leaf(std::shared_ptr<ParentContainer> parent = nullptr)
+    std::shared_ptr<LeafContainer> create_leaf(
+        std::shared_ptr<ParentContainer> parent = nullptr,
+        TilingWindowTree* target_tree = nullptr)
     {
+        if (target_tree == nullptr)
+            target_tree = &tree;
         miral::WindowSpecification spec;
-        spec = tree.place_new_window(spec, parent);
+        spec = target_tree->place_new_window(spec, parent);
 
         auto session = std::make_shared<test::StubSession>();
         sessions.push_back(session);
@@ -83,11 +87,11 @@ public:
         miral::Window window(session, surface);
         miral::WindowInfo info(window, spec);
 
-        auto leaf = tree.confirm_window(info, parent);
+        auto leaf = target_tree->confirm_window(info, parent);
         pairs.push_back({ window, leaf });
 
         state.add(leaf);
-        tree.advise_focus_gained(*leaf);
+        target_tree->advise_focus_gained(*leaf);
         state.focus_container(leaf);
         return leaf;
     }
@@ -201,4 +205,23 @@ TEST_F(TilingWindowTreeTest, can_move_container_to_different_parent)
     ASSERT_EQ(leaf3->get_logical_area().top_left, geom::Point(0, ceilf(OUTPUT_HEIGHT / 3.f)));
     ASSERT_EQ(leaf1->get_logical_area().top_left, geom::Point(0, ceilf(OUTPUT_HEIGHT * (2.f / 3.f))));
     ASSERT_EQ(tree.get_root()->num_nodes(), 3);
+}
+
+TEST_F(TilingWindowTreeTest, can_move_container_to_other_tree)
+{
+    TilingWindowTree other_tree(
+        std::make_unique<SimpleTilingWindowTreeInterface>(),
+        window_controller,
+        state,
+        std::make_shared<test::StubConfiguration>(),
+        TREE_BOUNDS);
+    auto leaf1 = create_leaf();
+    auto leaf2 = create_leaf(nullptr, &other_tree);
+
+    ASSERT_EQ(leaf1->tree(), &tree);
+    ASSERT_EQ(leaf2->tree(), &other_tree);
+
+    ASSERT_TRUE(tree.move_to(*leaf1, *leaf2));
+
+    ASSERT_EQ(leaf2->tree(), &other_tree);
 }
