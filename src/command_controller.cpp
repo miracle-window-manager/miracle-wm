@@ -19,7 +19,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "command_controller.h"
 #include "config.h"
-#include "leaf_container.h"
 #include "mode_observer.h"
 #include "parent_container.h"
 #include "scratchpad.h"
@@ -1032,9 +1031,7 @@ void CommandController::drag_to(
     if (!to->is_leaf() || !dragging->is_leaf())
         return;
 
-    // TODO: Assuming that these containers are in the same tiling tree for now
-    auto to_leaf = Container::as_leaf(to);
-    auto tree = to_leaf->tree();
+    auto tree = to->tree();
     tree->move_to(*dragging, *to);
 }
 

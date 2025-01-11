@@ -47,12 +47,6 @@ public:
     virtual Workspace* get_workspace() const = 0;
 };
 
-struct GraftRequest
-{
-    std::shared_ptr<Container> const& parent;
-    int index = -1;
-};
-
 class TilingWindowTree
 {
 public:
