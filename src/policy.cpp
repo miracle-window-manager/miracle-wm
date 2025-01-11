@@ -551,6 +551,13 @@ void Policy::advise_focus_lost(const miral::WindowInfo& window_info)
         return;
     }
 
+    if (state.mode() == WindowManagerMode::dragging)
+    {
+        command_controller.set_mode(WindowManagerMode::normal);
+        if (state.focused_container())
+            state.focused_container()->drag_stop();
+    }
+
     state.unfocus_container(container);
     container->on_focus_lost();
 }
@@ -582,7 +589,10 @@ void Policy::advise_delete_window(const miral::WindowInfo& window_info)
 
     animator->remove_by_animation_handle(container->animation_handle());
     surface_tracker.remove(window_info.window());
-    state.unfocus_container(container);
+    if (container == state.focused_container())
+        state.unfocus_container(container);
+
+    state.remove(container);
 }
 
 void Policy::advise_move_to(miral::WindowInfo const& window_info, geom::Point top_left)

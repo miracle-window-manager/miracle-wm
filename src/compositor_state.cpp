@@ -15,7 +15,10 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
+#define MIR_LOG_COMPONENT "compositor_state"
+
 #include "compositor_state.h"
+#include <mir/log.h>
 
 using namespace miracle;
 
@@ -80,7 +83,8 @@ void CompositorState::unfocus_output(std::shared_ptr<Output> const& prev)
 
 void CompositorState::add(std::shared_ptr<Container> const& container)
 {
-    CompositorState::focus_order.push_back(container);
+    focus_order.push_back(container);
+    mir::log_debug("add: there are now %zu surfaces in the focus order", focus_order.size());
 }
 
 void CompositorState::remove(std::shared_ptr<Container> const& container)
@@ -89,6 +93,7 @@ void CompositorState::remove(std::shared_ptr<Container> const& container)
     {
         return !element.expired() && element.lock() == container;
     }));
+    mir::log_debug("remove: there are now %zu surfaces in the focus order", focus_order.size());
 }
 
 std::shared_ptr<Container> CompositorState::get_first_with_type(ContainerType type) const
