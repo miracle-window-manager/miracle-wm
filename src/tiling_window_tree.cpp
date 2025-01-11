@@ -168,31 +168,7 @@ bool TilingWindowTree::move_container(miracle::Direction direction, Container& c
     {
     case MoveResult::traversal_type_insert:
     {
-        auto target_node = traversal_result.node;
-        if (!target_node)
-        {
-            mir::log_warning("Unable to move active window: target_window not found");
-            return false;
-        }
-
-        auto target_parent = target_node->get_parent().lock();
-        if (!target_parent)
-        {
-            mir::log_warning("Unable to move active window: second_window has no second_parent");
-            return false;
-        }
-
-        auto active_parent = Container::as_parent(container.get_parent().lock());
-        if (active_parent == target_parent)
-        {
-            active_parent->swap_nodes(container.shared_from_this(), target_node);
-            active_parent->commit_changes();
-            break;
-        }
-
-        auto [first, second] = transfer_node(container.shared_from_this(), target_node);
-        first->commit_changes();
-        second->commit_changes();
+        move_to(container, *traversal_result.node);
         break;
     }
     case MoveResult::traversal_type_append:

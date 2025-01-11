@@ -34,6 +34,7 @@ target_include_directories(miracle-wm-tests PUBLIC SYSTEM
 
 target_link_libraries(miracle-wm-tests
     GTest::gtest_main
+    GTest::GTest
     miracle-wm-implementation
     ${GTEST_LIBRARIES}
     ${MIRAL_LDFLAGS}
