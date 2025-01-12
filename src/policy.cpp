@@ -373,6 +373,7 @@ bool Policy::handle_drag_and_drop_pointer_event(MirPointerEvent const* event)
             command_controller.set_mode(WindowManagerMode::normal);
             if (state.focused_container())
                 state.focused_container()->drag_stop();
+            drag_state_last_intersected.reset();
             return true;
         }
 
@@ -395,6 +396,10 @@ bool Policy::handle_drag_and_drop_pointer_event(MirPointerEvent const* event)
         if (!intersected)
             return true;
 
+        if (drag_state_last_intersected.lock() == intersected)
+            return true;
+
+        drag_state_last_intersected = intersected;
         command_controller.drag_to(state.focused_container(), intersected);
         return true;
     }
