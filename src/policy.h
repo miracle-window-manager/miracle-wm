@@ -126,6 +126,7 @@ private:
     WindowManagerToolsWindowController window_controller;
     IpcCommandExecutor i3_command_executor;
     std::shared_ptr<ContainerGroupContainer> group_selection;
+    std::weak_ptr<Container> drag_state_last_intersected;
 };
 }
 
