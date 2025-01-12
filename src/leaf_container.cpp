@@ -124,7 +124,7 @@ geom::Rectangle LeafContainer::get_visible_area() const
 
 void LeafContainer::constrain()
 {
-    if (window_controller.is_fullscreen(window_))
+    if (window_controller.is_fullscreen(window_) || is_dragging_)
         window_controller.noclip(window_);
     else
         window_controller.clip(window_, get_visible_area());
@@ -412,6 +412,7 @@ bool LeafContainer::drag_start()
         mir::log_error("Attempting to start a drag when we are already dragging");
 
     is_dragging_ = true;
+    constrain();
     return true;
 }
 
@@ -436,7 +437,7 @@ bool LeafContainer::drag_stop()
     miral::WindowSpecification spec;
     spec.top_left() = get_visible_area().top_left;
     window_controller.modify(window_, spec);
-
+    constrain();
     return true;
 }
 

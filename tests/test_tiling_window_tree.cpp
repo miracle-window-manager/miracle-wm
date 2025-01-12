@@ -236,3 +236,13 @@ TEST_F(TilingWindowTreeTest, dragged_windows_do_not_change_their_position_when_a
     ASSERT_EQ(window_controller.get_window_data(leaf1).rectangle.top_left, mir::geometry::Point(100, 100));
     ASSERT_EQ(window_controller.get_window_data(leaf1).rectangle.size, geom::Size(OUTPUT_WIDTH / 2.f, OUTPUT_HEIGHT));
 }
+
+TEST_F(TilingWindowTreeTest, dragged_windows_are_unconstrained)
+{
+    auto leaf1 = create_leaf();
+    leaf1->drag_start();
+    ASSERT_EQ(window_controller.get_window_data(leaf1).clip, std::nullopt);
+    leaf1->drag(100, 100);
+    leaf1->drag_stop();
+    ASSERT_EQ(window_controller.get_window_data(leaf1).clip, leaf1->get_visible_area());
+}
