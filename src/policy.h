@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "command_controller.h"
 #include "compositor_state.h"
 #include "config.h"
+#include "drag_and_drop_service.h"
 #include "ipc.h"
 #include "ipc_command_executor.h"
 #include "minimal_window_manager.h"
@@ -103,8 +104,6 @@ public:
 private:
     class Self;
 
-    bool handle_drag_and_drop_pointer_event(MirPointerEvent const* event);
-
     AutoRestartingLauncher& external_client_launcher;
     std::shared_ptr<Config> config;
     std::shared_ptr<Animator> animator;
@@ -121,12 +120,12 @@ private:
     std::shared_ptr<Self> self;
     Scratchpad scratchpad_;
     CommandController command_controller;
+    DragAndDropService drag_and_drop_service;
     std::shared_ptr<Ipc> ipc;
     std::unique_ptr<AnimatorLoop> animator_loop;
     WindowManagerToolsWindowController window_controller;
     IpcCommandExecutor i3_command_executor;
     std::shared_ptr<ContainerGroupContainer> group_selection;
-    std::weak_ptr<Container> drag_state_last_intersected;
 };
 }
 

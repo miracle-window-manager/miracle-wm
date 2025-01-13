@@ -80,6 +80,7 @@ add_library(miracle-wm-implementation
     src/math_helpers.h
     src/command_controller.cpp src/command_controller.h
     src/animator_loop.cpp src/animator_loop.h
+    src/drag_and_drop_service.cpp src/drag_and_drop_service.h
 )
 
 add_executable(miracle-wm

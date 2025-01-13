@@ -116,13 +116,3 @@ void CompositorState::mode(WindowManagerMode next)
 {
     mode_ = next;
 }
-
-void CompositorState::drag_and_drop_state(DragAndDropState const&& state)
-{
-    drag_and_drop_state_ = state;
-}
-
-DragAndDropState const& CompositorState::drag_and_drop_state() const
-{
-    return drag_and_drop_state_;
-}
