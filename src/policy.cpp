@@ -370,10 +370,7 @@ bool Policy::handle_drag_and_drop_pointer_event(MirPointerEvent const* event)
     {
         if (action == mir_pointer_action_button_up)
         {
-            command_controller.set_mode(WindowManagerMode::normal);
-            if (state.focused_container())
-                state.focused_container()->drag_stop();
-            drag_state_last_intersected.reset();
+            stop_drag();
             return true;
         }
 
@@ -431,6 +428,14 @@ bool Policy::handle_drag_and_drop_pointer_event(MirPointerEvent const* event)
     }
 
     return false;
+}
+
+void Policy::stop_drag()
+{
+    command_controller.set_mode(WindowManagerMode::normal);
+    if (state.focused_container())
+        state.focused_container()->drag_stop();
+    drag_state_last_intersected.reset();
 }
 
 auto Policy::place_new_window(
@@ -557,11 +562,7 @@ void Policy::advise_focus_lost(const miral::WindowInfo& window_info)
     }
 
     if (state.mode() == WindowManagerMode::dragging)
-    {
-        command_controller.set_mode(WindowManagerMode::normal);
-        if (state.focused_container())
-            state.focused_container()->drag_stop();
-    }
+        stop_drag();
 
     state.unfocus_container(container);
     container->on_focus_lost();
@@ -653,7 +654,7 @@ void Policy::advise_output_delete(miral::Output const& output)
     std::lock_guard lock(self->mutex);
     for (auto it = state.output_list.begin(); it != state.output_list.end(); it++)
     {
-        auto other_output = *it;
+        auto const& other_output = *it;
         if (other_output->get_output().is_same_output(output))
         {
             auto const remove_workspaces = [&]()
@@ -680,8 +681,17 @@ void Policy::advise_output_delete(miral::Output const& output)
 
                 remove_workspaces();
 
-                mir::log_info("Policy::advise_output_delete: final output has been removed and windows have been orphaned");
+                switch (state.mode())
+                {
+                case WindowManagerMode::dragging:
+                    stop_drag();
+                    break;
+                default:
+                    state.mode(WindowManagerMode::normal);
+                }
+
                 state.focus_output(nullptr);
+                mir::log_info("Policy::advise_output_delete: final output has been removed and windows have been orphaned");
             }
             else
             {

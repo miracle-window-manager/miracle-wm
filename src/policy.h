@@ -104,6 +104,7 @@ private:
     class Self;
 
     bool handle_drag_and_drop_pointer_event(MirPointerEvent const* event);
+    void stop_drag();
 
     AutoRestartingLauncher& external_client_launcher;
     std::shared_ptr<Config> config;
