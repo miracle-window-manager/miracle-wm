@@ -127,6 +127,7 @@ Policy::Policy(
         config, self->mutex, state, window_controller,
         workspace_manager, mode_observer_registrar,
         std::make_unique<MirRunnerCommandControllerInterface>(runner), scratchpad_),
+    drag_and_drop_service(command_controller),
     i3_command_executor(command_controller, workspace_manager, compositor_state, external_client_launcher, window_controller),
     ipc(std::make_shared<Ipc>(runner, command_controller, i3_command_executor, config))
 {
@@ -292,7 +293,7 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
         }
     }
 
-    if (handle_drag_and_drop_pointer_event(event))
+    if (drag_and_drop_service.handle_pointer_event(state, event))
         return true;
 
     if (state.focused_output() && state.mode() != WindowManagerMode::resizing)
@@ -353,81 +354,6 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
         default:
             return false;
         }
-    }
-
-    return false;
-}
-
-bool Policy::handle_drag_and_drop_pointer_event(MirPointerEvent const* event)
-{
-    if (!MIRACLE_FEATURE_FLAG_DRAG_AND_DROP || !config->drag_and_drop().enabled)
-        return false;
-
-    auto x = static_cast<int>(miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_x));
-    auto y = static_cast<int>(miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_y));
-    auto action = miral::toolkit::mir_pointer_event_action(event);
-    if (state.mode() == WindowManagerMode::dragging)
-    {
-        if (action == mir_pointer_action_button_up)
-        {
-            command_controller.set_mode(WindowManagerMode::normal);
-            if (state.focused_container())
-                state.focused_container()->drag_stop();
-            drag_state_last_intersected.reset();
-            return true;
-        }
-
-        if (!state.focused_container())
-        {
-            mir::log_warning("handle_drag_and_drop_pointer_event: focused container no longer exists while dragging");
-            return false;
-        }
-
-        // Drag the container to the new position
-        int const diff_x = x - state.drag_and_drop_state().cursor_start_x;
-        int const diff_y = y - state.drag_and_drop_state().cursor_start_y;
-        state.focused_container()->drag(
-            state.drag_and_drop_state().container_start_x + diff_x,
-            state.drag_and_drop_state().container_start_y + diff_y);
-
-        // Get the intersection and try to move ourselves there. We only care if we're intersecting
-        // a leaf container, as those would be the only one in the grid.
-        std::shared_ptr<Container> intersected = state.focused_output()->intersect(event);
-        if (!intersected)
-            return true;
-
-        if (drag_state_last_intersected.lock() == intersected)
-            return true;
-
-        drag_state_last_intersected = intersected;
-        command_controller.drag_to(state.focused_container(), intersected);
-        return true;
-    }
-    else if (action == mir_pointer_action_button_down)
-    {
-        if (state.mode() != WindowManagerMode::normal)
-        {
-            mir::log_warning("Must be in normal mode before we can start dragging");
-            return false;
-        }
-
-        std::shared_ptr<Container> intersected = state.focused_output()->intersect(event);
-        if (!intersected)
-            return false;
-
-        if (!intersected->drag_start())
-        {
-            mir::log_warning("Cannot drag container of type %d", (int)intersected->get_type());
-            return false;
-        }
-
-        command_controller.select_container(intersected);
-        command_controller.set_mode(WindowManagerMode::dragging);
-        state.drag_and_drop_state({ .cursor_start_x = x,
-            .cursor_start_y = y,
-            .container_start_x = intersected->get_visible_area().top_left.x.as_int(),
-            .container_start_y = intersected->get_visible_area().top_left.y.as_int() });
-        return true;
     }
 
     return false;

@@ -45,14 +45,6 @@ enum class WindowManagerMode
     dragging
 };
 
-struct DragAndDropState
-{
-    int cursor_start_x;
-    int cursor_start_y;
-    int container_start_x;
-    int container_start_y;
-};
-
 class CompositorState
 {
 public:
@@ -76,15 +68,12 @@ public:
     [[nodiscard]] std::vector<std::weak_ptr<Container>> const& containers() const { return focus_order; }
     WindowManagerMode mode() const;
     void mode(WindowManagerMode);
-    void drag_and_drop_state(DragAndDropState const&&);
-    DragAndDropState const& drag_and_drop_state() const;
 
 private:
     std::weak_ptr<Container> focused;
     std::vector<std::weak_ptr<Container>> focus_order;
     std::weak_ptr<Output> output;
     WindowManagerMode mode_ = WindowManagerMode::normal;
-    DragAndDropState drag_and_drop_state_;
 };
 }
 
