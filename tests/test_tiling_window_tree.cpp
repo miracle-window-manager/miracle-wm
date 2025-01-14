@@ -38,11 +38,21 @@ const geom::Rectangle TREE_BOUNDS {
     geom::Point(0, 0),
     geom::Size(OUTPUT_WIDTH, OUTPUT_HEIGHT)
 };
+
+const geom::Rectangle OTHER_TREE_BOUNDS {
+    geom::Point(OUTPUT_WIDTH, OUTPUT_HEIGHT),
+    geom::Size(OUTPUT_WIDTH, OUTPUT_HEIGHT)
+};
 }
 
 class SimpleTilingWindowTreeInterface : public TilingWindowTreeInterface
 {
 public:
+    explicit SimpleTilingWindowTreeInterface(geom::Rectangle const& bounds)
+    {
+        zones = { bounds };
+    }
+
     std::vector<miral::Zone> const& get_zones() override
     {
         return zones;
@@ -54,7 +64,7 @@ public:
     }
 
 private:
-    std::vector<miral::Zone> zones = { TREE_BOUNDS };
+    std::vector<miral::Zone> zones;
 };
 
 class TilingWindowTreeTest : public testing::Test
@@ -62,7 +72,7 @@ class TilingWindowTreeTest : public testing::Test
 public:
     TilingWindowTreeTest() :
         tree(
-            std::make_unique<SimpleTilingWindowTreeInterface>(),
+            std::make_unique<SimpleTilingWindowTreeInterface>(TREE_BOUNDS),
             window_controller,
             state,
             std::make_shared<test::StubConfiguration>(),
@@ -207,14 +217,14 @@ TEST_F(TilingWindowTreeTest, can_move_container_to_different_parent)
     ASSERT_EQ(tree.get_root()->num_nodes(), 3);
 }
 
-TEST_F(TilingWindowTreeTest, can_move_container_to_other_tree)
+TEST_F(TilingWindowTreeTest, can_move_container_to_container_in_other_tree)
 {
     TilingWindowTree other_tree(
-        std::make_unique<SimpleTilingWindowTreeInterface>(),
+        std::make_unique<SimpleTilingWindowTreeInterface>(OTHER_TREE_BOUNDS),
         window_controller,
         state,
         std::make_shared<test::StubConfiguration>(),
-        TREE_BOUNDS);
+        OTHER_TREE_BOUNDS);
     auto leaf1 = create_leaf();
     auto leaf2 = create_leaf(nullptr, &other_tree);
 
@@ -224,6 +234,22 @@ TEST_F(TilingWindowTreeTest, can_move_container_to_other_tree)
     ASSERT_TRUE(tree.move_to(*leaf1, *leaf2));
 
     ASSERT_EQ(leaf2->tree(), &other_tree);
+}
+
+TEST_F(TilingWindowTreeTest, can_move_container_to_tree)
+{
+    TilingWindowTree other_tree(
+        std::make_unique<SimpleTilingWindowTreeInterface>(OTHER_TREE_BOUNDS),
+        window_controller,
+        state,
+        std::make_shared<test::StubConfiguration>(),
+        OTHER_TREE_BOUNDS);
+    auto leaf1 = create_leaf();
+
+    ASSERT_EQ(leaf1->tree(), &tree);
+    ASSERT_TRUE(other_tree.move_to_tree(leaf1));
+    ASSERT_EQ(leaf1->tree(), &other_tree);
+    ASSERT_EQ(leaf1->get_logical_area(), OTHER_TREE_BOUNDS);
 }
 
 TEST_F(TilingWindowTreeTest, dragged_windows_do_not_change_their_position_when_a_new_window_is_added)

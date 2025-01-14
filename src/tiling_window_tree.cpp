@@ -223,6 +223,19 @@ bool TilingWindowTree::move_to(Container& to_move, Container& target)
     return true;
 }
 
+bool TilingWindowTree::move_to_tree(std::shared_ptr<Container> const& container)
+{
+    // When we remove [node] from its initial position, there's a chance
+    // that the target_lane was melted into another lane. Hence, we need to return it
+    auto to_update = handle_remove(container);
+
+    root_lane->graft_existing(container, root_lane->num_nodes());
+    container->tree(root_lane->tree());
+    to_update->commit_changes();
+    root_lane->commit_changes();
+    return true;
+}
+
 void TilingWindowTree::request_layout(Container& container, miracle::LayoutScheme scheme)
 {
     handle_layout_scheme(scheme, container);
@@ -596,10 +609,9 @@ std::shared_ptr<ParentContainer> TilingWindowTree::handle_remove(std::shared_ptr
 std::tuple<std::shared_ptr<ParentContainer>, std::shared_ptr<ParentContainer>> TilingWindowTree::transfer_node(
     std::shared_ptr<Container> const& node, std::shared_ptr<Container> const& to)
 {
-    auto to_update = handle_remove(node);
-
     // When we remove [node] from its initial position, there's a chance
     // that the target_lane was melted into another lane. Hence, we need to return it
+    auto to_update = handle_remove(node);
     auto target_parent = Container::as_parent(to->get_parent().lock());
     auto index = target_parent->get_index_of_node(to);
     target_parent->graft_existing(node, index + 1);
@@ -758,7 +770,7 @@ std::shared_ptr<LeafContainer> TilingWindowTree::show()
     return Container::as_leaf(fullscreen_node);
 }
 
-bool TilingWindowTree::is_empty()
+bool TilingWindowTree::is_empty() const
 {
     return root_lane->num_nodes() == 0;
 }

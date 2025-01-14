@@ -92,7 +92,7 @@ public:
     [[nodiscard]] uint32_t id() const { return id_; }
     [[nodiscard]] std::optional<int> num() const { return num_; }
     [[nodiscard]] nlohmann::json to_json() const;
-    [[nodiscard]] TilingWindowTree const* get_tree() const { return tree.get(); }
+    [[nodiscard]] TilingWindowTree* get_tree() const { return tree.get(); }
     [[nodiscard]] std::optional<std::string> const& name() const { return name_; }
     [[nodiscard]] std::string display_name() const;
 

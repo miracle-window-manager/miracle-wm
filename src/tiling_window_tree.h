@@ -68,6 +68,7 @@ public:
         miral::WindowInfo const&,
         std::shared_ptr<ParentContainer> const& container);
 
+    [[deprecated("Use move_to_tree instead")]]
     void graft(std::shared_ptr<Container> const&, std::shared_ptr<ParentContainer> const& parent, int index = -1);
 
     /// Try to resize the current active window in the provided direction
@@ -81,6 +82,10 @@ public:
     /// Move [to_move] to the current position of [target]. [target] does
     /// not have to be in the tree.
     bool move_to(Container& to_move, Container& target);
+
+    /// Moves [to_move] to the first available position of the tree and handles
+    /// the process of updating its old position in tree, if any.
+    bool move_to_tree(std::shared_ptr<Container> const& container);
 
     /// Select the next window in the provided direction
     bool select_next(Direction direction, Container&);
@@ -135,7 +140,7 @@ public:
     void hide();
 
     void recalculate_root_node_area();
-    bool is_empty();
+    bool is_empty() const;
 
     [[nodiscard]] Workspace* get_workspace() const;
     [[nodiscard]] std::shared_ptr<ParentContainer> const& get_root() const { return root_lane; }
