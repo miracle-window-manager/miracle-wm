@@ -27,6 +27,7 @@ namespace miracle
 class Container;
 class CompositorState;
 class CommandController;
+class TilingWindowTree;
 
 class DragAndDropService
 {
@@ -44,6 +45,14 @@ private:
     int current_x = 0;
     int current_y = 0;
     std::weak_ptr<Container> last_intersected;
+
+    void drag_to(
+        std::shared_ptr<Container> const& dragging,
+        std::shared_ptr<Container> const& to);
+
+    void drag_to(
+        std::shared_ptr<Container> const& dragging,
+        TilingWindowTree* tree);
 };
 
 } // miracle

@@ -1020,21 +1020,6 @@ void CommandController::set_mode(WindowManagerMode mode)
     mode_observer_registrar.advise_changed(state.mode());
 }
 
-void CommandController::drag_to(
-    std::shared_ptr<Container> const& dragging,
-    std::shared_ptr<Container> const& to)
-{
-    if (dragging == to)
-        return;
-
-    // TODO: Convert dragging to a leaf beforehand
-    if (!to->is_leaf() || !dragging->is_leaf())
-        return;
-
-    auto tree = to->tree();
-    tree->move_to(*dragging, *to);
-}
-
 nlohmann::json CommandController::to_json() const
 {
     std::lock_guard lock(mutex);

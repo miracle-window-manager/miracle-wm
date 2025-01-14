@@ -68,6 +68,12 @@ bool DragAndDropService::handle_pointer_event(CompositorState& state, const MirP
             container_start_x + diff_x,
             container_start_y + diff_y);
 
+        if (state.focused_output()->active()->get_tree()->is_empty())
+        {
+            drag_to(state.focused_container(), state.focused_output()->active()->get_tree());
+            return true;
+        }
+
         // Get the intersection and try to move ourselves there. We only care if we're intersecting
         // a leaf container, as those would be the only one in the grid.
         std::shared_ptr<Container> intersected = state.focused_output()->intersect(event);
@@ -78,7 +84,7 @@ bool DragAndDropService::handle_pointer_event(CompositorState& state, const MirP
             return true;
 
         last_intersected = intersected;
-        command_controller.drag_to(state.focused_container(), intersected);
+        drag_to(state.focused_container(), intersected);
         return true;
     }
     else if (action == mir_pointer_action_button_down)
@@ -111,4 +117,33 @@ bool DragAndDropService::handle_pointer_event(CompositorState& state, const MirP
     }
 
     return false;
+}
+
+void DragAndDropService::drag_to(
+    std::shared_ptr<Container> const& dragging,
+    std::shared_ptr<Container> const& to)
+{
+    if (dragging == to)
+        return;
+
+    // TODO: Convert dragging to a leaf beforehand
+    if (!to->is_leaf() || !dragging->is_leaf())
+        return;
+
+    auto tree = to->tree();
+    tree->move_to(*dragging, *to);
+}
+
+void DragAndDropService::drag_to(
+    std::shared_ptr<Container> const& dragging,
+    TilingWindowTree* tree)
+{
+    if (dragging->tree() == tree)
+        return;
+
+    // TODO: Convert dragging to a leaf beforehand
+    if (!dragging->is_leaf())
+        return;
+
+    tree->move_to_tree(dragging);
 }
