@@ -62,7 +62,6 @@ parts:
       - libmircommon-internal-dev
       - libmircommon-dev
       - libmirserver-internal-dev
-      - libboost-filesystem-dev
       - libfreetype6-dev
       - libwayland-dev
       - libxkbcommon-dev
