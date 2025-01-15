@@ -435,8 +435,9 @@ bool LeafContainer::drag_stop()
     is_dragging_ = false;
 
     miral::WindowSpecification spec;
-    spec.top_left() = get_visible_area().top_left;
-    window_controller.modify(window_, spec);
+    auto visible_area = get_visible_area();
+    geom::Rectangle previous = { dragged_position, visible_area.size };
+    window_controller.set_rectangle(window_, previous, visible_area);
     constrain();
     return true;
 }
