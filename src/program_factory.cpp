@@ -18,7 +18,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MIR_LOG_COMPONENT "program_factory"
 
 #include "program_factory.h"
-#include <boost/throw_exception.hpp>
 #include <mir/graphics/egl_error.h>
 #include <mir/log.h>
 #include <sstream>
@@ -217,7 +216,7 @@ GLuint miracle::ProgramFactory::compile_shader(GLenum type, GLchar const* src)
     GLuint id = glCreateShader(type);
     if (!id)
     {
-        BOOST_THROW_EXCEPTION(mir::graphics::gl_error("Failed to create shader"));
+        throw std::runtime_error("Failed to create shader");
     }
 
     glShaderSource(id, 1, &src, NULL);
@@ -229,9 +228,7 @@ GLuint miracle::ProgramFactory::compile_shader(GLenum type, GLchar const* src)
         GLchar log[1024] = "(No log info)";
         glGetShaderInfoLog(id, sizeof log, NULL, log);
         glDeleteShader(id);
-        BOOST_THROW_EXCEPTION(
-            std::runtime_error(
-                std::string("Compile failed: ") + log + " for:\n" + src));
+        throw std::runtime_error(std::string("Compile failed: ") + log + " for:\n" + src);
     }
     return id;
 }
@@ -251,9 +248,7 @@ miracle::ProgramHandle miracle::ProgramFactory::link_shader(
         GLchar log[1024];
         glGetProgramInfoLog(program, sizeof log - 1, NULL, log);
         log[sizeof log - 1] = '\0';
-        BOOST_THROW_EXCEPTION(
-            std::runtime_error(
-                std::string("Linking GL shader failed: ") + log));
+        throw std::runtime_error(std::string("Linking GL shader failed: ") + log);
     }
 
     return program;
