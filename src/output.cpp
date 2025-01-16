@@ -67,16 +67,13 @@ Workspace* Output::active() const
     return active_workspace.lock().get();
 }
 
-std::shared_ptr<Container> Output::intersect(const MirPointerEvent* event)
+std::shared_ptr<Container> Output::intersect(float x, float y)
 {
     if (active_workspace.expired())
     {
         mir::log_error("Output::handle_pointer_event: unexpectedly trying to handle a pointer event when we lack workspaces");
         return nullptr;
     }
-
-    auto x = miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_x);
-    auto y = miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_y);
 
     std::shared_ptr<Container> result = nullptr;
     for (auto const& workspace : workspaces)

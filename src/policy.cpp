@@ -273,6 +273,7 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
     auto x = miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_x);
     auto y = miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_y);
     auto action = miral::toolkit::mir_pointer_event_action(event);
+    auto const modifiers = miral::toolkit::mir_pointer_event_modifiers(event) & MODIFIER_MASK;
     state.cursor_position = { x, y };
 
     // Select the output first
@@ -292,7 +293,7 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
         }
     }
 
-    if (drag_and_drop_service.handle_pointer_event(state, event))
+    if (drag_and_drop_service.handle_pointer_event(state, x, y, action, modifiers))
         return true;
 
     if (state.focused_output() && state.mode() != WindowManagerMode::resizing)
@@ -319,7 +320,7 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
         }
 
         // Get Container intersection. Depending on the state, do something with that Container
-        std::shared_ptr<Container> intersected = state.focused_output()->intersect(event);
+        std::shared_ptr<Container> intersected = state.focused_output()->intersect(x, y);
         switch (state.mode())
         {
         case WindowManagerMode::normal:

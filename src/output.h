@@ -58,7 +58,7 @@ public:
         Animator&);
     ~Output() = default;
 
-    std::shared_ptr<Container> intersect(MirPointerEvent const* event);
+    std::shared_ptr<Container> intersect(float x, float y);
     AllocationHint allocate_position(
         miral::ApplicationInfo const& app_info,
         miral::WindowSpecification& requested_specification,

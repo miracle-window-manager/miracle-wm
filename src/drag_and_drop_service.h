@@ -33,8 +33,8 @@ class TilingWindowTree;
 class DragAndDropService
 {
 public:
-    explicit DragAndDropService(CommandController& command_controller, std::shared_ptr<Config> const& config);
-    bool handle_pointer_event(CompositorState& state, const MirPointerEvent* event);
+    DragAndDropService(CommandController& command_controller, std::shared_ptr<Config> const& config);
+    bool handle_pointer_event(CompositorState& state, float x, float y, MirPointerAction action, uint modifiers);
 
 private:
     CommandController& command_controller;

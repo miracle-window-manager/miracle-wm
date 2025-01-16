@@ -15,10 +15,29 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef MIRACLE_WM_FEATURE_FLAGS_H
-#define MIRACLE_WM_FEATURE_FLAGS_H
+#include "drag_and_drop_service.h"
+#include "with_command_controller.h"
+#include <gtest/gtest.h>
 
-#define MIRACLE_FEATURE_FLAG_MULTI_SELECT false
-#define MIRACLE_FEATURE_FLAG_DRAG_AND_DROP true
+using namespace miracle;
 
-#endif // MIRACLE_WM_FEATURE_FLAGS_H
+class DragAndDropServiceTest : public testing::Test, public test::WithCommandController
+{
+public:
+    DragAndDropServiceTest() :
+        service(command_controller, config)
+    {
+    }
+    DragAndDropService service;
+};
+
+TEST_F(DragAndDropServiceTest, can_start_dragging)
+{
+    service.handle_pointer_event(
+        state,
+        100,
+        100,
+        mir_pointer_action_button_down,
+        mir_input_event_modifier_meta
+    );
+}

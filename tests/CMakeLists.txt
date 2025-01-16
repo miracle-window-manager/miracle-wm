@@ -20,7 +20,8 @@ add_executable(miracle-wm-tests
     test_ipc_command_parser.cpp
     test_animator.cpp
     test_feature_flags.cpp
-    test_command_controller.cpp
+    test_drag_and_drop_service.cpp
+    with_command_controller.h
     stub_configuration.h
     stub_session.h
     stub_surface.h

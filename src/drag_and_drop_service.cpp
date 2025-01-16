@@ -35,15 +35,10 @@ DragAndDropService::DragAndDropService(CommandController& command_controller, st
 {
 }
 
-bool DragAndDropService::handle_pointer_event(CompositorState& state, const MirPointerEvent* event)
+bool DragAndDropService::handle_pointer_event(CompositorState& state, float x, float y, MirPointerAction action, uint modifiers)
 {
     if (!MIRACLE_FEATURE_FLAG_DRAG_AND_DROP || !config->drag_and_drop().enabled)
         return false;
-
-    auto x = static_cast<int>(miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_x));
-    auto y = static_cast<int>(miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_y));
-    auto action = miral::toolkit::mir_pointer_event_action(event);
-    auto const modifiers = miral::toolkit::mir_pointer_event_modifiers(event) & MODIFIER_MASK;
 
     if (state.mode() == WindowManagerMode::dragging)
     {
@@ -84,7 +79,7 @@ bool DragAndDropService::handle_pointer_event(CompositorState& state, const MirP
 
         // Get the intersection and try to move ourselves there. We only care if we're intersecting
         // a leaf container, as those would be the only one in the grid.
-        std::shared_ptr<Container> intersected = state.focused_output()->intersect(event);
+        std::shared_ptr<Container> intersected = state.focused_output()->intersect(x, y);
         if (!intersected)
             return true;
 
@@ -107,7 +102,7 @@ bool DragAndDropService::handle_pointer_event(CompositorState& state, const MirP
             return false;
         }
 
-        std::shared_ptr<Container> intersected = state.focused_output()->intersect(event);
+        std::shared_ptr<Container> intersected = state.focused_output()->intersect(x, y);
         if (!intersected)
             return false;
 

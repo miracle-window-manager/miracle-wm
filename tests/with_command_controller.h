@@ -27,18 +27,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <gtest/gtest.h>
 #include <miral/runner.h>
 
-using namespace miracle;
-
+namespace miracle::test
+{
 class StubCommandControllerInterface : public CommandControllerInterface
 {
 public:
     void quit() override { }
 };
 
-class CommandControllerTest : public testing::Test
+class WithCommandController
 {
 public:
-    CommandControllerTest() :
+    WithCommandController() :
         config(std::make_shared<test::StubConfiguration>()),
         window_controller(data),
         workspace_manager(workspace_registry, config, state),
@@ -66,3 +66,4 @@ public:
     Scratchpad scratchpad;
     CommandController command_controller;
 };
+}
