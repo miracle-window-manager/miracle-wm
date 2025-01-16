@@ -69,6 +69,13 @@ std::optional<MirKeyboardAction> from_string_keyboard_action(std::string const& 
 
 }
 
+uint Config::process_modifier(uint modifier) const
+{
+    if (modifier & miracle_input_event_modifier_default)
+        modifier = modifier & ~miracle_input_event_modifier_default | get_input_event_modifier();
+    return modifier;
+}
+
 FilesystemConfiguration::FilesystemConfiguration(miral::MirRunner& runner) :
     FilesystemConfiguration { runner, create_default_configuration_path() }
 {
@@ -871,10 +878,7 @@ FilesystemConfiguration::matches_custom_key_command(MirKeyboardAction action, in
         if (action != command.action)
             continue;
 
-        auto command_modifiers = command.modifiers;
-        if (command_modifiers & miracle_input_event_modifier_default)
-            command_modifiers = command_modifiers & ~miracle_input_event_modifier_default | get_input_event_modifier();
-
+        auto command_modifiers = process_modifier(command.modifiers);
         if (command_modifiers != modifiers)
             continue;
 
@@ -894,10 +898,7 @@ bool FilesystemConfiguration::matches_key_command(MirKeyboardAction action, int 
             if (action != command.action)
                 continue;
 
-            auto command_modifiers = command.modifiers;
-            if (command_modifiers & miracle_input_event_modifier_default)
-                command_modifiers = command_modifiers & ~miracle_input_event_modifier_default | get_input_event_modifier();
-
+            auto command_modifiers = process_modifier(command.modifiers);
             if (command_modifiers != modifiers)
                 continue;
 

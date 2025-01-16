@@ -17,12 +17,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "minimal_window_manager.h"
 #include "config.h"
+#include "constants.h"
 #include <miral/toolkit_event.h>
 
 namespace
 {
-unsigned int const shift_states = mir_input_event_modifier_alt | mir_input_event_modifier_shift | mir_input_event_modifier_sym | mir_input_event_modifier_ctrl | mir_input_event_modifier_meta;
-
 enum class Gesture
 {
     none,
@@ -304,7 +303,7 @@ bool miracle::MinimalWindowManager::Impl::begin_pointer_gesture(
     old_cursor = position;
     gesture = gesture_;
     gesture_window = window_info.window();
-    gesture_shift_keys = mir_pointer_event_modifiers(pointer_event) & shift_states;
+    gesture_shift_keys = mir_pointer_event_modifiers(pointer_event) & MODIFIER_MASK;
     resize_top_left = gesture_window.top_left();
     resize_size = gesture_window.size();
     resize_edge = edge;
@@ -339,7 +338,7 @@ bool miracle::MinimalWindowManager::Impl::begin_touch_gesture(
     old_touch = position;
     gesture = gesture_;
     gesture_window = window_info.window();
-    gesture_shift_keys = mir_touch_event_modifiers(touch_event) & shift_states;
+    gesture_shift_keys = mir_touch_event_modifiers(touch_event) & MODIFIER_MASK;
     resize_top_left = gesture_window.top_left();
     resize_size = gesture_window.size();
     resize_edge = edge;
@@ -350,7 +349,7 @@ bool miracle::MinimalWindowManager::Impl::begin_touch_gesture(
 bool miracle::MinimalWindowManager::Impl::handle_pointer_event(MirPointerEvent const* event)
 {
     auto const action = mir_pointer_event_action(event);
-    auto const shift_keys = mir_pointer_event_modifiers(event) & shift_states;
+    auto const shift_keys = mir_pointer_event_modifiers(event) & MODIFIER_MASK;
     auto const new_cursor = pointer_position(event);
 
     bool consumes_event = false;
@@ -424,7 +423,7 @@ bool miracle::MinimalWindowManager::Impl::handle_touch_event(MirTouchEvent const
     bool consumes_event = false;
     auto const new_touch = touch_center(event);
     auto const count = mir_touch_event_point_count(event);
-    auto const shift_keys = mir_touch_event_modifiers(event) & shift_states;
+    auto const shift_keys = mir_touch_event_modifiers(event) & MODIFIER_MASK;
 
     bool is_drag = true;
     for (auto i = 0U; i != count; ++i)

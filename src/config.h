@@ -192,6 +192,7 @@ public:
     virtual void unregister_listener(int handle) = 0;
     virtual void try_process_change() = 0;
     [[nodiscard]] virtual uint get_primary_modifier() const = 0;
+    uint process_modifier(uint modifier) const;
 };
 
 class FilesystemConfiguration : public Config

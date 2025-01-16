@@ -20,22 +20,30 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "drag_and_drop_service.h"
 #include "command_controller.h"
 #include "compositor_state.h"
+#include "config.h"
+#include "constants.h"
+#include "feature_flags.h"
 
 #include <mir/log.h>
 #include <miral/toolkit_event.h>
 
 using namespace miracle;
 
-DragAndDropService::DragAndDropService(CommandController& command_controller) :
-    command_controller { command_controller }
+DragAndDropService::DragAndDropService(CommandController& command_controller, std::shared_ptr<Config> const& config) :
+    command_controller { command_controller },
+    config { config }
 {
 }
 
 bool DragAndDropService::handle_pointer_event(CompositorState& state, const MirPointerEvent* event)
 {
+    if (!MIRACLE_FEATURE_FLAG_DRAG_AND_DROP || !config->drag_and_drop().enabled)
+        return false;
+
     auto x = static_cast<int>(miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_x));
     auto y = static_cast<int>(miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_y));
     auto action = miral::toolkit::mir_pointer_event_action(event);
+    auto const modifiers = miral::toolkit::mir_pointer_event_modifiers(event) & MODIFIER_MASK;
 
     if (state.mode() == WindowManagerMode::dragging)
     {
@@ -89,6 +97,10 @@ bool DragAndDropService::handle_pointer_event(CompositorState& state, const MirP
     }
     else if (action == mir_pointer_action_button_down)
     {
+        uint command_modifiers = config->process_modifier(config->drag_and_drop().modifiers);
+        if (command_modifiers != modifiers)
+            return false;
+
         if (state.mode() != WindowManagerMode::normal)
         {
             mir::log_warning("Must be in normal mode before we can start dragging");
