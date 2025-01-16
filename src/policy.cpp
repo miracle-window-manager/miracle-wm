@@ -17,10 +17,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define MIR_LOG_COMPONENT "miracle"
 
-#include "constants.h"
 #include "policy.h"
 #include "animator_loop.h"
 #include "config.h"
+#include "constants.h"
 #include "container_group_container.h"
 #include "feature_flags.h"
 #include "floating_tree_container.h"

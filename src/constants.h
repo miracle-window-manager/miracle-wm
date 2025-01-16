@@ -26,4 +26,4 @@ namespace miracle
 constexpr uint MODIFIER_MASK = mir_input_event_modifier_alt | mir_input_event_modifier_shift | mir_input_event_modifier_sym | mir_input_event_modifier_ctrl | mir_input_event_modifier_meta;
 }
 
-#endif //MIRACLE_WM_CONSTANTS_H
+#endif // MIRACLE_WM_CONSTANTS_H

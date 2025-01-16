@@ -21,8 +21,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "command_controller.h"
 #include "compositor_state.h"
 #include "config.h"
-#include "feature_flags.h"
 #include "constants.h"
+#include "feature_flags.h"
 
 #include <mir/log.h>
 #include <miral/toolkit_event.h>
