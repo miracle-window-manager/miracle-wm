@@ -25,6 +25,7 @@ namespace miracle
 {
 
 class Container;
+class Config;
 class CompositorState;
 class CommandController;
 class TilingWindowTree;
@@ -32,11 +33,12 @@ class TilingWindowTree;
 class DragAndDropService
 {
 public:
-    explicit DragAndDropService(CommandController& command_controller);
+    explicit DragAndDropService(CommandController& command_controller, std::shared_ptr<Config> const& config);
     bool handle_pointer_event(CompositorState& state, const MirPointerEvent* event);
 
 private:
     CommandController& command_controller;
+    std::shared_ptr<Config> config;
 
     int cursor_start_x = 0;
     int cursor_start_y = 0;

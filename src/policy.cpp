@@ -17,6 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define MIR_LOG_COMPONENT "miracle"
 
+#include "constants.h"
 #include "policy.h"
 #include "animator_loop.h"
 #include "config.h"
@@ -45,8 +46,6 @@ using namespace miracle;
 
 namespace
 {
-const int MODIFIER_MASK = mir_input_event_modifier_alt | mir_input_event_modifier_shift | mir_input_event_modifier_sym | mir_input_event_modifier_ctrl | mir_input_event_modifier_meta;
-
 class MirRunnerCommandControllerInterface : public CommandControllerInterface
 {
 public:
@@ -127,7 +126,7 @@ Policy::Policy(
         config, self->mutex, state, window_controller,
         workspace_manager, mode_observer_registrar,
         std::make_unique<MirRunnerCommandControllerInterface>(runner), scratchpad_),
-    drag_and_drop_service(command_controller),
+    drag_and_drop_service(command_controller, config),
     i3_command_executor(command_controller, workspace_manager, compositor_state, external_client_launcher, window_controller),
     ipc(std::make_shared<Ipc>(runner, command_controller, i3_command_executor, config))
 {
