@@ -4,6 +4,16 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+include(FetchContent)
+
+# Fetch Google Test and Google Mock
+FetchContent_Declare(
+    googletest
+    URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.zip
+)
+
+FetchContent_MakeAvailable(googletest)
+
 include_directories(
     ${PROJECT_SOURCE_DIR}/src
 )
@@ -11,7 +21,6 @@ include_directories(
 find_package(PkgConfig)
 pkg_check_modules(MIRAL miral REQUIRED)
 pkg_check_modules(MIRSERVER mirserver REQUIRED)
-find_package(GTest REQUIRED)
 pkg_check_modules(YAML REQUIRED IMPORTED_TARGET yaml-cpp)
 
 add_executable(miracle-wm-tests
@@ -28,18 +37,17 @@ add_executable(miracle-wm-tests
     stub_container.h)
 
 target_include_directories(miracle-wm-tests PUBLIC SYSTEM
-    ${GTEST_INCLUDE_DIRS}
     ${MIRAL_INCLUDE_DIRS}
     ${MIRSERVER_INCLUDE_DIRS})
 
 target_link_libraries(miracle-wm-tests
-    GTest::gtest_main
-    GTest::GTest
     miracle-wm-implementation
     ${GTEST_LIBRARIES}
     ${MIRAL_LDFLAGS}
     ${MIRSERVER_LDFLAGS}
     PkgConfig::YAML
-    pthread)
+    pthread
+    gmock gtest gtest_main)
 
-gtest_discover_tests(miracle-wm-tests)
+enable_testing()
+
