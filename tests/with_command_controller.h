@@ -55,15 +55,18 @@ public:
     {
     }
 
+protected:
+    CommandController command_controller;
+    CompositorState state;
+
+private:
     std::shared_ptr<Config> config;
     std::recursive_mutex mutex;
-    CompositorState state;
     std::vector<StubWindowData> data;
     StubWindowController window_controller;
     WorkspaceObserverRegistrar workspace_registry;
     WorkspaceManager workspace_manager;
     ModeObserverRegistrar mode_observer_registrar;
     Scratchpad scratchpad;
-    CommandController command_controller;
 };
 }

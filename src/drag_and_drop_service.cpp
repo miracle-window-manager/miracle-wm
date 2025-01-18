@@ -65,11 +65,11 @@ bool DragAndDropService::handle_pointer_event(CompositorState& state, float x, f
         current_y = y;
 
         // Drag the container to the new position
-        int const diff_x = x - cursor_start_x;
-        int const diff_y = y - cursor_start_y;
+        float const diff_x = x - cursor_start_x;
+        float const diff_y = y - cursor_start_y;
         state.focused_container()->drag(
-            container_start_x + diff_x,
-            container_start_y + diff_y);
+            static_cast<int>(container_start_x + diff_x),
+            static_cast<int>(container_start_y + diff_y));
 
         if (state.focused_output()->active()->get_tree()->is_empty())
         {
@@ -102,6 +102,9 @@ bool DragAndDropService::handle_pointer_event(CompositorState& state, float x, f
             return false;
         }
 
+        if (state.focused_output() == nullptr)
+            return false;
+
         std::shared_ptr<Container> intersected = state.focused_output()->intersect(x, y);
         if (!intersected)
             return false;
@@ -116,8 +119,8 @@ bool DragAndDropService::handle_pointer_event(CompositorState& state, float x, f
         command_controller.set_mode(WindowManagerMode::dragging);
         cursor_start_x = x;
         cursor_start_y = y;
-        container_start_x = intersected->get_visible_area().top_left.x.as_int();
-        container_start_y = intersected->get_visible_area().top_left.y.as_int();
+        container_start_x = static_cast<float>(intersected->get_visible_area().top_left.x.as_int());
+        container_start_y = static_cast<float>(intersected->get_visible_area().top_left.y.as_int());
         current_x = x;
         current_y = y;
         return true;

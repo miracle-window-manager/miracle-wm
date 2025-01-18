@@ -40,12 +40,12 @@ private:
     CommandController& command_controller;
     std::shared_ptr<Config> config;
 
-    int cursor_start_x = 0;
-    int cursor_start_y = 0;
-    int container_start_x = 0;
-    int container_start_y = 0;
-    int current_x = 0;
-    int current_y = 0;
+    float cursor_start_x = 0;
+    float cursor_start_y = 0;
+    float container_start_x = 0;
+    float container_start_y = 0;
+    float current_x = 0;
+    float current_y = 0;
     std::weak_ptr<Container> last_intersected;
 
     void drag_to(

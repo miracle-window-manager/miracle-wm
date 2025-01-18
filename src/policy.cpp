@@ -542,7 +542,7 @@ void Policy::advise_move_to(miral::WindowInfo const& window_info, geom::Point to
 void Policy::advise_output_create(miral::Output const& output)
 {
     std::lock_guard lock(self->mutex);
-    auto output_content = std::make_shared<Output>(
+    auto output_content = std::make_shared<MiralWrapperOutput>(
         output, workspace_manager, output.extents(), floating_window_manager,
         state, config, window_controller, *animator);
     state.output_list.push_back(output_content);
