@@ -47,7 +47,57 @@ struct WorkspaceCreationData
 class Output
 {
 public:
-    Output(
+    virtual ~Output() = default;
+
+    virtual std::shared_ptr<Container> intersect(float x, float y) = 0;
+    virtual AllocationHint allocate_position(
+        miral::ApplicationInfo const& app_info,
+        miral::WindowSpecification& requested_specification,
+        AllocationHint hint = AllocationHint())
+        = 0;
+    [[nodiscard]] virtual std::shared_ptr<Container> create_container(
+        miral::WindowInfo const& window_info, AllocationHint const& hint) const
+        = 0;
+    virtual void delete_container(std::shared_ptr<Container> const& container) = 0;
+    virtual void advise_new_workspace(WorkspaceCreationData const&&) = 0;
+    virtual void advise_workspace_deleted(uint32_t id) = 0;
+    virtual bool advise_workspace_active(uint32_t id) = 0;
+    virtual void advise_application_zone_create(miral::Zone const& application_zone) = 0;
+    virtual void advise_application_zone_update(miral::Zone const& updated, miral::Zone const& original) = 0;
+    virtual void advise_application_zone_delete(miral::Zone const& application_zone) = 0;
+    virtual bool point_is_in_output(int x, int y) = 0;
+    virtual void update_area(geom::Rectangle const& area) = 0;
+
+    /// Immediately requests that the provided window be added to the output
+    /// with the provided type. This is a deviation away from the typical
+    /// window-adding flow where you first call 'place_new_window' followed
+    /// by 'create_container'.
+    virtual void add_immediately(miral::Window& window, AllocationHint hint = AllocationHint()) = 0;
+
+    /// Takes an existing [Container] object and places it in an appropriate position
+    /// on the active [Workspace].
+    virtual void graft(std::shared_ptr<Container> const& container) = 0;
+    virtual void set_transform(glm::mat4 const& in) = 0;
+    virtual void set_position(glm::vec2 const&) = 0;
+
+    // Getters
+    [[nodiscard]] virtual std::vector<miral::Window> collect_all_windows() const = 0;
+    [[nodiscard]] virtual Workspace* active() const = 0;
+    [[nodiscard]] virtual std::vector<std::shared_ptr<Workspace>> const& get_workspaces() const = 0;
+    [[nodiscard]] virtual geom::Rectangle const& get_area() const = 0;
+    [[nodiscard]] virtual std::vector<miral::Zone> const& get_app_zones() const = 0;
+    [[nodiscard]] virtual miral::Output const& get_output() const = 0;
+    [[nodiscard]] virtual bool is_active() const = 0;
+    [[nodiscard]] virtual glm::mat4 get_transform() const = 0;
+    [[nodiscard]] virtual geom::Rectangle get_workspace_rectangle(size_t i) const = 0;
+    [[nodiscard]] virtual Workspace const* workspace(uint32_t id) const = 0;
+    [[nodiscard]] virtual nlohmann::json to_json() const = 0;
+};
+
+class MiralWrapperOutput : public Output
+{
+public:
+    MiralWrapperOutput(
         miral::Output const& output,
         WorkspaceManager& workspace_manager,
         geom::Rectangle const& area,
@@ -56,52 +106,44 @@ public:
         std::shared_ptr<Config> const& options,
         WindowController&,
         Animator&);
-    ~Output() = default;
+    ~MiralWrapperOutput() = default;
 
-    std::shared_ptr<Container> intersect(MirPointerEvent const* event);
+    std::shared_ptr<Container> intersect(float x, float y) override;
     AllocationHint allocate_position(
         miral::ApplicationInfo const& app_info,
         miral::WindowSpecification& requested_specification,
-        AllocationHint hint = AllocationHint());
+        AllocationHint hint = AllocationHint()) override;
     [[nodiscard]] std::shared_ptr<Container> create_container(
-        miral::WindowInfo const& window_info, AllocationHint const& hint) const;
-    void delete_container(std::shared_ptr<Container> const& container);
-    void advise_new_workspace(WorkspaceCreationData const&&);
-    void advise_workspace_deleted(uint32_t id);
-    bool advise_workspace_active(uint32_t id);
-    void advise_application_zone_create(miral::Zone const& application_zone);
-    void advise_application_zone_update(miral::Zone const& updated, miral::Zone const& original);
-    void advise_application_zone_delete(miral::Zone const& application_zone);
-    bool point_is_in_output(int x, int y);
-    void update_area(geom::Rectangle const& area);
-
-    /// Immediately requests that the provided window be added to the output
-    /// with the provided type. This is a deviation away from the typical
-    /// window-adding flow where you first call 'place_new_window' followed
-    /// by 'create_container'.
-    void add_immediately(miral::Window& window, AllocationHint hint = AllocationHint());
-
-    /// Takes an existing [Container] object and places it in an appropriate position
-    /// on the active [Workspace].
-    void graft(std::shared_ptr<Container> const& container);
-    void set_transform(glm::mat4 const& in);
-    void set_position(glm::vec2 const&);
+        miral::WindowInfo const& window_info, AllocationHint const& hint) const override;
+    void delete_container(std::shared_ptr<Container> const& container) override;
+    void advise_new_workspace(WorkspaceCreationData const&&) override;
+    void advise_workspace_deleted(uint32_t id) override;
+    bool advise_workspace_active(uint32_t id) override;
+    void advise_application_zone_create(miral::Zone const& application_zone) override;
+    void advise_application_zone_update(miral::Zone const& updated, miral::Zone const& original) override;
+    void advise_application_zone_delete(miral::Zone const& application_zone) override;
+    bool point_is_in_output(int x, int y) override;
+    void update_area(geom::Rectangle const& area) override;
+    void add_immediately(miral::Window& window, AllocationHint hint = AllocationHint()) override;
+    void graft(std::shared_ptr<Container> const& container) override;
+    void set_transform(glm::mat4 const& in) override;
+    void set_position(glm::vec2 const&) override;
 
     // Getters
 
-    [[nodiscard]] std::vector<miral::Window> collect_all_windows() const;
-    [[nodiscard]] Workspace* active() const;
-    [[nodiscard]] std::vector<std::shared_ptr<Workspace>> const& get_workspaces() const { return workspaces; }
-    [[nodiscard]] geom::Rectangle const& get_area() const { return area; }
-    [[nodiscard]] std::vector<miral::Zone> const& get_app_zones() const { return application_zone_list; }
-    [[nodiscard]] miral::Output const& get_output() const { return output; }
-    [[nodiscard]] bool is_active() const;
-    [[nodiscard]] glm::mat4 get_transform() const;
+    [[nodiscard]] std::vector<miral::Window> collect_all_windows() const override;
+    [[nodiscard]] Workspace* active() const override;
+    [[nodiscard]] std::vector<std::shared_ptr<Workspace>> const& get_workspaces() const override { return workspaces; }
+    [[nodiscard]] geom::Rectangle const& get_area() const override { return area; }
+    [[nodiscard]] std::vector<miral::Zone> const& get_app_zones() const override { return application_zone_list; }
+    [[nodiscard]] miral::Output const& get_output() const override { return output; }
+    [[nodiscard]] bool is_active() const override;
+    [[nodiscard]] glm::mat4 get_transform() const override;
     /// Gets the relative position of the current rectangle (e.g. the active
     /// rectangle with be at position (0, 0))
-    [[nodiscard]] geom::Rectangle get_workspace_rectangle(size_t i) const;
-    [[nodiscard]] Workspace const* workspace(uint32_t id) const;
-    [[nodiscard]] nlohmann::json to_json() const;
+    [[nodiscard]] geom::Rectangle get_workspace_rectangle(size_t i) const override;
+    [[nodiscard]] Workspace const* workspace(uint32_t id) const override;
+    [[nodiscard]] nlohmann::json to_json() const override;
 
 private:
     class WorkspaceAnimation : public Animation
@@ -115,14 +157,14 @@ private:
             mir::geometry::Rectangle const& current,
             std::shared_ptr<Workspace> const& to_workspace,
             std::shared_ptr<Workspace> const& from_workspace,
-            Output* output);
+            MiralWrapperOutput* output);
 
         void on_tick(AnimationStepResult const&) override;
 
     private:
         std::shared_ptr<Workspace> to_workspace;
         std::shared_ptr<Workspace> from_workspace;
-        Output* output;
+        MiralWrapperOutput* output;
     };
 
     void on_workspace_animation(

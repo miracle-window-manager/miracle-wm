@@ -38,7 +38,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace miracle;
 
-Output::Output(
+MiralWrapperOutput::MiralWrapperOutput(
     miral::Output const& output,
     WorkspaceManager& workspace_manager,
     geom::Rectangle const& area,
@@ -59,7 +59,7 @@ Output::Output(
 {
 }
 
-Workspace* Output::active() const
+Workspace* MiralWrapperOutput::active() const
 {
     if (active_workspace.expired())
         return nullptr;
@@ -67,16 +67,13 @@ Workspace* Output::active() const
     return active_workspace.lock().get();
 }
 
-std::shared_ptr<Container> Output::intersect(const MirPointerEvent* event)
+std::shared_ptr<Container> MiralWrapperOutput::intersect(float x, float y)
 {
     if (active_workspace.expired())
     {
-        mir::log_error("Output::handle_pointer_event: unexpectedly trying to handle a pointer event when we lack workspaces");
+        mir::log_error("MiralWrapperOutput::handle_pointer_event: unexpectedly trying to handle a pointer event when we lack workspaces");
         return nullptr;
     }
-
-    auto x = miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_x);
-    auto y = miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_y);
 
     std::shared_ptr<Container> result = nullptr;
     for (auto const& workspace : workspaces)
@@ -107,7 +104,7 @@ std::shared_ptr<Container> Output::intersect(const MirPointerEvent* event)
     return result;
 }
 
-AllocationHint Output::allocate_position(
+AllocationHint MiralWrapperOutput::allocate_position(
     miral::ApplicationInfo const& app_info,
     miral::WindowSpecification& requested_specification,
     AllocationHint hint)
@@ -121,13 +118,13 @@ AllocationHint Output::allocate_position(
     return active()->allocate_position(app_info, requested_specification, hint);
 }
 
-std::shared_ptr<Container> Output::create_container(
+std::shared_ptr<Container> MiralWrapperOutput::create_container(
     miral::WindowInfo const& window_info, AllocationHint const& hint) const
 {
     return active()->create_container(window_info, hint);
 }
 
-void Output::delete_container(std::shared_ptr<miracle::Container> const& container)
+void MiralWrapperOutput::delete_container(std::shared_ptr<miracle::Container> const& container)
 {
     auto workspace = container->get_workspace();
     if (!workspace)
@@ -136,7 +133,7 @@ void Output::delete_container(std::shared_ptr<miracle::Container> const& contain
     workspace->delete_container(container);
 }
 
-void Output::advise_new_workspace(WorkspaceCreationData const&& data)
+void MiralWrapperOutput::advise_new_workspace(WorkspaceCreationData const&& data)
 {
     // Workspaces are always kept in sorted order with numbered workspaces in front followed by all other workspaces
     auto new_workspace = std::make_shared<Workspace>(
@@ -154,7 +151,7 @@ void Output::advise_new_workspace(WorkspaceCreationData const&& data)
     });
 }
 
-void Output::advise_workspace_deleted(uint32_t id)
+void MiralWrapperOutput::advise_workspace_deleted(uint32_t id)
 {
     for (auto it = workspaces.begin(); it != workspaces.end(); it++)
     {
@@ -166,7 +163,7 @@ void Output::advise_workspace_deleted(uint32_t id)
     }
 }
 
-bool Output::advise_workspace_active(uint32_t id)
+bool MiralWrapperOutput::advise_workspace_active(uint32_t id)
 {
     std::shared_ptr<Workspace> from = nullptr;
     std::shared_ptr<Workspace> to = nullptr;
@@ -267,7 +264,7 @@ bool Output::advise_workspace_active(uint32_t id)
     return true;
 }
 
-Output::WorkspaceAnimation::WorkspaceAnimation(
+MiralWrapperOutput::WorkspaceAnimation::WorkspaceAnimation(
     AnimationHandle handle,
     AnimationDefinition definition,
     mir::geometry::Rectangle const& from,
@@ -275,7 +272,7 @@ Output::WorkspaceAnimation::WorkspaceAnimation(
     mir::geometry::Rectangle const& current,
     std::shared_ptr<Workspace> const& to_workspace,
     std::shared_ptr<Workspace> const& from_workspace,
-    Output* output) :
+    MiralWrapperOutput* output) :
     Animation(handle, definition, from, to, current),
     to_workspace { to_workspace },
     from_workspace { from_workspace },
@@ -283,12 +280,12 @@ Output::WorkspaceAnimation::WorkspaceAnimation(
 {
 }
 
-void Output::WorkspaceAnimation::on_tick(miracle::AnimationStepResult const& asr)
+void MiralWrapperOutput::WorkspaceAnimation::on_tick(miracle::AnimationStepResult const& asr)
 {
     output->on_workspace_animation(asr, to_workspace, from_workspace);
 }
 
-void Output::on_workspace_animation(
+void MiralWrapperOutput::on_workspace_animation(
     AnimationStepResult const& asr,
     std::shared_ptr<Workspace> const& to,
     std::shared_ptr<Workspace> const& from)
@@ -319,7 +316,7 @@ void Output::on_workspace_animation(
         workspace->trigger_rerender();
 }
 
-void Output::advise_application_zone_create(miral::Zone const& application_zone)
+void MiralWrapperOutput::advise_application_zone_create(miral::Zone const& application_zone)
 {
     if (application_zone.extents().contains(area))
     {
@@ -329,7 +326,7 @@ void Output::advise_application_zone_create(miral::Zone const& application_zone)
     }
 }
 
-void Output::advise_application_zone_update(miral::Zone const& updated, miral::Zone const& original)
+void MiralWrapperOutput::advise_application_zone_update(miral::Zone const& updated, miral::Zone const& original)
 {
     for (auto& zone : application_zone_list)
         if (zone == original)
@@ -341,7 +338,7 @@ void Output::advise_application_zone_update(miral::Zone const& updated, miral::Z
         }
 }
 
-void Output::advise_application_zone_delete(miral::Zone const& application_zone)
+void MiralWrapperOutput::advise_application_zone_delete(miral::Zone const& application_zone)
 {
     auto const original_size = application_zone_list.size();
     application_zone_list.erase(
@@ -355,19 +352,19 @@ void Output::advise_application_zone_delete(miral::Zone const& application_zone)
     }
 }
 
-bool Output::point_is_in_output(int x, int y)
+bool MiralWrapperOutput::point_is_in_output(int x, int y)
 {
     return area.contains(geom::Point(x, y));
 }
 
-void Output::update_area(geom::Rectangle const& new_area)
+void MiralWrapperOutput::update_area(geom::Rectangle const& new_area)
 {
     area = new_area;
     for (auto& workspace : workspaces)
         workspace->set_area(area);
 }
 
-std::vector<miral::Window> Output::collect_all_windows() const
+std::vector<miral::Window> MiralWrapperOutput::collect_all_windows() const
 {
     std::vector<miral::Window> windows;
     for (auto& workspace : get_workspaces())
@@ -382,7 +379,7 @@ std::vector<miral::Window> Output::collect_all_windows() const
     return windows;
 }
 
-void Output::add_immediately(miral::Window& window, AllocationHint hint)
+void MiralWrapperOutput::add_immediately(miral::Window& window, AllocationHint hint)
 {
     auto& prev_info = window_controller.info_for(window);
     miral::WindowSpecification spec = window_helpers::copy_from(prev_info);
@@ -397,12 +394,12 @@ void Output::add_immediately(miral::Window& window, AllocationHint hint)
     container->handle_ready();
 }
 
-void Output::graft(std::shared_ptr<Container> const& container)
+void MiralWrapperOutput::graft(std::shared_ptr<Container> const& container)
 {
     active()->graft(container);
 }
 
-geom::Rectangle Output::get_workspace_rectangle(size_t i) const
+geom::Rectangle MiralWrapperOutput::get_workspace_rectangle(size_t i) const
 {
     // TODO: Support vertical workspaces one day in the future
     auto const& workspace = workspaces[i];
@@ -428,7 +425,7 @@ geom::Rectangle Output::get_workspace_rectangle(size_t i) const
     };
 }
 
-[[nodiscard]] Workspace const* Output::workspace(uint32_t id) const
+[[nodiscard]] Workspace const* MiralWrapperOutput::workspace(uint32_t id) const
 {
     for (auto const& workspace : workspaces)
     {
@@ -439,29 +436,29 @@ geom::Rectangle Output::get_workspace_rectangle(size_t i) const
     return nullptr;
 }
 
-bool Output::is_active() const
+bool MiralWrapperOutput::is_active() const
 {
     return state.focused_output().get() == this;
 }
 
-glm::mat4 Output::get_transform() const
+glm::mat4 MiralWrapperOutput::get_transform() const
 {
     return final_transform;
 }
 
-void Output::set_transform(glm::mat4 const& in)
+void MiralWrapperOutput::set_transform(glm::mat4 const& in)
 {
     transform = in;
     final_transform = glm::translate(transform, glm::vec3(position_offset.x, position_offset.y, 0));
 }
 
-void Output::set_position(glm::vec2 const& v)
+void MiralWrapperOutput::set_position(glm::vec2 const& v)
 {
     position_offset = v;
     final_transform = glm::translate(transform, glm::vec3(position_offset.x, position_offset.y, 0));
 }
 
-nlohmann::json Output::to_json() const
+nlohmann::json MiralWrapperOutput::to_json() const
 {
     nlohmann::json nodes = nlohmann::json::array();
     for (auto const& workspace : workspaces)

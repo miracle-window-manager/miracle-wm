@@ -25,5 +25,5 @@ public:
 
 TEST_F(FeatureFlagsTest, DragAndDropIsFalse)
 {
-    EXPECT_EQ(MIRACLE_FEATURE_FLAG_DRAG_AND_DROP, false);
+    EXPECT_EQ(MIRACLE_FEATURE_FLAG_DRAG_AND_DROP, true);
 }
