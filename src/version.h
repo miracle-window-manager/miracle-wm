@@ -20,8 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define MIRACLE_WM_MAJOR 0
 #define MIRACLE_WM_MINOR 4
-#define MIRACLE_WM_PATCH 0
+#define MIRACLE_WM_PATCH 1
 
-#define MIRACLE_VERSION_STRING "0.4.0"
+#define MIRACLE_VERSION_STRING "0.4.1"
 
 #endif // MIRACLE_WM_VERSION_H
