@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MIRACLE_WM_COMPOSITOR_STATE_H
 
 #include "container.h"
+#include "render_data_manager.h"
 
 #include <algorithm>
 #include <memory>
@@ -48,6 +49,7 @@ enum class WindowManagerMode
 class CompositorState
 {
 public:
+    CompositorState();
     mir::geometry::Point cursor_position;
     uint32_t modifiers = 0;
     bool has_clicked_floating_window = false;
@@ -68,12 +70,14 @@ public:
     [[nodiscard]] std::vector<std::weak_ptr<Container>> const& containers() const { return focus_order; }
     WindowManagerMode mode() const;
     void mode(WindowManagerMode);
+    RenderDataManager* render_data_manager() const;
 
 private:
     std::weak_ptr<Container> focused;
     std::vector<std::weak_ptr<Container>> focus_order;
     std::weak_ptr<Output> output;
     WindowManagerMode mode_ = WindowManagerMode::normal;
+    std::unique_ptr<RenderDataManager> render_data_manager_;
 };
 }
 

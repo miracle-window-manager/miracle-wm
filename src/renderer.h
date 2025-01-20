@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "primitive.h"
 #include "program_factory.h"
-#include "surface_tracker.h"
+#include "render_data_manager.h"
 
 #include <GLES2/gl2.h>
 #include <mir/geometry/rectangle.h>
@@ -57,7 +57,6 @@ public:
     Renderer(std::shared_ptr<mir::graphics::GLRenderingProvider> gl_interface,
         std::unique_ptr<mir::graphics::gl::OutputSurface> output,
         std::shared_ptr<Config> const& config,
-        SurfaceTracker& surface_tracker,
         CompositorState const& compositor_state,
         std::shared_ptr<WindowToolsAccessor> const& accessor,
         std::shared_ptr<Animator> const& animator);
@@ -94,10 +93,7 @@ private:
     struct DrawData
     {
         bool enabled = false;
-        bool needs_outline = false;
-        glm::mat4 transform = glm::mat4(1.f);
-        glm::mat4 workspace_transform = glm::mat4(1.f);
-        bool is_focused = false;
+        RenderData data;
 
         struct
         {
@@ -107,7 +103,7 @@ private:
         } outline_context;
     };
 
-    DrawData get_draw_data(mir::graphics::Renderable const&) const;
+    DrawData get_draw_data(mir::graphics::Renderable const&, std::vector<RenderData> const& data) const;
     /// Draws the current renderable and returns a follow-up draw if required.
     DrawData draw(mir::graphics::Renderable const& renderable, DrawData const& data) const;
     void update_gl_viewport();
@@ -123,7 +119,6 @@ private:
     std::vector<mir::gl::Primitive> mutable primitives;
     std::shared_ptr<mir::graphics::GLRenderingProvider> const gl_interface;
     std::shared_ptr<Config> config;
-    SurfaceTracker& surface_tracker;
     CompositorState const& compositor_state;
     std::shared_ptr<WindowToolsAccessor> const& accessor;
     std::shared_ptr<Animator> animator;

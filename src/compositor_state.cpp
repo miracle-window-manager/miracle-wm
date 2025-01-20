@@ -22,6 +22,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace miracle;
 
+CompositorState::CompositorState() :
+    render_data_manager_(std::make_unique<RenderDataManager>())
+{
+}
+
 std::shared_ptr<Container> CompositorState::focused_container() const
 {
     if (!focused.expired())
@@ -115,4 +120,9 @@ WindowManagerMode CompositorState::mode() const
 void CompositorState::mode(WindowManagerMode next)
 {
     mode_ = next;
+}
+
+RenderDataManager* CompositorState::render_data_manager() const
+{
+    return render_data_manager_.get();
 }

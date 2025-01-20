@@ -26,6 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "leaf_container.h"
 #include "output.h"
 #include "parent_container.h"
+#include "render_data_manager.h"
 #include "shell_component_container.h"
 #include "tiling_window_tree.h"
 #include "window_helpers.h"
@@ -381,12 +382,13 @@ Output* Workspace::get_output() const
     return output;
 }
 
-void Workspace::trigger_rerender()
+void Workspace::workspace_transform_change_hack()
 {
     // TODO: Ugh, sad. I am forced to set the surface transform so that the surface is rerendered
     for_each_window([&](std::shared_ptr<Container> const& container)
     {
         auto window = container->window();
+        state.render_data_manager()->workspace_transform_change(*container);
         if (window)
         {
             auto surface = window->operator std::shared_ptr<mir::scene::Surface>();

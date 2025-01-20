@@ -18,22 +18,39 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef MIRACLEWM_SURFACE_TRACKER_H
 #define MIRACLEWM_SURFACE_TRACKER_H
 
-#include <map>
-#include <miral/window.h>
+#include <glm/glm.hpp>
+#include <mir/scene/surface.h>
+#include <vector>
 
 namespace miracle
 {
 
-class SurfaceTracker
+class Container;
+
+struct RenderData
+{
+    mir::scene::Surface* surface;
+    bool needs_outline = false;
+    bool is_focused = false;
+    glm::mat4 transform = glm::mat4(1.f);
+    glm::mat4 workspace_transform = glm::mat4(1.f);
+};
+
+class RenderDataManager
 {
 public:
-    void add(miral::Window const&);
-    void remove(miral::Window const&);
-    miral::Window get(mir::scene::Surface const*);
+    RenderDataManager();
+    void add(Container const&);
+    void remove(Container const&);
+    void transform_change(Container const&);
+    void workspace_transform_change(Container const&);
+    void focus_change(Container const&);
+    std::vector<RenderData> const& get();
 
 private:
     std::mutex mutex;
-    std::map<mir::scene::Surface const*, miral::Window> map;
+    std::vector<RenderData> render_data;
+    std::vector<RenderData> copy_for_renderer;
 };
 
 } // miracle
