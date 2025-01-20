@@ -85,7 +85,9 @@ public:
     void select_first_window();
 
     Output* get_output() const;
-    void trigger_rerender();
+
+    [[deprecated("Do not use unless you have a very good reason to do so!")]]
+    void workspace_transform_change_hack();
     [[nodiscard]] bool is_empty() const;
     void graft(std::shared_ptr<Container> const&);
     /// Converts a workspace to its corresponding index in the workspace array.

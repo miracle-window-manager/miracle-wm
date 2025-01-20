@@ -61,7 +61,7 @@ add_library(miracle-wm-implementation
     src/miracle_gl_config.cpp
     src/ipc_command.cpp
     src/ipc_command_executor.cpp
-    src/surface_tracker.cpp
+    src/render_data_manager.cpp
     src/window_tools_accessor.cpp
     src/animator.cpp
     src/animation_definition.cpp

@@ -203,7 +203,7 @@ bool MiralWrapperOutput::advise_workspace_active(uint32_t id)
         set_position(glm::vec2(
             -to_rectangle.top_left.x.as_int(),
             -to_rectangle.top_left.y.as_int()));
-        to->trigger_rerender();
+        to->workspace_transform_change_hack();
         return true;
     }
 
@@ -303,7 +303,7 @@ void MiralWrapperOutput::on_workspace_animation(
                 workspace->hide();
         }
 
-        to->trigger_rerender();
+        to->workspace_transform_change_hack();
         return;
     }
 
@@ -313,7 +313,7 @@ void MiralWrapperOutput::on_workspace_animation(
         set_transform(asr.transform.value());
 
     for (auto const& workspace : workspaces)
-        workspace->trigger_rerender();
+        workspace->workspace_transform_change_hack();
 }
 
 void MiralWrapperOutput::advise_application_zone_create(miral::Zone const& application_zone)

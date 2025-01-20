@@ -30,7 +30,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "mode_observer.h"
 #include "output.h"
 #include "scratchpad.h"
-#include "surface_tracker.h"
 #include "window_manager_tools_window_controller.h"
 #include "workspace_manager.h"
 
@@ -61,7 +60,6 @@ public:
         miral::MirRunner&,
         std::shared_ptr<Config> const&,
         std::shared_ptr<Animator> const&,
-        SurfaceTracker&,
         mir::Server const&,
         CompositorState&,
         std::shared_ptr<WindowToolsAccessor> const&);
@@ -107,7 +105,6 @@ private:
     AutoRestartingLauncher& external_client_launcher;
     std::shared_ptr<Config> config;
     std::shared_ptr<Animator> animator;
-    SurfaceTracker& surface_tracker;
     CompositorState& state;
 
     bool is_starting_ = true;

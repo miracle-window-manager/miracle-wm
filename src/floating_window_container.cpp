@@ -17,15 +17,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "mir_toolkit/common.h"
 #define MIR_LOG_COMPONENT "floating_container"
+#define GLM_ENABLE_EXPERIMENTAL
 
 #include "compositor_state.h"
 #include "config.h"
 #include "floating_window_container.h"
 #include "leaf_container.h"
 #include "output.h"
+#include "render_data_manager.h"
 #include "workspace.h"
 
-#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
 #include <mir/log.h>
 #include <mir/scene/session.h>
@@ -65,6 +66,12 @@ FloatingWindowContainer::FloatingWindowContainer(
     state { state },
     config { config }
 {
+    state.render_data_manager()->add(*this);
+}
+
+FloatingWindowContainer::~FloatingWindowContainer()
+{
+    state.render_data_manager()->remove(*this);
 }
 
 void FloatingWindowContainer::commit_changes()
@@ -148,11 +155,13 @@ void FloatingWindowContainer::on_focus_gained()
         return;
 
     wm->advise_focus_gained(window_controller.info_for(window_));
+    state.render_data_manager()->focus_change(*this);
 }
 
 void FloatingWindowContainer::on_focus_lost()
 {
     wm->advise_focus_lost(window_controller.info_for(window_));
+    state.render_data_manager()->focus_change(*this);
 }
 
 void FloatingWindowContainer::on_move_to(geom::Point const& top_left)
@@ -254,6 +263,7 @@ Workspace* FloatingWindowContainer::get_workspace() const
 void FloatingWindowContainer::set_workspace(Workspace* workspace)
 {
     workspace_ = workspace;
+    state.render_data_manager()->workspace_transform_change(*this);
 }
 
 Output* FloatingWindowContainer::get_output() const
@@ -275,6 +285,7 @@ void FloatingWindowContainer::set_transform(glm::mat4 transform_)
     {
         surface->set_transformation(transform_);
         transform = transform_;
+        state.render_data_manager()->transform_change(*this);
     }
 }
 

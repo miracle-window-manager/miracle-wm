@@ -33,6 +33,7 @@ namespace miracle
 class Config;
 class TilingWindowTree;
 class CompositorState;
+class RenderDataManager;
 
 /// A [LeafContainer] always contains a single window.
 class LeafContainer : public Container
@@ -45,6 +46,7 @@ public:
         TilingWindowTree* tree,
         std::shared_ptr<ParentContainer> const& parent,
         CompositorState const& state);
+    ~LeafContainer();
 
     void associate_to_window(miral::Window const&);
     [[nodiscard]] geom::Rectangle get_logical_area() const override;

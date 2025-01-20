@@ -107,14 +107,12 @@ Policy::Policy(
     miral::MirRunner& runner,
     std::shared_ptr<Config> const& config,
     std::shared_ptr<Animator> const& animator,
-    SurfaceTracker& surface_tracker,
     mir::Server const& server,
     CompositorState& compositor_state,
     std::shared_ptr<WindowToolsAccessor> const& window_tools_accessor) :
     external_client_launcher { external_client_launcher },
     config { config },
     animator { animator },
-    surface_tracker { surface_tracker },
     state { compositor_state },
     floating_window_manager(std::make_unique<MinimalWindowManager>(tools, config)),
     animator_loop(std::make_unique<ThreadedAnimatorLoop>(animator)),
@@ -393,7 +391,6 @@ void Policy::advise_new_window(miral::WindowInfo const& window_info)
             // windows are considered to be in the "other" category until
             // we have more data on them.
             orphaned_window_list.push_back(window);
-            surface_tracker.add(window);
         }
 
         return;
@@ -405,7 +402,6 @@ void Policy::advise_new_window(miral::WindowInfo const& window_info)
     state.add(container);
 
     pending_allocation.container_type = ContainerType::none;
-    surface_tracker.add(window_info.window());
 }
 
 void Policy::handle_window_ready(miral::WindowInfo& window_info)
@@ -501,7 +497,6 @@ void Policy::advise_delete_window(const miral::WindowInfo& window_info)
         if (*it == window_info.window())
         {
             orphaned_window_list.erase(it);
-            surface_tracker.remove(window_info.window());
             return;
         }
     }
@@ -519,7 +514,6 @@ void Policy::advise_delete_window(const miral::WindowInfo& window_info)
         scratchpad_.remove(container);
 
     animator->remove_by_animation_handle(container->animation_handle());
-    surface_tracker.remove(window_info.window());
     if (container == state.focused_container())
         state.unfocus_container(container);
 

@@ -144,7 +144,6 @@ Renderer::Renderer(
     std::shared_ptr<mir::graphics::GLRenderingProvider> gl_interface,
     std::unique_ptr<mir::graphics::gl::OutputSurface> output,
     std::shared_ptr<Config> const& config,
-    SurfaceTracker& surface_tracker,
     CompositorState const& compositor_state,
     std::shared_ptr<WindowToolsAccessor> const& accessor,
     std::shared_ptr<Animator> const& animator) :
@@ -155,7 +154,6 @@ Renderer::Renderer(
     screen_to_gl_coords(1),
     gl_interface { std::move(gl_interface) },
     config { config },
-    surface_tracker { surface_tracker },
     compositor_state { compositor_state },
     accessor { accessor },
     animator { animator }
@@ -226,26 +224,25 @@ void Renderer::tessellate(
     primitives[0] = mgl::tessellate_renderable_into_rectangle(renderable, geom::Displacement { 0, 0 });
 }
 
-Renderer::DrawData Renderer::get_draw_data(mir::graphics::Renderable const& renderable) const
+Renderer::DrawData Renderer::get_draw_data(
+    mir::graphics::Renderable const& renderable,
+    std::vector<RenderData> const& data) const
 {
-    DrawData data = { true };
+    DrawData result = { true };
     auto surface = renderable.surface_if_any();
     if (surface)
     {
-        auto window = surface_tracker.get(surface.value());
-        if (window)
+        for (auto const& item : data)
         {
-            auto const& info = accessor->get_tools().info_for(window);
-            auto userdata = static_pointer_cast<Container>(info.userdata());
-            data.needs_outline = (userdata->get_type() == ContainerType::leaf || userdata->get_type() == ContainerType::floating_window)
-                && !info.parent();
-            data.transform = userdata->get_transform();
-            data.workspace_transform = userdata->get_output_transform() * userdata->get_workspace_transform();
-            data.is_focused = userdata->is_focused();
+            if (item.surface == surface.value())
+            {
+                result.data = item;
+                break;
+            }
         }
     }
 
-    return data;
+    return result;
 }
 
 auto Renderer::render(mg::RenderableList const& renderables) const -> std::unique_ptr<mg::Framebuffer>
@@ -260,9 +257,11 @@ auto Renderer::render(mg::RenderableList const& renderables) const -> std::uniqu
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
     ++frameno;
+
+    auto const& render_data = compositor_state.render_data_manager()->get();
     for (auto const& r : renderables)
     {
-        auto data = draw(*r, get_draw_data(*r));
+        auto data = draw(*r, get_draw_data(*r, render_data));
         if (data.enabled && data.outline_context.enabled)
         {
             if (has_stencil_support)
@@ -300,7 +299,7 @@ miracle::Renderer::DrawData Renderer::draw(
         auto clip_y = viewport.top_left.y.as_int() + viewport.size.height.as_int()
             - clip_area.value().top_left.y.as_int() - clip_area.value().size.height.as_int();
         glm::vec4 clip_pos(clip_area.value().top_left.x.as_int(), clip_y, 0, 1);
-        clip_pos = display_transform * data.workspace_transform * clip_pos;
+        clip_pos = display_transform * data.data.workspace_transform * clip_pos;
 
         glScissor(
             (int)clip_pos.x - viewport.top_left.x.as_int(),
@@ -315,7 +314,7 @@ miracle::Renderer::DrawData Renderer::draw(
         glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
         glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
     }
-    else if (data.needs_outline)
+    else if (data.data.needs_outline)
     {
         glEnable(GL_STENCIL_TEST);
         glStencilFunc(GL_ALWAYS, 1, 0xFF);
@@ -365,7 +364,7 @@ miracle::Renderer::DrawData Renderer::draw(
     GLfloat const top_left_y = (float)rect.top_left.y.as_int();
     glUniform2f(prog->topleft_uniform, top_left_x, top_left_y);
 
-    glm::mat4 transform = data.transform;
+    glm::mat4 transform = data.data.transform;
     if (texture->layout() == mg::gl::Texture::Layout::TopRowFirst)
     {
         // GL textures have (0,0) at bottom-left rather than top-left
@@ -387,7 +386,7 @@ miracle::Renderer::DrawData Renderer::draw(
     switch (compositor_state.mode())
     {
     case WindowManagerMode::selecting:
-        glUniform1i(prog->mode_uniform, (int)(data.is_focused ? RenderFilter::none : RenderFilter::grayscale));
+        glUniform1i(prog->mode_uniform, (int)(data.data.is_focused ? RenderFilter::none : RenderFilter::grayscale));
         break;
     default:
         glUniform1i(prog->mode_uniform, (int)RenderFilter::none);
@@ -395,7 +394,7 @@ miracle::Renderer::DrawData Renderer::draw(
     }
 
     glUniformMatrix4fv(prog->workspace_transform_uniform, 1, GL_FALSE,
-        glm::value_ptr(data.workspace_transform));
+        glm::value_ptr(data.data.workspace_transform));
 
     if (prog->outline_color_uniform >= 0 && data.outline_context.enabled)
     {
@@ -495,21 +494,18 @@ miracle::Renderer::DrawData Renderer::draw(
     }
 
     // Next, draw the outline if we have container to facilitate it
-    if (data.needs_outline)
+    if (data.data.needs_outline)
     {
         auto border_config = config->get_border_config();
         if (border_config.size > 0)
         {
-            auto color = data.is_focused ? border_config.focus_color : border_config.color;
+            auto color = data.data.is_focused ? border_config.focus_color : border_config.color;
             return DrawData {
                 true,
-                false,
-                data.transform,
-                data.workspace_transform,
-                data.is_focused,
+                data.data,
                 { true,
-                             color,
-                             border_config.size }
+                       color,
+                       border_config.size }
             };
         }
     }

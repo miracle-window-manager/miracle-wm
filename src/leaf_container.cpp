@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "container_group_container.h"
 #include "output.h"
 #include "parent_container.h"
+#include "render_data_manager.h"
 #include "tiling_window_tree.h"
 #include "window_helpers.h"
 #include "workspace.h"
@@ -51,9 +52,15 @@ LeafContainer::LeafContainer(
 {
 }
 
+LeafContainer::~LeafContainer()
+{
+    state.render_data_manager()->remove(*this);
+}
+
 void LeafContainer::associate_to_window(miral::Window const& in_window)
 {
     window_ = in_window;
+    state.render_data_manager()->add(*this);
 }
 
 geom::Rectangle LeafContainer::get_logical_area() const
@@ -228,10 +235,12 @@ void LeafContainer::on_open()
 void LeafContainer::on_focus_gained()
 {
     tree_->advise_focus_gained(*this);
+    state.render_data_manager()->focus_change(*this);
 }
 
 void LeafContainer::on_focus_lost()
 {
+    state.render_data_manager()->focus_change(*this);
 }
 
 void LeafContainer::on_move_to(geom::Point const&)
@@ -299,6 +308,7 @@ TilingWindowTree* LeafContainer::tree() const
 void LeafContainer::tree(TilingWindowTree* in)
 {
     tree_ = in;
+    state.render_data_manager()->workspace_transform_change(*this);
 }
 
 Workspace* LeafContainer::get_workspace() const
@@ -308,7 +318,9 @@ Workspace* LeafContainer::get_workspace() const
 
 Output* LeafContainer::get_output() const
 {
-    return get_workspace()->get_output();
+    if (auto workspace = get_workspace())
+        return workspace->get_output();
+    return nullptr;
 }
 
 glm::mat4 LeafContainer::get_transform() const
@@ -322,6 +334,7 @@ void LeafContainer::set_transform(glm::mat4 transform_)
     {
         surface->set_transformation(transform_);
         transform = transform_;
+        state.render_data_manager()->transform_change(*this);
     }
 }
 
