@@ -233,7 +233,7 @@ bool WorkspaceManager::request_focus(uint32_t id)
     if (active_screen)
         last_selected = active_screen->active();
     else
-        last_selected = nullptr;
+        last_selected = std::nullopt;
 
     // Note: it is important that this is sent before the workspace
     // is activated because 'advise_workspace-active' might remove
