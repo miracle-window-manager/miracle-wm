@@ -228,8 +228,8 @@ std::shared_ptr<LeafContainer> ParentContainer::confirm_window(miral::Window con
 {
     if (pending_node == nullptr)
     {
-        mir::fatal_error("Unable to add the window to the scene. Was create_space_for_window called?");
-        return nullptr;
+        mir::log_error("confirm_window: create_space_for_window wasn't called, so we will call it, but this is odd!");
+        pending_node = create_space_for_window(-1);
     }
 
     auto retval = pending_node;

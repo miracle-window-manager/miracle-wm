@@ -15,13 +15,14 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
+#define MIR_LOG_COMPONENT "animator"
+#define GLM_ENABLE_EXPERIMENTAL
+
 #include "animator.h"
 #include <chrono>
-#include <mir/server_action_queue.h>
-#define MIR_LOG_COMPONENT "animator"
-#include <mir/log.h>
-#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
+#include <mir/log.h>
+#include <mir/server_action_queue.h>
 #include <utility>
 
 using namespace miracle;
@@ -408,12 +409,12 @@ AnimationHandle Animator::register_animateable()
 void Animator::append(std::shared_ptr<Animation> const& animation)
 {
     std::lock_guard<std::mutex> lock(processing_lock);
-    for (auto& other : queued_animations)
+    for (auto& other : active)
     {
         if (other->get_handle() == animation->get_handle())
             other->mark_for_great_animator_in_the_sky();
     }
-    queued_animations.push_back(animation);
+    active.push_back(animation);
     animation->on_tick(animation->init());
     cv.notify_one();
 }
@@ -422,7 +423,7 @@ void Animator::tick(float dt)
 {
     std::lock_guard<std::mutex> lock(processing_lock);
 
-    for (auto& item : queued_animations)
+    for (auto& item : active)
     {
         if (item->is_going_to_great_animator_in_the_sky())
             continue;
@@ -435,18 +436,18 @@ void Animator::tick(float dt)
             item->mark_for_great_animator_in_the_sky();
     }
 
-    queued_animations.erase(std::remove_if(queued_animations.begin(), queued_animations.end(), [](std::shared_ptr<Animation> const& animation)
+    active.erase(std::remove_if(active.begin(), active.end(), [](std::shared_ptr<Animation> const& animation)
     {
         return animation->is_going_to_great_animator_in_the_sky();
     }),
-        queued_animations.end());
+        active.end());
 }
 
 void Animator::set_size_hack(AnimationHandle handle, mir::geometry::Size const& size)
 {
     std::lock_guard<std::mutex> lock(processing_lock);
 
-    for (auto& animation : queued_animations)
+    for (auto& animation : active)
     {
         if (animation->get_handle() == handle)
             animation->set_current_size(size);
@@ -456,7 +457,7 @@ void Animator::set_size_hack(AnimationHandle handle, mir::geometry::Size const& 
 void Animator::remove_by_animation_handle(miracle::AnimationHandle handle)
 {
     std::lock_guard<std::mutex> lock(processing_lock);
-    for (auto& animation : queued_animations)
+    for (auto& animation : active)
     {
         if (animation->get_handle() == handle)
             animation->mark_for_great_animator_in_the_sky();
