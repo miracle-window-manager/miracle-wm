@@ -19,6 +19,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "mock_configuration.h"
 #include "mock_container.h"
 #include "mock_output.h"
+#include "mock_tiling_window_tree.h"
+#include "mock_workspace.h"
 #include "with_command_controller.h"
 #include <gtest/gtest.h>
 
@@ -99,4 +101,59 @@ TEST_F(DragAndDropServiceTest, can_stop_dragging)
         mir_input_event_modifier_meta);
 
     ASSERT_EQ(state.mode(), WindowManagerMode::normal);
+}
+
+TEST_F(DragAndDropServiceTest, can_drag_to_other_container)
+{
+    auto output = std::make_shared<::testing::NiceMock<test::MockOutput>>();
+    state.output_list.push_back(output);
+    state.focus_output(output);
+
+    auto container_drag = std::make_shared<::testing::NiceMock<test::MockContainer>>();
+    state.add(container_drag);
+    state.focus_container(container_drag);
+    ON_CALL(*output, intersect(::testing::_, ::testing::_))
+        .WillByDefault(::testing::Return(container_drag));
+
+    ON_CALL(*container_drag, drag_start())
+        .WillByDefault(::testing::Return(true));
+
+    service.handle_pointer_event(
+        state,
+        100,
+        100,
+        mir_pointer_action_button_down,
+        mir_input_event_modifier_meta);
+
+    auto other_container = std::make_shared<::testing::NiceMock<test::MockContainer>>();
+    state.add(other_container);
+
+    std::shared_ptr<test::MockWorkspace> workspace = std::make_shared<test::MockWorkspace>();
+    std::shared_ptr<test::MockTilingWindowTree> tree = std::make_shared<test::MockTilingWindowTree>();
+    ON_CALL(*output, active())
+        .WillByDefault(::testing::Return(workspace.get()));
+    ON_CALL(*output, intersect_leaf(::testing::_, ::testing::_, ::testing::_))
+        .WillByDefault(::testing::Return(other_container));
+    ON_CALL(*workspace, get_tree())
+        .WillByDefault(::testing::Return(tree.get()));
+    ON_CALL(*tree, is_empty())
+        .WillByDefault(::testing::Return(false));
+    ON_CALL(*container_drag, get_type())
+        .WillByDefault(::testing::Return(ContainerType::leaf));
+    ON_CALL(*other_container, get_type())
+        .WillByDefault(::testing::Return(ContainerType::leaf));
+    ON_CALL(*container_drag, tree())
+        .WillByDefault(::testing::Return(nullptr));
+
+    ON_CALL(*other_container, tree())
+        .WillByDefault(::testing::Return(tree.get()));
+
+    EXPECT_CALL(*tree, move_to);
+
+    service.handle_pointer_event(
+        state,
+        500,
+        500,
+        mir_pointer_action_button_down,
+        mir_input_event_modifier_none);
 }

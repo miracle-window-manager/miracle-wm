@@ -79,9 +79,12 @@ bool DragAndDropService::handle_pointer_event(CompositorState& state, float x, f
 
         // Get the intersection and try to move ourselves there. We only care if we're intersecting
         // a leaf container, as those would be the only one in the grid.
-        std::shared_ptr<Container> intersected = state.focused_output()->intersect(x, y);
+        std::shared_ptr<Container> intersected = state.focused_output()->intersect_leaf(x, y, true);
         if (!intersected)
+        {
+            last_intersected.reset();
             return true;
+        }
 
         if (last_intersected.lock() == intersected)
             return true;
@@ -115,8 +118,8 @@ bool DragAndDropService::handle_pointer_event(CompositorState& state, float x, f
             return false;
         }
 
-        command_controller.select_container(intersected);
         command_controller.set_mode(WindowManagerMode::dragging);
+        command_controller.select_container(intersected);
         cursor_start_x = x;
         cursor_start_y = y;
         container_start_x = static_cast<float>(intersected->get_visible_area().top_left.x.as_int());

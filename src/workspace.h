@@ -47,7 +47,59 @@ struct AllocationHint
 class Workspace
 {
 public:
-    Workspace(
+    virtual ~Workspace() = default;
+
+    virtual void set_area(mir::geometry::Rectangle const&) = 0;
+    virtual void recalculate_area() = 0;
+
+    virtual AllocationHint allocate_position(
+        miral::ApplicationInfo const& app_info,
+        miral::WindowSpecification& requested_specification,
+        AllocationHint const& hint)
+        = 0;
+
+    virtual std::shared_ptr<Container> create_container(
+        miral::WindowInfo const& window_info, AllocationHint const& type)
+        = 0;
+
+    virtual void handle_ready_hack(LeafContainer& container) = 0;
+    virtual void delete_container(std::shared_ptr<Container> const& container) = 0;
+    virtual void show() = 0;
+    virtual void hide() = 0;
+
+    virtual void transfer_pinned_windows_to(std::shared_ptr<Workspace> const& other) = 0;
+
+    virtual void for_each_window(std::function<bool(std::shared_ptr<Container>)> const&) const = 0;
+
+    virtual std::shared_ptr<FloatingWindowContainer> add_floating_window(miral::Window const&) = 0;
+
+    virtual void advise_focus_gained(std::shared_ptr<Container> const& container) = 0;
+
+    virtual void remove_floating_hack(std::shared_ptr<Container> const&) = 0;
+
+    virtual void select_first_window() = 0;
+
+    virtual Output* get_output() const = 0;
+
+    [[deprecated("Do not use unless you have a very good reason to do so!")]]
+    virtual void workspace_transform_change_hack()
+        = 0;
+
+    [[nodiscard]] virtual bool is_empty() const = 0;
+    virtual void graft(std::shared_ptr<Container> const&) = 0;
+
+    [[nodiscard]] virtual uint32_t id() const = 0;
+    [[nodiscard]] virtual std::optional<int> num() const = 0;
+    [[nodiscard]] virtual nlohmann::json to_json() const = 0;
+    [[nodiscard]] virtual TilingWindowTree* get_tree() const = 0;
+    [[nodiscard]] virtual std::optional<std::string> const& name() const = 0;
+    [[nodiscard]] virtual std::string display_name() const = 0;
+};
+
+class MiralWorkspace : public Workspace
+{
+public:
+    MiralWorkspace(
         Output* output,
         uint32_t id,
         std::optional<int> num,
@@ -57,46 +109,35 @@ public:
         CompositorState const& state,
         std::shared_ptr<MinimalWindowManager> const& floating_window_manager);
 
-    void set_area(mir::geometry::Rectangle const&);
-    void recalculate_area();
+    void set_area(mir::geometry::Rectangle const&) override;
+    void recalculate_area() override;
 
     AllocationHint allocate_position(
         miral::ApplicationInfo const& app_info,
         miral::WindowSpecification& requested_specification,
-        AllocationHint const& hint);
+        AllocationHint const& hint) override;
     std::shared_ptr<Container> create_container(
-        miral::WindowInfo const& window_info, AllocationHint const& type);
-    void handle_ready_hack(LeafContainer& container);
-    void delete_container(std::shared_ptr<Container> const& container);
-    void show();
-    void hide();
-    void transfer_pinned_windows_to(std::shared_ptr<Workspace> const& other);
-    void for_each_window(std::function<void(std::shared_ptr<Container>)> const&) const;
-    bool has_floating_window(std::shared_ptr<Container> const&);
-    std::shared_ptr<FloatingWindowContainer> add_floating_window(miral::Window const&);
-    void advise_focus_gained(std::shared_ptr<Container> const& container);
-
-    /// A hack to remove floating windows immediately from the list
-    /// without notifying the window manager. Note that this is a tad
-    /// weird, but it is useful for the scratchpad. Some of this may
-    /// need to be rethought later.
-    void remove_floating_hack(std::shared_ptr<Container> const&);
-
-    void select_first_window();
-
-    Output* get_output() const;
-
-    [[deprecated("Do not use unless you have a very good reason to do so!")]]
-    void workspace_transform_change_hack();
-    [[nodiscard]] bool is_empty() const;
-    void graft(std::shared_ptr<Container> const&);
-    /// Converts a workspace to its corresponding index in the workspace array.
-    [[nodiscard]] uint32_t id() const { return id_; }
-    [[nodiscard]] std::optional<int> num() const { return num_; }
-    [[nodiscard]] nlohmann::json to_json() const;
-    [[nodiscard]] TilingWindowTree* get_tree() const { return tree.get(); }
-    [[nodiscard]] std::optional<std::string> const& name() const { return name_; }
-    [[nodiscard]] std::string display_name() const;
+        miral::WindowInfo const& window_info, AllocationHint const& type) override;
+    void handle_ready_hack(LeafContainer& container) override;
+    void delete_container(std::shared_ptr<Container> const& container) override;
+    void show() override;
+    void hide() override;
+    void transfer_pinned_windows_to(std::shared_ptr<Workspace> const& other) override;
+    void for_each_window(std::function<bool(std::shared_ptr<Container>)> const&) const override;
+    std::shared_ptr<FloatingWindowContainer> add_floating_window(miral::Window const&) override;
+    void advise_focus_gained(std::shared_ptr<Container> const& container) override;
+    void remove_floating_hack(std::shared_ptr<Container> const&) override;
+    void select_first_window() override;
+    Output* get_output() const override;
+    void workspace_transform_change_hack() override;
+    [[nodiscard]] bool is_empty() const override;
+    void graft(std::shared_ptr<Container> const&) override;
+    [[nodiscard]] uint32_t id() const override { return id_; }
+    [[nodiscard]] std::optional<int> num() const override { return num_; }
+    [[nodiscard]] nlohmann::json to_json() const override;
+    [[nodiscard]] TilingWindowTree* get_tree() const override { return tree.get(); }
+    [[nodiscard]] std::optional<std::string> const& name() const override { return name_; }
+    [[nodiscard]] std::string display_name() const override;
 
 private:
     Output* output;

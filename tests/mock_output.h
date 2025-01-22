@@ -29,6 +29,7 @@ namespace test
     {
     public:
         MOCK_METHOD(std::shared_ptr<Container>, intersect, (float x, float y), (override));
+        MOCK_METHOD(std::shared_ptr<Container>, intersect_leaf, (float x, float y, bool ignore_selected), (override));
         MOCK_METHOD(AllocationHint, allocate_position,
             (miral::ApplicationInfo const& app_info,
                 miral::WindowSpecification& requested_specification,

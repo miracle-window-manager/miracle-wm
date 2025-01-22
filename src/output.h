@@ -50,6 +50,9 @@ public:
     virtual ~Output() = default;
 
     virtual std::shared_ptr<Container> intersect(float x, float y) = 0;
+    /// Ignores all other windows and checks for intersections within the tiling grid. If
+    /// [ignore_selected] is true, then the active window will not be intersected.
+    virtual std::shared_ptr<Container> intersect_leaf(float x, float y, bool ignore_selected) = 0;
     virtual AllocationHint allocate_position(
         miral::ApplicationInfo const& app_info,
         miral::WindowSpecification& requested_specification,
@@ -109,6 +112,9 @@ public:
     ~MiralWrapperOutput();
 
     std::shared_ptr<Container> intersect(float x, float y) override;
+    /// Ignores all other windows and checks for intersections within the tiling grid. If
+    /// [ignore_selected] is true, then the active window will not be intersected.
+    std::shared_ptr<Container> intersect_leaf(float x, float y, bool ignore_selected) override;
     AllocationHint allocate_position(
         miral::ApplicationInfo const& app_info,
         miral::WindowSpecification& requested_specification,

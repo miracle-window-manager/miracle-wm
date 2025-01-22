@@ -82,7 +82,7 @@ public:
 
     std::shared_ptr<LeafContainer> create_leaf(
         std::shared_ptr<ParentContainer> parent = nullptr,
-        TilingWindowTree* target_tree = nullptr)
+        MiralTilingWindowTree* target_tree = nullptr)
     {
         if (target_tree == nullptr)
             target_tree = &tree;
@@ -111,7 +111,7 @@ public:
     std::vector<std::shared_ptr<test::StubSurface>> surfaces;
     std::vector<StubWindowData> pairs;
     StubWindowController window_controller { pairs };
-    TilingWindowTree tree;
+    MiralTilingWindowTree tree;
 };
 
 TEST_F(TilingWindowTreeTest, can_add_single_window_without_border_and_gaps)
@@ -219,7 +219,7 @@ TEST_F(TilingWindowTreeTest, can_move_container_to_different_parent)
 
 TEST_F(TilingWindowTreeTest, can_move_container_to_container_in_other_tree)
 {
-    TilingWindowTree other_tree(
+    MiralTilingWindowTree other_tree(
         std::make_unique<SimpleTilingWindowTreeInterface>(OTHER_TREE_BOUNDS),
         window_controller,
         state,
@@ -238,7 +238,7 @@ TEST_F(TilingWindowTreeTest, can_move_container_to_container_in_other_tree)
 
 TEST_F(TilingWindowTreeTest, can_move_container_to_tree)
 {
-    TilingWindowTree other_tree(
+    MiralTilingWindowTree other_tree(
         std::make_unique<SimpleTilingWindowTreeInterface>(OTHER_TREE_BOUNDS),
         window_controller,
         state,

@@ -42,7 +42,7 @@ namespace
 class OutputTilingWindowTreeInterface : public TilingWindowTreeInterface
 {
 public:
-    explicit OutputTilingWindowTreeInterface(Output* screen, Workspace* workspace) :
+    explicit OutputTilingWindowTreeInterface(Output* screen, MiralWorkspace* workspace) :
         screen { screen },
         workspace { workspace }
     {
@@ -53,19 +53,19 @@ public:
         return screen->get_app_zones();
     }
 
-    Workspace* get_workspace() const override
+    MiralWorkspace* get_workspace() const override
     {
         return workspace;
     }
 
 private:
     Output* screen;
-    Workspace* workspace;
+    MiralWorkspace* workspace;
 };
 
 }
 
-Workspace::Workspace(
+MiralWorkspace::MiralWorkspace(
     miracle::Output* output,
     uint32_t id,
     std::optional<int> num,
@@ -82,23 +82,23 @@ Workspace::Workspace(
     state { state },
     config { config },
     floating_window_manager { floating_window_manager },
-    tree(std::make_shared<TilingWindowTree>(
+    tree(std::make_shared<MiralTilingWindowTree>(
         std::make_unique<OutputTilingWindowTreeInterface>(output, this),
         window_controller, state, config, output->get_area()))
 {
 }
 
-void Workspace::set_area(mir::geometry::Rectangle const& area)
+void MiralWorkspace::set_area(mir::geometry::Rectangle const& area)
 {
     tree->set_area(area);
 }
 
-void Workspace::recalculate_area()
+void MiralWorkspace::recalculate_area()
 {
     tree->recalculate_root_node_area();
 }
 
-AllocationHint Workspace::allocate_position(
+AllocationHint MiralWorkspace::allocate_position(
     miral::ApplicationInfo const& app_info,
     miral::WindowSpecification& requested_specification,
     AllocationHint const& hint)
@@ -127,7 +127,7 @@ AllocationHint Workspace::allocate_position(
     }
 }
 
-std::shared_ptr<Container> Workspace::create_container(
+std::shared_ptr<Container> MiralWorkspace::create_container(
     miral::WindowInfo const& window_info,
     AllocationHint const& hint)
 {
@@ -168,7 +168,7 @@ std::shared_ptr<Container> Workspace::create_container(
     return container;
 }
 
-void Workspace::handle_ready_hack(LeafContainer& container)
+void MiralWorkspace::handle_ready_hack(LeafContainer& container)
 {
     // TODO: Hack
     //  By default, new windows are raised. To properly maintain the ordering, we must
@@ -180,7 +180,7 @@ void Workspace::handle_ready_hack(LeafContainer& container)
         window_controller.raise(state.focused_container()->window().value());
 }
 
-void Workspace::delete_container(std::shared_ptr<Container> const& container)
+void MiralWorkspace::delete_container(std::shared_ptr<Container> const& container)
 {
     switch (container->get_type())
     {
@@ -204,12 +204,12 @@ void Workspace::delete_container(std::shared_ptr<Container> const& container)
     }
 }
 
-void Workspace::advise_focus_gained(std::shared_ptr<Container> const& container)
+void MiralWorkspace::advise_focus_gained(std::shared_ptr<Container> const& container)
 {
     last_selected_container = container;
 }
 
-void Workspace::show()
+void MiralWorkspace::show()
 {
     auto fullscreen_node = tree->show();
     for (auto const& floating : floating_windows)
@@ -223,7 +223,7 @@ void Workspace::show()
     }
 }
 
-void Workspace::hide()
+void MiralWorkspace::hide()
 {
     tree->hide();
 
@@ -231,39 +231,44 @@ void Workspace::hide()
         floating->hide();
 }
 
-void Workspace::for_each_window(std::function<void(std::shared_ptr<Container>)> const& f) const
+void MiralWorkspace::for_each_window(std::function<bool(std::shared_ptr<Container>)> const& f) const
 {
     for (auto const& window : floating_windows)
     {
         if (!window->window())
         {
-            mir::log_error("Workspace::for_each_window: floating window has no window");
+            mir::log_error("MiralWorkspace::for_each_window: floating window has no window");
             continue;
         }
 
         auto container = window_controller.get_container(window->window().value());
         if (container)
-            f(container);
+        {
+            if (f(container))
+                return;
+        }
     }
 
-    tree->foreach_node([&](std::shared_ptr<Container> const& node)
+    tree->foreach_node_pred([&](std::shared_ptr<Container> const& node)
     {
         if (auto leaf = Container::as_leaf(node))
         {
             if (!leaf->window())
             {
-                mir::log_error("Workspace::for_each_window: tiled window has no window");
-                return;
+                mir::log_error("MiralWorkspace::for_each_window: tiled window has no window");
+                return false;
             }
 
             auto container = window_controller.get_container(leaf->window().value());
-            if (container)
-                f(container);
+            if (container && f(container))
+                return true;
         }
+
+        return false;
     });
 }
 
-void Workspace::transfer_pinned_windows_to(std::shared_ptr<Workspace> const& other)
+void MiralWorkspace::transfer_pinned_windows_to(std::shared_ptr<Workspace> const& other)
 {
     for (auto it = floating_windows.begin(); it != floating_windows.end();)
     {
@@ -286,18 +291,7 @@ void Workspace::transfer_pinned_windows_to(std::shared_ptr<Workspace> const& oth
     }
 }
 
-bool Workspace::has_floating_window(std::shared_ptr<Container> const& container)
-{
-    for (auto const& other : floating_windows)
-    {
-        if (other == container)
-            return true;
-    }
-
-    return false;
-}
-
-std::shared_ptr<FloatingWindowContainer> Workspace::add_floating_window(miral::Window const& window)
+std::shared_ptr<FloatingWindowContainer> MiralWorkspace::add_floating_window(miral::Window const& window)
 {
     auto floating = std::make_shared<FloatingWindowContainer>(
         window, floating_window_manager, window_controller, this, state, config);
@@ -305,7 +299,7 @@ std::shared_ptr<FloatingWindowContainer> Workspace::add_floating_window(miral::W
     return floating;
 }
 
-void Workspace::remove_floating_hack(std::shared_ptr<Container> const& container)
+void MiralWorkspace::remove_floating_hack(std::shared_ptr<Container> const& container)
 {
     assert(container->get_type() == ContainerType::floating_window);
     Container::as_floating(container)->set_workspace(nullptr);
@@ -313,7 +307,7 @@ void Workspace::remove_floating_hack(std::shared_ptr<Container> const& container
         std::remove(floating_windows.begin(), floating_windows.end(), container), floating_windows.end());
 }
 
-void Workspace::select_first_window()
+void MiralWorkspace::select_first_window()
 {
     // Check if the selected container is already on this workspace
     if (state.focused_container() && state.focused_container()->get_workspace() == this)
@@ -377,12 +371,12 @@ void Workspace::select_first_window()
     window_controller.select_active_window(miral::Window {});
 }
 
-Output* Workspace::get_output() const
+Output* MiralWorkspace::get_output() const
 {
     return output;
 }
 
-void Workspace::workspace_transform_change_hack()
+void MiralWorkspace::workspace_transform_change_hack()
 {
     // TODO: Ugh, sad. I am forced to set the surface transform so that the surface is rerendered
     for_each_window([&](std::shared_ptr<Container> const& container)
@@ -395,15 +389,16 @@ void Workspace::workspace_transform_change_hack()
             if (surface)
                 surface->set_transformation(container->get_transform());
         }
+        return false;
     });
 }
 
-bool Workspace::is_empty() const
+bool MiralWorkspace::is_empty() const
 {
     return tree->is_empty() && floating_windows.empty();
 }
 
-void Workspace::graft(std::shared_ptr<Container> const& container)
+void MiralWorkspace::graft(std::shared_ptr<Container> const& container)
 {
     switch (container->get_type())
     {
@@ -421,12 +416,12 @@ void Workspace::graft(std::shared_ptr<Container> const& container)
         tree->graft(Container::as_leaf(container), tree->get_root());
         break;
     default:
-        mir::log_error("Workspace::graft: ungraftable container type: %d", (int)container->get_type());
+        mir::log_error("MiralWorkspace::graft: ungraftable container type: %d", (int)container->get_type());
         break;
     }
 }
 
-std::shared_ptr<ParentContainer> Workspace::get_layout_container()
+std::shared_ptr<ParentContainer> MiralWorkspace::get_layout_container()
 {
     if (!state.focused_container())
         return nullptr;
@@ -441,7 +436,7 @@ std::shared_ptr<ParentContainer> Workspace::get_layout_container()
     return parent;
 }
 
-std::string Workspace::display_name() const
+std::string MiralWorkspace::display_name() const
 {
     std::stringstream ss;
     if (num_ && name_)
@@ -456,7 +451,7 @@ std::string Workspace::display_name() const
     return ss.str();
 }
 
-nlohmann::json Workspace::to_json() const
+nlohmann::json MiralWorkspace::to_json() const
 {
     bool const is_focused = output->active() == this;
 

@@ -32,7 +32,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace miracle;
 
-TilingWindowTree::TilingWindowTree(
+MiralTilingWindowTree::MiralTilingWindowTree(
     std::unique_ptr<TilingWindowTreeInterface> tree_interface,
     WindowController& window_controller,
     CompositorState const& state,
@@ -57,12 +57,12 @@ TilingWindowTree::TilingWindowTree(
     });
 }
 
-TilingWindowTree::~TilingWindowTree()
+MiralTilingWindowTree::~MiralTilingWindowTree()
 {
     config->unregister_listener(config_handle);
 }
 
-miral::WindowSpecification TilingWindowTree::place_new_window(
+miral::WindowSpecification MiralTilingWindowTree::place_new_window(
     const miral::WindowSpecification& requested_specification,
     std::shared_ptr<ParentContainer> const& parent_)
 {
@@ -82,7 +82,7 @@ miral::WindowSpecification TilingWindowTree::place_new_window(
     return new_spec;
 }
 
-std::shared_ptr<LeafContainer> TilingWindowTree::confirm_window(
+std::shared_ptr<LeafContainer> MiralTilingWindowTree::confirm_window(
     miral::WindowInfo const& window_info,
     std::shared_ptr<ParentContainer> const& container)
 {
@@ -90,7 +90,7 @@ std::shared_ptr<LeafContainer> TilingWindowTree::confirm_window(
     return parent->confirm_window(window_info.window());
 }
 
-void TilingWindowTree::graft(
+void MiralTilingWindowTree::graft(
     std::shared_ptr<Container> const& leaf,
     std::shared_ptr<ParentContainer> const& parent,
     int index)
@@ -100,13 +100,13 @@ void TilingWindowTree::graft(
     parent->commit_changes();
 }
 
-bool TilingWindowTree::resize_container(miracle::Direction direction, int pixels, Container& container)
+bool MiralTilingWindowTree::resize_container(miracle::Direction direction, int pixels, Container& container)
 {
     handle_resize(container, direction, pixels);
     return true;
 }
 
-bool TilingWindowTree::set_size(std::optional<int> const& width, std::optional<int> const& height, Container& container)
+bool MiralTilingWindowTree::set_size(std::optional<int> const& width, std::optional<int> const& height, Container& container)
 {
     auto const& rectangle = container.get_visible_area();
     int new_width = width ? width.value() : rectangle.size.width.as_int();
@@ -127,7 +127,7 @@ bool TilingWindowTree::set_size(std::optional<int> const& width, std::optional<i
     return true;
 }
 
-bool TilingWindowTree::select_next(
+bool MiralTilingWindowTree::select_next(
     miracle::Direction direction, Container& container)
 {
     auto node = handle_select(container, direction);
@@ -141,7 +141,7 @@ bool TilingWindowTree::select_next(
     return true;
 }
 
-bool TilingWindowTree::toggle_fullscreen(LeafContainer& container)
+bool MiralTilingWindowTree::toggle_fullscreen(LeafContainer& container)
 {
     if (container.is_fullscreen())
         advise_fullscreen_container(container);
@@ -150,18 +150,18 @@ bool TilingWindowTree::toggle_fullscreen(LeafContainer& container)
     return true;
 }
 
-void TilingWindowTree::set_area(geom::Rectangle const& new_area)
+void MiralTilingWindowTree::set_area(geom::Rectangle const& new_area)
 {
     root_lane->set_logical_area(new_area);
     root_lane->commit_changes();
 }
 
-geom::Rectangle TilingWindowTree::get_area() const
+geom::Rectangle MiralTilingWindowTree::get_area() const
 {
     return root_lane->get_logical_area();
 }
 
-bool TilingWindowTree::move_container(miracle::Direction direction, Container& container)
+bool MiralTilingWindowTree::move_container(miracle::Direction direction, Container& container)
 {
     auto traversal_result = handle_move(container, direction);
     switch (traversal_result.traversal_type)
@@ -199,7 +199,7 @@ bool TilingWindowTree::move_container(miracle::Direction direction, Container& c
     return true;
 }
 
-bool TilingWindowTree::move_to(Container& to_move, Container& target)
+bool MiralTilingWindowTree::move_to(Container& to_move, Container& target)
 {
     auto target_parent = target.get_parent().lock();
     if (!target_parent)
@@ -223,7 +223,7 @@ bool TilingWindowTree::move_to(Container& to_move, Container& target)
     return true;
 }
 
-bool TilingWindowTree::move_to_tree(std::shared_ptr<Container> const& container)
+bool MiralTilingWindowTree::move_to_tree(std::shared_ptr<Container> const& container)
 {
     // When we remove [node] from its initial position, there's a chance
     // that the target_lane was melted into another lane. Hence, we need to return it
@@ -236,32 +236,32 @@ bool TilingWindowTree::move_to_tree(std::shared_ptr<Container> const& container)
     return true;
 }
 
-void TilingWindowTree::request_layout(Container& container, miracle::LayoutScheme scheme)
+void MiralTilingWindowTree::request_layout(Container& container, miracle::LayoutScheme scheme)
 {
     handle_layout_scheme(scheme, container);
 }
 
-void TilingWindowTree::request_vertical_layout(Container& container)
+void MiralTilingWindowTree::request_vertical_layout(Container& container)
 {
     handle_layout_scheme(LayoutScheme::vertical, container);
 }
 
-void TilingWindowTree::request_horizontal_layout(Container& container)
+void MiralTilingWindowTree::request_horizontal_layout(Container& container)
 {
     handle_layout_scheme(LayoutScheme::horizontal, container);
 }
 
-void TilingWindowTree::request_tabbing_layout(Container& container)
+void MiralTilingWindowTree::request_tabbing_layout(Container& container)
 {
     handle_layout_scheme(LayoutScheme::tabbing, container);
 }
 
-void TilingWindowTree::request_stacking_layout(Container& container)
+void MiralTilingWindowTree::request_stacking_layout(Container& container)
 {
     handle_layout_scheme(LayoutScheme::stacking, container);
 }
 
-void TilingWindowTree::toggle_layout(Container& container, bool cycle_thru_all)
+void MiralTilingWindowTree::toggle_layout(Container& container, bool cycle_thru_all)
 {
     auto parent = Container::as_parent(container.get_parent().lock());
     if (!parent)
@@ -283,7 +283,7 @@ void TilingWindowTree::toggle_layout(Container& container, bool cycle_thru_all)
     }
 }
 
-void TilingWindowTree::handle_layout_scheme(LayoutScheme scheme, Container& container)
+void MiralTilingWindowTree::handle_layout_scheme(LayoutScheme scheme, Container& container)
 {
     auto parent = container.get_parent().lock();
     if (!parent)
@@ -303,15 +303,14 @@ void TilingWindowTree::handle_layout_scheme(LayoutScheme scheme, Container& cont
     parent->set_layout(scheme);
 }
 
-void TilingWindowTree::advise_focus_gained(LeafContainer& container)
+void MiralTilingWindowTree::advise_focus_gained(LeafContainer& container)
 {
-    if (container.is_fullscreen())
-        window_controller.raise(container.window().value());
-    else if (auto const& parent = container.get_parent().lock())
+    window_controller.raise(container.window().value());
+    if (auto const& parent = container.get_parent().lock())
         parent->on_focus_gained();
 }
 
-void TilingWindowTree::advise_delete_window(std::shared_ptr<Container> const& container)
+void MiralTilingWindowTree::advise_delete_window(std::shared_ptr<Container> const& container)
 {
     auto parent = handle_remove(container);
     parent->commit_changes();
@@ -384,7 +383,7 @@ std::shared_ptr<LeafContainer> get_closest_window_to_select_from_node(
 }
 }
 
-std::shared_ptr<LeafContainer> TilingWindowTree::handle_select(
+std::shared_ptr<LeafContainer> MiralTilingWindowTree::handle_select(
     Container& from,
     Direction direction)
 {
@@ -431,7 +430,7 @@ std::shared_ptr<LeafContainer> TilingWindowTree::handle_select(
     return nullptr;
 }
 
-TilingWindowTree::MoveResult TilingWindowTree::handle_move(Container& from, Direction direction)
+MiralTilingWindowTree::MoveResult MiralTilingWindowTree::handle_move(Container& from, Direction direction)
 {
     // Algorithm:
     //  1. Perform the _select algorithm. If that passes, then we want to be where the selected node
@@ -479,7 +478,7 @@ TilingWindowTree::MoveResult TilingWindowTree::handle_move(Container& from, Dire
         };
 }
 
-void TilingWindowTree::handle_resize(
+void MiralTilingWindowTree::handle_resize(
     Container& node,
     Direction direction,
     int amount)
@@ -585,7 +584,7 @@ void TilingWindowTree::handle_resize(
     }
 }
 
-std::shared_ptr<ParentContainer> TilingWindowTree::handle_remove(std::shared_ptr<Container> const& node)
+std::shared_ptr<ParentContainer> MiralTilingWindowTree::handle_remove(std::shared_ptr<Container> const& node)
 {
     auto parent = Container::as_parent(node->get_parent().lock());
     if (parent == nullptr)
@@ -606,7 +605,7 @@ std::shared_ptr<ParentContainer> TilingWindowTree::handle_remove(std::shared_ptr
     return parent;
 }
 
-std::tuple<std::shared_ptr<ParentContainer>, std::shared_ptr<ParentContainer>> TilingWindowTree::transfer_node(
+std::tuple<std::shared_ptr<ParentContainer>, std::shared_ptr<ParentContainer>> MiralTilingWindowTree::transfer_node(
     std::shared_ptr<Container> const& node, std::shared_ptr<Container> const& to)
 {
     // When we remove [node] from its initial position, there's a chance
@@ -620,7 +619,7 @@ std::tuple<std::shared_ptr<ParentContainer>, std::shared_ptr<ParentContainer>> T
     return { target_parent, to_update };
 }
 
-void TilingWindowTree::recalculate_root_node_area()
+void MiralTilingWindowTree::recalculate_root_node_area()
 {
     for (auto const& zone : tree_interface->get_zones())
     {
@@ -630,7 +629,7 @@ void TilingWindowTree::recalculate_root_node_area()
     }
 }
 
-bool TilingWindowTree::advise_fullscreen_container(LeafContainer& container)
+bool MiralTilingWindowTree::advise_fullscreen_container(LeafContainer& container)
 {
     auto window = container.window().value();
     window_controller.select_active_window(window);
@@ -638,7 +637,7 @@ bool TilingWindowTree::advise_fullscreen_container(LeafContainer& container)
     return true;
 }
 
-bool TilingWindowTree::advise_restored_container(LeafContainer& container)
+bool MiralTilingWindowTree::advise_restored_container(LeafContainer& container)
 {
     auto active = state.focused_container();
     if (active && active->window() == container.window().value())
@@ -650,7 +649,7 @@ bool TilingWindowTree::advise_restored_container(LeafContainer& container)
     return true;
 }
 
-bool TilingWindowTree::handle_container_ready(LeafContainer& container)
+bool MiralTilingWindowTree::handle_container_ready(LeafContainer& container)
 {
     constrain(container);
     if (state.focused_container() && state.focused_container()->is_fullscreen())
@@ -664,7 +663,7 @@ bool TilingWindowTree::handle_container_ready(LeafContainer& container)
     return true;
 }
 
-bool TilingWindowTree::confirm_placement_on_display(
+bool MiralTilingWindowTree::confirm_placement_on_display(
     Container& container,
     MirWindowState new_state,
     mir::geometry::Rectangle& new_placement)
@@ -682,7 +681,7 @@ bool TilingWindowTree::confirm_placement_on_display(
     return true;
 }
 
-bool TilingWindowTree::constrain(Container& container)
+bool MiralTilingWindowTree::constrain(Container& container)
 {
     if (is_hidden)
         return false;
@@ -719,7 +718,7 @@ std::shared_ptr<Container> foreach_node_internal(
 }
 }
 
-void TilingWindowTree::foreach_node(std::function<void(std::shared_ptr<Container> const&)> const& f) const
+void MiralTilingWindowTree::foreach_node(std::function<void(std::shared_ptr<Container> const&)> const& f) const
 {
     foreach_node_internal(
         [&](auto const& node)
@@ -727,7 +726,7 @@ void TilingWindowTree::foreach_node(std::function<void(std::shared_ptr<Container
         root_lane);
 }
 
-bool TilingWindowTree::foreach_node_pred(std::function<bool(std::shared_ptr<Container> const&)> const& f) const
+bool MiralTilingWindowTree::foreach_node_pred(std::function<bool(std::shared_ptr<Container> const&)> const& f) const
 {
     return foreach_node_internal(
                [&](auto const& node)
@@ -736,7 +735,7 @@ bool TilingWindowTree::foreach_node_pred(std::function<bool(std::shared_ptr<Cont
         != nullptr;
 }
 
-void TilingWindowTree::hide()
+void MiralTilingWindowTree::hide()
 {
     if (is_hidden)
     {
@@ -748,7 +747,7 @@ void TilingWindowTree::hide()
     root_lane->hide();
 }
 
-std::shared_ptr<LeafContainer> TilingWindowTree::show()
+std::shared_ptr<LeafContainer> MiralTilingWindowTree::show()
 {
     if (!is_hidden)
     {
@@ -770,12 +769,12 @@ std::shared_ptr<LeafContainer> TilingWindowTree::show()
     return Container::as_leaf(fullscreen_node);
 }
 
-bool TilingWindowTree::is_empty() const
+bool MiralTilingWindowTree::is_empty() const
 {
     return root_lane->num_nodes() == 0;
 }
 
-Workspace* TilingWindowTree::get_workspace() const
+Workspace* MiralTilingWindowTree::get_workspace() const
 {
     return tree_interface->get_workspace();
 }
