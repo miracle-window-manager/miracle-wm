@@ -117,7 +117,7 @@ Policy::Policy(
     floating_window_manager(std::make_unique<MinimalWindowManager>(tools, config)),
     animator_loop(std::make_unique<ThreadedAnimatorLoop>(animator)),
     workspace_manager(workspace_observer_registrar, config, state),
-    window_controller(tools, *animator, state, config, server.the_main_loop()),
+    window_controller(tools, *animator, state, config, server.the_main_loop(), this),
     scratchpad_(window_controller, state),
     self(std::make_shared<Self>(*this)),
     command_controller(
@@ -685,6 +685,21 @@ void Policy::handle_request_resize(
     }
 
     container->handle_request_resize(input_event, edge);
+}
+
+void Policy::handle_animation(
+    AnimationStepResult const& asr,
+    std::weak_ptr<Container> const& container)
+{
+    std::lock_guard lock(self->mutex);
+    auto sh_container = container.lock();
+    if (!sh_container)
+    {
+        mir::log_error("handle_animation: container is invalid");
+        return;
+    }
+
+    window_controller.process_animation(asr, sh_container);
 }
 
 mir::geometry::Rectangle Policy::confirm_inherited_move(

@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "compositor_state.h"
 #include "config.h"
 #include "leaf_container.h"
+#include "policy.h"
 #include "window_helpers.h"
 #include <mir/log.h>
 #include <mir/scene/surface.h>
@@ -34,12 +35,14 @@ WindowManagerToolsWindowController::WindowManagerToolsWindowController(
     Animator& animator,
     CompositorState& state,
     std::shared_ptr<Config> const& config,
-    std::shared_ptr<mir::ServerActionQueue> const& server_action_queue) :
+    std::shared_ptr<mir::ServerActionQueue> const& server_action_queue,
+    Policy* policy) :
     tools { tools },
     animator { animator },
     state { state },
     config { config },
-    server_action_queue { server_action_queue }
+    server_action_queue { server_action_queue },
+    policy { policy }
 {
 }
 
@@ -56,13 +59,13 @@ void WindowManagerToolsWindowController::open(miral::Window const& window)
     geom::Rectangle rect { window.top_left(), window.size() };
     if (info.parent())
     {
-        on_animation({ container->animation_handle(), true, rect }, container);
+        policy->handle_animation({ container->animation_handle(), true, rect }, container);
         return;
     }
 
     if (!config->are_animations_enabled())
     {
-        on_animation(AnimationStepResult { container->animation_handle(), true, rect }, container);
+        policy->handle_animation(AnimationStepResult { container->animation_handle(), true, rect }, container);
         return;
     }
 
@@ -97,13 +100,13 @@ void WindowManagerToolsWindowController::set_rectangle(
     auto const& info = info_for(window);
     if (info.parent())
     {
-        on_animation({ container->animation_handle(), true, to }, container);
+        policy->handle_animation({ container->animation_handle(), true, to }, container);
         return;
     }
 
     if (!config->are_animations_enabled())
     {
-        on_animation(
+        policy->handle_animation(
             AnimationStepResult { container->animation_handle(),
                 true,
                 to,
@@ -200,14 +203,16 @@ WindowManagerToolsWindowController::WindowAnimation::WindowAnimation(
 {
 }
 
-void WindowManagerToolsWindowController::WindowAnimation::on_tick(miracle::AnimationStepResult const& asr)
+void WindowManagerToolsWindowController::WindowAnimation::on_tick(AnimationStepResult const& asr)
 {
-    if (auto shared_container = container.lock())
-        controller->on_animation(asr, shared_container);
+    controller->server_action_queue->enqueue(controller, [controller = controller, asr = asr, container = container]()
+    {
+        controller->policy->handle_animation(asr, container);
+    });
 }
 
-void WindowManagerToolsWindowController::on_animation(
-    miracle::AnimationStepResult const& result,
+void WindowManagerToolsWindowController::process_animation(
+    AnimationStepResult const& result,
     std::shared_ptr<Container> const& container)
 {
     bool needs_modify = false;
@@ -234,26 +239,23 @@ void WindowManagerToolsWindowController::on_animation(
 
     if (needs_modify)
     {
-        server_action_queue->enqueue(this, [this, container, spec, result]()
+        if (!container->window())
+            return;
+
+        auto window = container->window().value();
+        if (!window)
+            return;
+        tools.modify_window(window, spec);
+
+        if (result.is_complete)
+            container->constrain();
+        else
         {
-            if (!container->window())
-                return;
-
-            auto window = container->window().value();
-            if (!window)
-                return;
-            tools.modify_window(window, spec);
-
-            if (result.is_complete)
-                container->constrain();
+            if (container->get_type() == ContainerType::leaf)
+                clip(window, result.clip_area);
             else
-            {
-                if (container->get_type() == ContainerType::leaf)
-                    clip(window, result.clip_area);
-                else
-                    noclip(window);
-            }
-        });
+                noclip(window);
+        }
     }
 }
 

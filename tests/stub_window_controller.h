@@ -138,6 +138,10 @@ public:
         return miral::Window();
     }
 
+    void process_animation(AnimationStepResult const&, std::shared_ptr<Container> const&)
+    {
+    }
+
 private:
     std::vector<StubWindowData>& pairs;
     miral::WindowInfo stub_win_info;

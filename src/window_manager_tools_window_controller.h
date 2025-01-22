@@ -30,6 +30,7 @@ namespace miracle
 {
 class CompositorState;
 class Config;
+class Policy;
 
 class WindowManagerToolsWindowController : public WindowController
 {
@@ -39,7 +40,8 @@ public:
         Animator& animator,
         CompositorState& state,
         std::shared_ptr<Config> const& config,
-        std::shared_ptr<mir::ServerActionQueue> const& server_action_queue);
+        std::shared_ptr<mir::ServerActionQueue> const& server_action_queue,
+        Policy* policy);
     void open(miral::Window const&) override;
     bool is_fullscreen(miral::Window const&) override;
     void set_rectangle(miral::Window const&, geom::Rectangle const&, geom::Rectangle const&) override;
@@ -60,6 +62,7 @@ public:
     void move_cursor_to(float x, float y) override;
     void set_size_hack(AnimationHandle handle, mir::geometry::Size const& size) override;
     miral::Window window_at(float x, float y) override;
+    void process_animation(AnimationStepResult const&, std::shared_ptr<Container> const&) override;
 
 private:
     miral::WindowManagerTools tools;
@@ -67,6 +70,7 @@ private:
     CompositorState& state;
     std::shared_ptr<Config> config;
     std::shared_ptr<mir::ServerActionQueue> server_action_queue;
+    Policy* policy;
 
     class WindowAnimation : public Animation
     {
@@ -85,8 +89,6 @@ private:
         WindowManagerToolsWindowController* controller;
         std::weak_ptr<Container> container;
     };
-
-    void on_animation(AnimationStepResult const& result, std::shared_ptr<Container> const&);
 };
 }
 

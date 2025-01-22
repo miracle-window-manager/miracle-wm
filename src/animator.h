@@ -102,12 +102,12 @@ public:
     void append(std::shared_ptr<Animation> const&);
     void set_size_hack(AnimationHandle handle, mir::geometry::Size const& size);
     void remove_by_animation_handle(AnimationHandle handle);
-    bool has_animations() const { return !queued_animations.empty(); }
+    bool has_animations() const { return !active.empty(); }
     std::condition_variable& get_cv() { return cv; }
     std::mutex& get_lock() { return processing_lock; }
 
 private:
-    std::vector<std::shared_ptr<Animation>> queued_animations;
+    std::vector<std::shared_ptr<Animation>> active;
     std::thread run_thread;
     std::condition_variable cv;
     std::mutex processing_lock;

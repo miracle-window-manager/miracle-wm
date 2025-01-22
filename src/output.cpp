@@ -59,6 +59,11 @@ MiralWrapperOutput::MiralWrapperOutput(
 {
 }
 
+MiralWrapperOutput::~MiralWrapperOutput()
+{
+    animator.remove_by_animation_handle(handle);
+}
+
 Workspace* MiralWrapperOutput::active() const
 {
     if (active_workspace.expired())

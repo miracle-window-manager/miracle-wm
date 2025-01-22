@@ -91,6 +91,9 @@ public:
         miral::WindowInfo& window_info,
         const MirInputEvent* input_event,
         MirResizeEdge edge) override;
+    void handle_animation(
+        AnimationStepResult const& asr,
+        std::weak_ptr<Container> const& container);
     auto confirm_inherited_move(
         const miral::WindowInfo& window_info,
         mir::geometry::Displacement movement) -> mir::geometry::Rectangle override;

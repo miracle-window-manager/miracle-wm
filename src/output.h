@@ -106,7 +106,7 @@ public:
         std::shared_ptr<Config> const& options,
         WindowController&,
         Animator&);
-    ~MiralWrapperOutput() = default;
+    ~MiralWrapperOutput();
 
     std::shared_ptr<Container> intersect(float x, float y) override;
     AllocationHint allocate_position(
