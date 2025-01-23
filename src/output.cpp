@@ -74,37 +74,39 @@ Workspace* MiralWrapperOutput::active() const
 
 std::shared_ptr<Container> MiralWrapperOutput::intersect(float x, float y)
 {
+    if (auto const window = window_controller.window_at(x, y))
+        return window_controller.get_container(window);
+
+    return nullptr;
+}
+
+std::shared_ptr<Container> MiralWrapperOutput::intersect_leaf(float x, float y, bool ignore_selected)
+{
     if (active_workspace.expired())
     {
-        mir::log_error("MiralWrapperOutput::handle_pointer_event: unexpectedly trying to handle a pointer event when we lack workspaces");
+        mir::log_error("intersect_leaf: there is no active workspace");
         return nullptr;
     }
 
+    auto workspace = active_workspace.lock().get();
     std::shared_ptr<Container> result = nullptr;
-    for (auto const& workspace : workspaces)
+    workspace->for_each_window([&](std::shared_ptr<Container> const& container)
     {
-        workspace->get_tree()->foreach_node_pred([&](std::shared_ptr<Container> const& container)
-        {
-            if (container->is_leaf() && container->get_visible_area().contains({ x, y }))
-            {
-                result = container;
-                return true;
-            }
+        if (ignore_selected && container == state.focused_container())
             return false;
-        });
-    }
 
-    if (!result)
-    {
-        if (auto const window = window_controller.window_at(x, y))
+        if (container->get_type() != ContainerType::leaf)
+            return false;
+
+        auto const& info = window_controller.info_for(container->window().value());
+        if (container->get_visible_area().contains(geom::Point(x, y)))
         {
-            result = window_controller.get_container(window);
-
-            // We do not want to select leaf windows by their actual position, only their tiled position
-            if (result->get_type() == ContainerType::leaf)
-                result = nullptr;
+            result = container;
+            return true;
         }
-    }
+
+        return false;
+    });
 
     return result;
 }
@@ -141,7 +143,7 @@ void MiralWrapperOutput::delete_container(std::shared_ptr<miracle::Container> co
 void MiralWrapperOutput::advise_new_workspace(WorkspaceCreationData const&& data)
 {
     // Workspaces are always kept in sorted order with numbered workspaces in front followed by all other workspaces
-    auto new_workspace = std::make_shared<Workspace>(
+    std::shared_ptr<Workspace> new_workspace = std::make_shared<MiralWorkspace>(
         this, data.id, data.num, data.name, config, window_controller, state, floating_window_manager);
     insert_sorted(workspaces, new_workspace, [](std::shared_ptr<Workspace> const& a, std::shared_ptr<Workspace> const& b)
     {
@@ -378,6 +380,7 @@ std::vector<miral::Window> MiralWrapperOutput::collect_all_windows() const
         {
             if (auto window = container->window())
                 windows.push_back(*window);
+            return false;
         });
     }
 

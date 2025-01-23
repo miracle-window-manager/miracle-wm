@@ -50,100 +50,150 @@ public:
 class TilingWindowTree
 {
 public:
-    TilingWindowTree(
+    virtual ~TilingWindowTree() = default;
+
+    /// Place a window in the specified container if one is provided.
+    /// Otherwise, the container is placed at the root node.
+    virtual miral::WindowSpecification place_new_window(
+        const miral::WindowSpecification& requested_specification,
+        std::shared_ptr<ParentContainer> const& container)
+        = 0;
+
+    virtual std::shared_ptr<LeafContainer> confirm_window(
+        miral::WindowInfo const&,
+        std::shared_ptr<ParentContainer> const& container)
+        = 0;
+
+    [[deprecated("Use move_to_tree instead")]]
+    virtual void graft(std::shared_ptr<Container> const&, std::shared_ptr<ParentContainer> const& parent, int index = -1)
+        = 0;
+
+    /// Try to resize the current active window in the provided direction
+    virtual bool resize_container(Direction direction, int pixels, Container&) = 0;
+
+    virtual bool set_size(std::optional<int> const& width, std::optional<int> const& height, Container&) = 0;
+
+    /// Move the active window in the provided direction
+    virtual bool move_container(Direction direction, Container&) = 0;
+
+    /// Move [to_move] to the current position of [target]. [target] does
+    /// not have to be in the tree.
+    virtual bool move_to(Container& to_move, Container& target) = 0;
+
+    /// Moves [to_move] to the first available position of the tree and handles
+    /// the process of updating its old position in tree, if any.
+    virtual bool move_to_tree(std::shared_ptr<Container> const& container) = 0;
+
+    /// Select the next window in the provided direction
+    virtual bool select_next(Direction direction, Container&) = 0;
+
+    /// Toggle the active window between fullscreen and not fullscreen
+    virtual bool toggle_fullscreen(LeafContainer&) = 0;
+
+    virtual void request_layout(Container&, LayoutScheme) = 0;
+
+    /// Request a change to vertical window placement
+    virtual void request_vertical_layout(Container&) = 0;
+
+    /// Request a change to horizontal window placement
+    virtual void request_horizontal_layout(Container&) = 0;
+
+    /// Request that the provided container become tabbed.
+    virtual void request_tabbing_layout(Container&) = 0;
+
+    /// Request that the provided container become stacked.
+    virtual void request_stacking_layout(Container&) = 0;
+
+    // Request a change from the current layout scheme to another layout scheme
+    virtual void toggle_layout(Container&, bool cycle_thru_all) = 0;
+
+    /// Advises us to focus the provided container.
+    virtual void advise_focus_gained(LeafContainer&) = 0;
+
+    /// Called when the container was deleted.
+    virtual void advise_delete_window(std::shared_ptr<Container> const&) = 0;
+
+    /// Called when the physical display is resized.
+    virtual void set_area(geom::Rectangle const& new_area) = 0;
+
+    virtual geom::Rectangle get_area() const = 0;
+
+    virtual bool advise_fullscreen_container(LeafContainer&) = 0;
+    virtual bool advise_restored_container(LeafContainer&) = 0;
+    virtual bool handle_container_ready(LeafContainer&) = 0;
+
+    virtual bool confirm_placement_on_display(
+        Container& container,
+        MirWindowState new_state,
+        mir::geometry::Rectangle& new_placement)
+        = 0;
+
+    virtual void foreach_node(std::function<void(std::shared_ptr<Container> const&)> const&) const = 0;
+    virtual bool foreach_node_pred(std::function<bool(std::shared_ptr<Container> const&)> const&) const = 0;
+
+    /// Shows the containers in this tree and returns a fullscreen container, if any
+    virtual std::shared_ptr<LeafContainer> show() = 0;
+
+    /// Hides the containers in this tree
+    virtual void hide() = 0;
+
+    virtual void recalculate_root_node_area() = 0;
+    virtual bool is_empty() const = 0;
+
+    [[nodiscard]] virtual Workspace* get_workspace() const = 0;
+    [[nodiscard]] virtual std::shared_ptr<ParentContainer> const& get_root() const = 0;
+};
+
+class MiralTilingWindowTree : public TilingWindowTree
+{
+public:
+    MiralTilingWindowTree(
         std::unique_ptr<TilingWindowTreeInterface> tree_interface,
         WindowController&,
         CompositorState const&,
         std::shared_ptr<Config> const& options,
         geom::Rectangle const& area);
-    ~TilingWindowTree();
+    ~MiralTilingWindowTree();
 
-    /// Place a window in the specified container if one is provided.
-    /// Otherwise, the container is placed at the root node.
     miral::WindowSpecification place_new_window(
         const miral::WindowSpecification& requested_specification,
-        std::shared_ptr<ParentContainer> const& container);
-
+        std::shared_ptr<ParentContainer> const& container) override;
     std::shared_ptr<LeafContainer> confirm_window(
         miral::WindowInfo const&,
-        std::shared_ptr<ParentContainer> const& container);
-
-    [[deprecated("Use move_to_tree instead")]]
-    void graft(std::shared_ptr<Container> const&, std::shared_ptr<ParentContainer> const& parent, int index = -1);
-
-    /// Try to resize the current active window in the provided direction
-    bool resize_container(Direction direction, int pixels, Container&);
-
-    bool set_size(std::optional<int> const& width, std::optional<int> const& height, Container&);
-
-    /// Move the active window in the provided direction
-    bool move_container(Direction direction, Container&);
-
-    /// Move [to_move] to the current position of [target]. [target] does
-    /// not have to be in the tree.
-    bool move_to(Container& to_move, Container& target);
-
-    /// Moves [to_move] to the first available position of the tree and handles
-    /// the process of updating its old position in tree, if any.
-    bool move_to_tree(std::shared_ptr<Container> const& container);
-
-    /// Select the next window in the provided direction
-    bool select_next(Direction direction, Container&);
-
-    /// Toggle the active window between fullscreen and not fullscreen
-    bool toggle_fullscreen(LeafContainer&);
-
-    void request_layout(Container&, LayoutScheme);
-
-    /// Request a change to vertical window placement
-    void request_vertical_layout(Container&);
-
-    /// Request a change to horizontal window placement
-    void request_horizontal_layout(Container&);
-
-    /// Request that the provided container become tabbed.
-    void request_tabbing_layout(Container&);
-
-    /// Request that the provided container become stacked.
-    void request_stacking_layout(Container&);
-
-    // Request a change from the current layout scheme to another layout scheme
-    void toggle_layout(Container&, bool cycle_thru_all);
-
-    /// Advises us to focus the provided container.
-    void advise_focus_gained(LeafContainer&);
-
-    /// Called when the container was deleted.
-    void advise_delete_window(std::shared_ptr<Container> const&);
-
-    /// Called when the physical display is resized.
-    void set_area(geom::Rectangle const& new_area);
-
-    geom::Rectangle get_area() const;
-
-    bool advise_fullscreen_container(LeafContainer&);
-    bool advise_restored_container(LeafContainer&);
-    bool handle_container_ready(LeafContainer&);
-
+        std::shared_ptr<ParentContainer> const& container) override;
+    void graft(std::shared_ptr<Container> const&, std::shared_ptr<ParentContainer> const& parent, int index = -1) override;
+    bool resize_container(Direction direction, int pixels, Container&) override;
+    bool set_size(std::optional<int> const& width, std::optional<int> const& height, Container&) override;
+    bool move_container(Direction direction, Container&) override;
+    bool move_to(Container& to_move, Container& target) override;
+    bool move_to_tree(std::shared_ptr<Container> const& container) override;
+    bool select_next(Direction direction, Container&) override;
+    bool toggle_fullscreen(LeafContainer&) override;
+    void request_layout(Container&, LayoutScheme) override;
+    void request_vertical_layout(Container&) override;
+    void request_horizontal_layout(Container&) override;
+    void request_tabbing_layout(Container&) override;
+    void request_stacking_layout(Container&) override;
+    void toggle_layout(Container&, bool cycle_thru_all) override;
+    void advise_focus_gained(LeafContainer&) override;
+    void advise_delete_window(std::shared_ptr<Container> const&) override;
+    void set_area(geom::Rectangle const& new_area) override;
+    geom::Rectangle get_area() const override;
+    bool advise_fullscreen_container(LeafContainer&) override;
+    bool advise_restored_container(LeafContainer&) override;
+    bool handle_container_ready(LeafContainer&) override;
     bool confirm_placement_on_display(
         Container& container,
         MirWindowState new_state,
-        mir::geometry::Rectangle& new_placement);
-
-    void foreach_node(std::function<void(std::shared_ptr<Container> const&)> const&) const;
-    bool foreach_node_pred(std::function<bool(std::shared_ptr<Container> const&)> const&) const;
-
-    /// Shows the containers in this tree and returns a fullscreen container, if any
-    std::shared_ptr<LeafContainer> show();
-
-    /// Hides the containers in this tree
-    void hide();
-
-    void recalculate_root_node_area();
-    bool is_empty() const;
-
-    [[nodiscard]] Workspace* get_workspace() const;
-    [[nodiscard]] std::shared_ptr<ParentContainer> const& get_root() const { return root_lane; }
+        mir::geometry::Rectangle& new_placement) override;
+    void foreach_node(std::function<void(std::shared_ptr<Container> const&)> const&) const override;
+    bool foreach_node_pred(std::function<bool(std::shared_ptr<Container> const&)> const&) const override;
+    std::shared_ptr<LeafContainer> show() override;
+    void hide() override;
+    void recalculate_root_node_area() override;
+    bool is_empty() const override;
+    [[nodiscard]] Workspace* get_workspace() const override;
+    [[nodiscard]] std::shared_ptr<ParentContainer> const& get_root() const override { return root_lane; }
 
 private:
     struct MoveResult

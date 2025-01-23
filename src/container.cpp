@@ -92,12 +92,12 @@ std::shared_ptr<ContainerGroupContainer> Container::as_group(std::shared_ptr<Con
 
 bool Container::is_leaf()
 {
-    return as_leaf(shared_from_this()) != nullptr;
+    return get_type() == ContainerType::leaf;
 }
 
 bool Container::is_lane()
 {
-    return as_parent(shared_from_this()) != nullptr;
+    return get_type() == ContainerType::parent;
 }
 
 float Container::get_percent_of_parent() const
