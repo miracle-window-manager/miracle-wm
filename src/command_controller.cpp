@@ -701,7 +701,7 @@ bool CommandController::set_layout_default()
 
 void CommandController::move_cursor_to_output(Output const& output)
 {
-    auto const& extents = output.get_output().extents();
+    auto const& extents = output.get_area();
     window_controller.move_cursor_to(
         extents.top_left.x.as_int() + extents.size.width.as_int() / 2.f,
         extents.top_left.y.as_int() + extents.size.height.as_int() / 2.f);
@@ -815,7 +815,7 @@ std::shared_ptr<Output> CommandController::_next_output_in_list(std::vector<std:
     if (names.empty())
         return state.focused_output();
 
-    auto current_name = state.focused_output()->get_output().name();
+    auto current_name = state.focused_output()->name();
     size_t next = 0;
     for (size_t i = 0; i < names.size(); i++)
     {
@@ -831,7 +831,7 @@ std::shared_ptr<Output> CommandController::_next_output_in_list(std::vector<std:
 
     for (auto const& output : state.output_list)
     {
-        if (output->get_output().name() == names[next])
+        if (output->name() == names[next])
             return output;
     }
 

@@ -39,7 +39,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using namespace miracle;
 
 MiralWrapperOutput::MiralWrapperOutput(
-    miral::Output const& output,
+    std::string name,
+    int id,
     WorkspaceManager& workspace_manager,
     geom::Rectangle const& area,
     std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
@@ -47,7 +48,8 @@ MiralWrapperOutput::MiralWrapperOutput(
     std::shared_ptr<Config> const& config,
     WindowController& node_interface,
     Animator& animator) :
-    output { output },
+    name_ { std::move(name) },
+    id_ { id },
     workspace_manager { workspace_manager },
     area { area },
     floating_window_manager { floating_window_manager },
@@ -477,7 +479,7 @@ nlohmann::json MiralWrapperOutput::to_json() const
 
     return {
         { "id",                   reinterpret_cast<std::uintptr_t>(this) },
-        { "name",                 output.name()                          },
+        { "name",                 name_                                  },
         { "type",                 "output"                               },
         { "layout",               "output"                               },
         { "orientation",          "none"                                 },
