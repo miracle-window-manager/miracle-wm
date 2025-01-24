@@ -537,7 +537,7 @@ void Policy::advise_output_create(miral::Output const& output)
 {
     std::lock_guard lock(self->mutex);
     auto output_content = std::make_shared<MiralWrapperOutput>(
-        output, workspace_manager, output.extents(), floating_window_manager,
+        output.name(), output.id(), workspace_manager, output.extents(), floating_window_manager,
         state, config, window_controller, *animator);
     state.output_list.push_back(output_content);
     workspace_manager.request_first_available_workspace(output_content.get());
@@ -560,7 +560,7 @@ void Policy::advise_output_update(miral::Output const& updated, miral::Output co
     std::lock_guard lock(self->mutex);
     for (auto& output : state.output_list)
     {
-        if (output->get_output().is_same_output(original))
+        if (output->id() == original.id())
         {
             output->update_area(updated.extents());
             break;
@@ -574,7 +574,7 @@ void Policy::advise_output_delete(miral::Output const& output)
     for (auto it = state.output_list.begin(); it != state.output_list.end(); it++)
     {
         auto other_output = *it;
-        if (other_output->get_output().is_same_output(output))
+        if (other_output->id() == output.id())
         {
             auto const remove_workspaces = [&]()
             {

@@ -480,7 +480,7 @@ nlohmann::json MiralWorkspace::to_json() const
         { "visible", output->is_active() && is_focused },
         { "focused", output->is_active() && is_focused },
         { "urgent", false },
-        { "output", output->get_output().name() },
+        { "output", output->name() },
         { "border", "none" },
         { "current_border_width", 0 },
         { "layout", to_string(root->get_scheme()) },

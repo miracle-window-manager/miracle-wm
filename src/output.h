@@ -89,7 +89,8 @@ public:
     [[nodiscard]] virtual std::vector<std::shared_ptr<Workspace>> const& get_workspaces() const = 0;
     [[nodiscard]] virtual geom::Rectangle const& get_area() const = 0;
     [[nodiscard]] virtual std::vector<miral::Zone> const& get_app_zones() const = 0;
-    [[nodiscard]] virtual miral::Output const& get_output() const = 0;
+    [[nodiscard]] virtual int id() const = 0;
+    [[nodiscard]] virtual std::string const& name() const = 0;
     [[nodiscard]] virtual bool is_active() const = 0;
     [[nodiscard]] virtual glm::mat4 get_transform() const = 0;
     [[nodiscard]] virtual geom::Rectangle get_workspace_rectangle(size_t i) const = 0;
@@ -101,7 +102,8 @@ class MiralWrapperOutput : public Output
 {
 public:
     MiralWrapperOutput(
-        miral::Output const& output,
+        std::string name,
+        int id,
         WorkspaceManager& workspace_manager,
         geom::Rectangle const& area,
         std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
@@ -142,7 +144,8 @@ public:
     [[nodiscard]] std::vector<std::shared_ptr<Workspace>> const& get_workspaces() const override { return workspaces; }
     [[nodiscard]] geom::Rectangle const& get_area() const override { return area; }
     [[nodiscard]] std::vector<miral::Zone> const& get_app_zones() const override { return application_zone_list; }
-    [[nodiscard]] miral::Output const& get_output() const override { return output; }
+    [[nodiscard]] std::string const& name() const override { return name_; }
+    [[nodiscard]] int id() const override { return id_; }
     [[nodiscard]] bool is_active() const override;
     [[nodiscard]] glm::mat4 get_transform() const override;
     /// Gets the relative position of the current rectangle (e.g. the active
@@ -178,7 +181,8 @@ private:
         std::shared_ptr<Workspace> const& to,
         std::shared_ptr<Workspace> const& from);
 
-    miral::Output output;
+    std::string name_;
+    int id_;
     WorkspaceManager& workspace_manager;
     std::shared_ptr<MinimalWindowManager> floating_window_manager;
     CompositorState& state;

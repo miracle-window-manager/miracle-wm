@@ -79,10 +79,9 @@ bool fd_is_valid(int fd)
 json output_to_json(std::shared_ptr<Output> const& output)
 {
     auto area = output->get_area();
-    auto _output = output->get_output();
     return {
         { "id",     reinterpret_cast<std::uintptr_t>(output.get()) },
-        { "name",   _output.name()                                 },
+        { "name",   output->name()                                 },
         { "layout", "output"                                       },
         { "rect",   {
                       { "x", area.top_left.x.as_int() },

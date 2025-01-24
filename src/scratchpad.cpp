@@ -58,7 +58,7 @@ void Scratchpad::toggle(ScratchpadItem& other)
     if (other.is_showing)
     {
         auto window = other.container->window().value();
-        auto output_extents = compositor_state.focused_output()->get_output().extents();
+        auto output_extents = compositor_state.focused_output()->get_area();
         other.container->show();
         miral::WindowSpecification spec;
         spec.top_left() = {
