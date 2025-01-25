@@ -112,7 +112,6 @@ private:
 
     bool is_starting_ = true;
     AllocationHint pending_allocation;
-    std::vector<miral::Window> orphaned_window_list;
     std::shared_ptr<MinimalWindowManager> floating_window_manager;
     WorkspaceObserverRegistrar workspace_observer_registrar;
     ModeObserverRegistrar mode_observer_registrar;

@@ -76,22 +76,6 @@ bool fd_is_valid(int fd)
     return fcntl(fd, F_GETFD) != -1 || errno != EBADF;
 }
 
-json output_to_json(std::shared_ptr<Output> const& output)
-{
-    auto area = output->get_area();
-    return {
-        { "id",     reinterpret_cast<std::uintptr_t>(output.get()) },
-        { "name",   output->name()                                 },
-        { "layout", "output"                                       },
-        { "rect",   {
-                      { "x", area.top_left.x.as_int() },
-                      { "y", area.top_left.y.as_int() },
-                      { "width", area.size.width.as_int() },
-                      { "height", area.size.height.as_int() },
-                  }                               }
-    };
-}
-
 json mode_event_to_json(WindowManagerMode mode)
 {
     switch (mode)

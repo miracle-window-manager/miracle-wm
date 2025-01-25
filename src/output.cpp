@@ -468,6 +468,22 @@ void MiralWrapperOutput::set_position(glm::vec2 const& v)
     final_transform = glm::translate(transform, glm::vec3(position_offset.x, position_offset.y, 0));
 }
 
+void MiralWrapperOutput::set_info(int next_id, std::string next_name)
+{
+    id_ = next_id;
+    name_ = std::move(next_name);
+}
+
+void MiralWrapperOutput::set_defunct()
+{
+    is_defunct_ = true;
+}
+
+void MiralWrapperOutput::unset_defunct()
+{
+    is_defunct_ = false;
+}
+
 nlohmann::json MiralWrapperOutput::to_json() const
 {
     nlohmann::json nodes = nlohmann::json::array();

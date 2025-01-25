@@ -1028,6 +1028,9 @@ nlohmann::json CommandController::to_json() const
     nlohmann::json outputs_json = nlohmann::json::array();
     for (auto const& output : state.output_list)
     {
+        if (output->is_defunct())
+            continue;
+
         auto& area = output->get_area();
 
         // Recalculate the total extents of the tree
@@ -1070,7 +1073,12 @@ nlohmann::json CommandController::outputs_json() const
     std::lock_guard lock(mutex);
     nlohmann::json j = nlohmann::json::array();
     for (auto const& output : state.output_list)
+    {
+        if (output->is_defunct())
+            continue;
+
         j.push_back(output->to_json());
+    }
     return j;
 }
 
@@ -1079,7 +1087,12 @@ nlohmann::json CommandController::workspaces_json() const
     std::lock_guard lock(mutex);
     nlohmann::json j = nlohmann::json::array();
     for (auto workspace : workspace_manager.workspaces())
+    {
+        if (workspace->get_output()->is_defunct())
+            continue;
+
         j.push_back(workspace->to_json());
+    }
     return j;
 }
 

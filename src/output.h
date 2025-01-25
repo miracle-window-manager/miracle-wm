@@ -83,6 +83,14 @@ public:
     virtual void set_transform(glm::mat4 const& in) = 0;
     virtual void set_position(glm::vec2 const&) = 0;
 
+    /// Set the [id] and [name] associated with this output.
+    virtual void set_info(int id, std::string name) = 0;
+
+    /// A defunct output is one that has "technically" been removed, but in practice it is still waiting
+    /// around to be reassociated with a "true" output.
+    virtual void set_defunct() = 0;
+    virtual void unset_defunct() = 0;
+
     // Getters
     [[nodiscard]] virtual std::vector<miral::Window> collect_all_windows() const = 0;
     [[nodiscard]] virtual Workspace* active() const = 0;
@@ -91,6 +99,7 @@ public:
     [[nodiscard]] virtual std::vector<miral::Zone> const& get_app_zones() const = 0;
     [[nodiscard]] virtual int id() const = 0;
     [[nodiscard]] virtual std::string const& name() const = 0;
+    [[nodiscard]] virtual bool is_defunct() const = 0;
     [[nodiscard]] virtual bool is_active() const = 0;
     [[nodiscard]] virtual glm::mat4 get_transform() const = 0;
     [[nodiscard]] virtual geom::Rectangle get_workspace_rectangle(size_t i) const = 0;
@@ -136,6 +145,9 @@ public:
     void graft(std::shared_ptr<Container> const& container) override;
     void set_transform(glm::mat4 const& in) override;
     void set_position(glm::vec2 const&) override;
+    void set_info(int id, std::string name) override;
+    void set_defunct() override;
+    void unset_defunct() override;
 
     // Getters
 
@@ -145,6 +157,7 @@ public:
     [[nodiscard]] geom::Rectangle const& get_area() const override { return area; }
     [[nodiscard]] std::vector<miral::Zone> const& get_app_zones() const override { return application_zone_list; }
     [[nodiscard]] std::string const& name() const override { return name_; }
+    [[nodiscard]] bool is_defunct() const override { return is_defunct_; }
     [[nodiscard]] int id() const override { return id_; }
     [[nodiscard]] bool is_active() const override;
     [[nodiscard]] glm::mat4 get_transform() const override;
@@ -204,6 +217,8 @@ private:
 
     /// A matrix resulting from combining position + transform
     glm::mat4 final_transform = glm::mat4(1.f);
+
+    bool is_defunct_ = false;
 };
 
 }

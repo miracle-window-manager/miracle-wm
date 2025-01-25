@@ -133,6 +133,14 @@ Policy::Policy(
     mode_observer_registrar.register_interest(ipc);
     window_tools_accessor->set_tools(tools);
     animator_loop->start();
+
+    auto output_content = std::make_shared<MiralWrapperOutput>(
+        "default", -1, workspace_manager, mir::geometry::Rectangle(mir::geometry::Point(0, 0), mir::geometry::Size(1920, 1280)), floating_window_manager,
+        state, this->config, window_controller, *this->animator);
+    state.output_list.push_back(output_content);
+    output_content->set_defunct();
+    workspace_manager.request_first_available_workspace(output_content.get());
+    state.focus_output(output_content);
 }
 
 Policy::~Policy()
@@ -377,24 +385,7 @@ void Policy::advise_new_window(miral::WindowInfo const& window_info)
 {
     std::lock_guard lock(self->mutex);
     if (!state.focused_output())
-    {
-        mir::log_warning("create_container: output unavailable");
-        auto window = window_info.window();
-        if (!state.output_list.empty())
-        {
-            // Our output is gone! Let's try to add it to a different output
-            state.output_list.front()->add_immediately(window);
-        }
-        else
-        {
-            // We have no output! Let's add it to a list of orphans. Such
-            // windows are considered to be in the "other" category until
-            // we have more data on them.
-            orphaned_window_list.push_back(window);
-        }
-
-        return;
-    }
+        mir::fatal_error("create_container: an output should always be available");
 
     auto container = state.focused_output()->create_container(window_info, pending_allocation);
     container->animation_handle(animator->register_animateable());
@@ -492,15 +483,6 @@ void Policy::advise_focus_lost(const miral::WindowInfo& window_info)
 void Policy::advise_delete_window(const miral::WindowInfo& window_info)
 {
     std::lock_guard lock(self->mutex);
-    for (auto it = orphaned_window_list.begin(); it != orphaned_window_list.end(); it++)
-    {
-        if (*it == window_info.window())
-        {
-            orphaned_window_list.erase(it);
-            return;
-        }
-    }
-
     auto container = window_controller.get_container(window_info.window());
     if (!container)
     {
@@ -536,23 +518,25 @@ void Policy::advise_move_to(miral::WindowInfo const& window_info, geom::Point to
 void Policy::advise_output_create(miral::Output const& output)
 {
     std::lock_guard lock(self->mutex);
-    auto output_content = std::make_shared<MiralWrapperOutput>(
-        output.name(), output.id(), workspace_manager, output.extents(), floating_window_manager,
-        state, config, window_controller, *animator);
-    state.output_list.push_back(output_content);
-    workspace_manager.request_first_available_workspace(output_content.get());
+    std::shared_ptr<Output> output_content;
+    if (state.output_list.size() == 1 && state.output_list[0]->is_defunct())
+    {
+        state.output_list[0]->unset_defunct();
+        state.output_list[0]->set_info(output.id(), output.name());
+        state.output_list[0]->update_area(output.extents());
+        output_content = state.output_list[0];
+    }
+    else
+    {
+        output_content = std::make_shared<MiralWrapperOutput>(
+            output.name(), output.id(), workspace_manager, output.extents(), floating_window_manager,
+            state, config, window_controller, *animator);
+        state.output_list.push_back(output_content);
+        workspace_manager.request_first_available_workspace(output_content.get());
+    }
+
     if (state.focused_output() == nullptr)
         state.focus_output(output_content);
-
-    // Let's rehome some orphan windows if we need to
-    if (!orphaned_window_list.empty())
-    {
-        mir::log_info("Policy::advise_output_create: orphaned windows are being added to the new output, num=%zu", orphaned_window_list.size());
-        for (auto& window : orphaned_window_list)
-            state.focused_output()->add_immediately(window);
-
-        orphaned_window_list.clear();
-    }
 }
 
 void Policy::advise_output_update(miral::Output const& updated, miral::Output const& original)
@@ -588,20 +572,9 @@ void Policy::advise_output_delete(miral::Output const& output)
                     workspace_manager.delete_workspace(w);
             };
 
-            state.output_list.erase(it);
-            if (state.output_list.empty())
+            if (state.output_list.size() == 1)
             {
-                // All nodes should become orphaned
-                for (auto& window : other_output->collect_all_windows())
-                {
-                    orphaned_window_list.push_back(window);
-                    window_controller.set_user_data(window, std::make_shared<ShellComponentContainer>(window, window_controller));
-                }
-
-                remove_workspaces();
-
-                mir::log_info("Policy::advise_output_delete: final output has been removed and windows have been orphaned");
-                state.focus_output(nullptr);
+                state.output_list[0]->set_defunct();
             }
             else
             {
