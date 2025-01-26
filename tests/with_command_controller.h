@@ -41,7 +41,7 @@ class WithCommandController
 {
 public:
     WithCommandController() :
-        output_manager(std::make_unique<test::MockOutputFactory>()),
+        output_manager(std::unique_ptr<test::MockOutputFactory>(output_factory)),
         config(std::make_shared<test::StubConfiguration>()),
         window_controller(data),
         workspace_manager(workspace_registry, config, &output_manager),
@@ -62,6 +62,7 @@ public:
 protected:
     CommandController command_controller;
     CompositorState state;
+    test::MockOutputFactory* output_factory = new test::MockOutputFactory();
     OutputManager output_manager;
 
 private:

@@ -18,8 +18,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "drag_and_drop_service.h"
 #include "mock_configuration.h"
 #include "mock_container.h"
-#include "mock_output.h"
-#include "mock_output_factory.h"
 #include "mock_tiling_window_tree.h"
 #include "mock_workspace.h"
 #include "output_manager.h"
@@ -42,7 +40,6 @@ public:
                 .modifiers = mir_input_event_modifier_meta }));
     }
 
-    test::MockOutputFactory* output_factory = new test::MockOutputFactory();
     std::shared_ptr<::testing::NiceMock<test::MockConfig>> config;
     DragAndDropService service;
 };
