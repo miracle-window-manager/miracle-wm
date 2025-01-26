@@ -37,7 +37,6 @@ add_executable(miracle-wm-tests
     test_render_data_manager.cpp
     test_output_manager.cpp
     with_command_controller.h
-    single_mock_output_factory.h
     stub_configuration.h
     stub_session.h
     stub_surface.h

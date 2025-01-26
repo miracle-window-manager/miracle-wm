@@ -16,10 +16,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
 #include "command_controller.h"
+#include "mock_output_factory.h"
 #include "mode_observer.h"
 #include "output_manager.h"
 #include "scratchpad.h"
-#include "single_mock_output_factory.h"
 #include "stub_configuration.h"
 #include "stub_container.h"
 #include "stub_window_controller.h"
@@ -41,7 +41,7 @@ class WithCommandController
 {
 public:
     WithCommandController() :
-        output_manager(std::unique_ptr<test::SingleMockOutputFactory>(output_factory)),
+        output_manager(std::unique_ptr<test::MockOutputFactory>(output_factory)),
         config(std::make_shared<test::StubConfiguration>()),
         window_controller(data),
         workspace_manager(workspace_registry, config, &output_manager),
@@ -62,7 +62,7 @@ public:
 protected:
     CommandController command_controller;
     CompositorState state;
-    test::SingleMockOutputFactory* output_factory = new test::SingleMockOutputFactory();
+    test::MockOutputFactory* output_factory = new test::MockOutputFactory();
     OutputManager output_manager;
 
 private:
