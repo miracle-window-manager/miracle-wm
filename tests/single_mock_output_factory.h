@@ -15,9 +15,10 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef MIRACLE_WM_MOCK_OUTPUT_FACTORY_H
-#define MIRACLE_WM_MOCK_OUTPUT_FACTORY_H
+#ifndef MIRACLE_WM_SINGLE_MOCK_OUTPUT_FACTORY_H
+#define MIRACLE_WM_SINGLE_MOCK_OUTPUT_FACTORY_H
 
+#include "mock_output.h"
 #include "output.h"
 #include "output_factory.h"
 #include <gmock/gmock.h>
@@ -26,16 +27,26 @@ namespace miracle
 {
 namespace test
 {
-    class MockOutputFactory : public OutputFactory
+    class SingleMockOutputFactory : public OutputFactory
     {
     public:
-        MOCK_METHOD(
-            std::unique_ptr<Output>,
-            create,
-            (std::string name, int id, mir::geometry::Rectangle area, OutputManager* output_manager),
-            (override));
+        SingleMockOutputFactory()
+        {
+            output = new ::testing::NiceMock<test::MockOutput>();
+        }
+
+        std::unique_ptr<Output> create(
+            std::string name,
+            int id,
+            mir::geometry::Rectangle area,
+            OutputManager* output_manager)
+        {
+            return std::unique_ptr<Output>(output);
+        }
+
+        test::MockOutput* output;
     };
 }
 }
 
-#endif // MIRACLE_WM_MOCK_OUTPUT_FACTORY_H
+#endif // MIRACLE_WM_SINGLE_MOCK_OUTPUT_FACTORY_H

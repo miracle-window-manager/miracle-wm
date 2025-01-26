@@ -231,7 +231,12 @@ bool WorkspaceManager::request_focus(uint32_t id)
 
     auto active_screen = output_manager->focused();
     if (active_screen)
-        last_selected = active_screen->active();
+    {
+        if (auto current = active_screen->active())
+            last_selected = current;
+        else
+            last_selected = nullptr;
+    }
     else
         last_selected = std::nullopt;
 

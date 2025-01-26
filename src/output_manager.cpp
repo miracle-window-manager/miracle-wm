@@ -25,11 +25,6 @@ OutputManager::OutputManager(
     std::unique_ptr<OutputFactory> output_factory) :
     output_factory(std::move(output_factory))
 {
-    auto new_output = create(
-        "default",
-        -1,
-        mir::geometry::Rectangle(mir::geometry::Point(0, 0), mir::geometry::Size(1920, 1280)));
-    new_output->set_defunct();
 }
 
 Output* OutputManager::create(
@@ -71,6 +66,9 @@ bool OutputManager::remove(int id)
         auto const& other_output = *it;
         if (other_output->id() == id)
         {
+            if (other_output.get() == focused_)
+                unfocus(id);
+
             if (outputs_.size() == 1)
             {
                 outputs_[0]->set_defunct();

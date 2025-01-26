@@ -17,9 +17,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "compositor_state.h"
 #include "leaf_container.h"
-#include "mock_output_factory.h"
 #include "output_manager.h"
 #include "parent_container.h"
+#include "single_mock_output_factory.h"
 #include "stub_configuration.h"
 #include "stub_session.h"
 #include "stub_surface.h"
@@ -77,7 +77,7 @@ public:
             std::make_unique<SimpleTilingWindowTreeInterface>(TREE_BOUNDS),
             window_controller,
             state,
-            new OutputManager(std::make_unique<test::MockOutputFactory>()),
+            new OutputManager(std::make_unique<test::SingleMockOutputFactory>()),
             std::make_shared<test::StubConfiguration>(),
             TREE_BOUNDS)
     {
@@ -226,7 +226,7 @@ TEST_F(TilingWindowTreeTest, can_move_container_to_container_in_other_tree)
         std::make_unique<SimpleTilingWindowTreeInterface>(OTHER_TREE_BOUNDS),
         window_controller,
         state,
-        new OutputManager(std::make_unique<test::MockOutputFactory>()),
+        new OutputManager(std::make_unique<test::SingleMockOutputFactory>()),
         std::make_shared<test::StubConfiguration>(),
         OTHER_TREE_BOUNDS);
     auto leaf1 = create_leaf();
@@ -246,7 +246,7 @@ TEST_F(TilingWindowTreeTest, can_move_container_to_tree)
         std::make_unique<SimpleTilingWindowTreeInterface>(OTHER_TREE_BOUNDS),
         window_controller,
         state,
-        new OutputManager(std::make_unique<test::MockOutputFactory>()),
+        new OutputManager(std::make_unique<test::SingleMockOutputFactory>()),
         std::make_shared<test::StubConfiguration>(),
         OTHER_TREE_BOUNDS);
     auto leaf1 = create_leaf();
