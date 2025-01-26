@@ -142,13 +142,6 @@ Policy::Policy(
     mode_observer_registrar.register_interest(ipc);
     window_tools_accessor->set_tools(tools);
     animator_loop->start();
-
-    auto output = output_manager->create(
-        "default",
-        -1,
-        mir::geometry::Rectangle(mir::geometry::Point(0, 0), mir::geometry::Size(1920, 1280)));
-    output->set_defunct();
-    workspace_manager.request_first_available_workspace(output);
 }
 
 Policy::~Policy()
