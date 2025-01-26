@@ -34,6 +34,7 @@ class Config;
 class TilingWindowTree;
 class CompositorState;
 class RenderDataManager;
+class OutputManager;
 
 /// A [LeafContainer] always contains a single window.
 class LeafContainer : public Container
@@ -45,7 +46,8 @@ public:
         std::shared_ptr<Config> const& config,
         TilingWindowTree* tree,
         std::shared_ptr<ParentContainer> const& parent,
-        CompositorState const& state);
+        CompositorState const& state,
+        OutputManager* output_manager);
     ~LeafContainer();
 
     void associate_to_window(miral::Window const&);
@@ -114,6 +116,7 @@ private:
     miral::Window window_;
     std::weak_ptr<ParentContainer> parent;
     CompositorState const& state;
+    OutputManager* output_manager;
 
     std::optional<MirWindowState> before_shown_state;
     std::optional<MirWindowState> next_state;

@@ -27,8 +27,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "ipc.h"
 #include "ipc_command_executor.h"
 #include "minimal_window_manager.h"
+#include "miral_output.h"
 #include "mode_observer.h"
-#include "output.h"
 #include "scratchpad.h"
 #include "window_manager_tools_window_controller.h"
 #include "workspace_manager.h"
@@ -50,6 +50,7 @@ class Container;
 class ContainerGroupContainer;
 class WindowToolsAccessor;
 class AnimatorLoop;
+class OutputManager;
 
 class Policy : public miral::WindowManagementPolicy
 {
@@ -115,6 +116,7 @@ private:
     std::shared_ptr<MinimalWindowManager> floating_window_manager;
     WorkspaceObserverRegistrar workspace_observer_registrar;
     ModeObserverRegistrar mode_observer_registrar;
+    std::unique_ptr<OutputManager> output_manager;
     WorkspaceManager workspace_manager;
     std::shared_ptr<Self> self;
     Scratchpad scratchpad_;

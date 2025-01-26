@@ -18,7 +18,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef SCRATCHPAD_MIRACLE_WM_H
 #define SCRATCHPAD_MIRACLE_WM_H
 
-#include "compositor_state.h"
 #include "window_controller.h"
 
 #include <memory>
@@ -28,6 +27,7 @@ namespace miracle
 {
 class Container;
 class FloatingWindowContainer;
+class OutputManager;
 
 struct ScratchpadItem
 {
@@ -38,7 +38,7 @@ struct ScratchpadItem
 class Scratchpad
 {
 public:
-    Scratchpad(WindowController&, CompositorState&);
+    Scratchpad(WindowController&, OutputManager* output_manager);
     ~Scratchpad() = default;
     Scratchpad(Scratchpad&&) = delete;
     Scratchpad(Scratchpad const&) = delete;
@@ -54,7 +54,7 @@ private:
     void toggle(ScratchpadItem& item);
 
     WindowController& window_controller;
-    CompositorState& compositor_state;
+    OutputManager* output_manager;
     std::vector<ScratchpadItem> items;
 };
 }

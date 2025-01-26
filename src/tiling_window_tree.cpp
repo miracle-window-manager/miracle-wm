@@ -36,6 +36,7 @@ MiralTilingWindowTree::MiralTilingWindowTree(
     std::unique_ptr<TilingWindowTreeInterface> tree_interface,
     WindowController& window_controller,
     CompositorState const& state,
+    OutputManager* output_manager,
     std::shared_ptr<Config> const& config,
     geom::Rectangle const& area) :
     root_lane { std::make_shared<ParentContainer>(
@@ -44,10 +45,12 @@ MiralTilingWindowTree::MiralTilingWindowTree(
         config,
         this,
         nullptr,
-        state) },
+        state,
+        output_manager) },
     config { config },
     window_controller { window_controller },
     state { state },
+    output_manager { output_manager },
     tree_interface { std::move(tree_interface) }
 {
     recalculate_root_node_area();
@@ -458,7 +461,8 @@ MiralTilingWindowTree::MoveResult MiralTilingWindowTree::handle_move(Container& 
             config,
             this,
             nullptr,
-            state);
+            state,
+            output_manager);
         after_root_lane->set_layout(new_layout_direction);
         after_root_lane->graft_existing(root_lane, 0);
         root_lane = after_root_lane;

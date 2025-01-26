@@ -32,6 +32,7 @@ class LeafContainer;
 class Config;
 class TilingWindowTree;
 class CompositorState;
+class OutputManager;
 
 /// A parent container defines the layout of containers beneath it.
 /// The container
@@ -43,7 +44,8 @@ public:
         std::shared_ptr<Config> const&,
         TilingWindowTree* tree,
         std::shared_ptr<ParentContainer> const& parent,
-        CompositorState const& state);
+        CompositorState const& state,
+        OutputManager* output_manager);
     geom::Rectangle get_logical_area() const override;
     geom::Rectangle get_visible_area() const override;
     size_t num_nodes() const;
@@ -124,6 +126,7 @@ private:
     std::shared_ptr<Config> config;
     std::weak_ptr<ParentContainer> parent;
     CompositorState const& state;
+    OutputManager* output_manager;
 
     LayoutScheme scheme = LayoutScheme::horizontal;
     std::vector<std::shared_ptr<Container>> sub_nodes;

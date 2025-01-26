@@ -18,9 +18,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MIR_LOG_COMPONENT "workspace_manager"
 
 #include "workspace_manager.h"
-#include "compositor_state.h"
 #include "config.h"
 #include "output.h"
+#include "output_manager.h"
 #include "vector_helpers.h"
 #include <mir/log.h>
 
@@ -30,16 +30,16 @@ using namespace miracle;
 WorkspaceManager::WorkspaceManager(
     WorkspaceObserverRegistrar& registry,
     std::shared_ptr<Config> const& config,
-    CompositorState const& state) :
+    OutputManager* output_manager) :
     registry { registry },
     config { config },
-    state { state }
+    output_manager { output_manager }
 {
 }
 
 bool WorkspaceManager::focus_existing(Workspace const* existing, bool back_and_forth)
 {
-    auto const& active_workspace = state.focused_output()->active();
+    auto const& active_workspace = output_manager->focused()->active();
     if (active_workspace == existing)
     {
         if (last_selected)
@@ -112,7 +112,7 @@ int WorkspaceManager::request_first_available_workspace(Output* output)
     return -1;
 }
 
-bool WorkspaceManager::request_next(std::shared_ptr<Output> const& output)
+bool WorkspaceManager::request_next(Output* output)
 {
     auto const& active = output->active();
     if (!active)
@@ -134,7 +134,7 @@ bool WorkspaceManager::request_next(std::shared_ptr<Output> const& output)
     return false;
 }
 
-bool WorkspaceManager::request_prev(std::shared_ptr<Output> const& output)
+bool WorkspaceManager::request_prev(Output* output)
 {
     auto const& active = output->active();
     if (!active)
@@ -219,7 +219,7 @@ bool WorkspaceManager::delete_workspace(uint32_t id)
 
     registry.advise_removed(id);
     auto* output = w->get_output();
-    output->advise_workspace_deleted(id);
+    output->advise_workspace_deleted(*this, id);
     return true;
 }
 
@@ -229,7 +229,7 @@ bool WorkspaceManager::request_focus(uint32_t id)
     if (!existing)
         return false;
 
-    auto active_screen = state.focused_output();
+    auto active_screen = output_manager->focused();
     if (active_screen)
         last_selected = active_screen->active();
     else
@@ -238,19 +238,19 @@ bool WorkspaceManager::request_focus(uint32_t id)
     // Note: it is important that this is sent before the workspace
     // is activated because 'advise_workspace-active' might remove
     // the workspace if it is empty
-    if (active_screen != nullptr)
+    if (active_screen != nullptr && last_selected.value())
         registry.advise_focused(last_selected.value()->id(), id);
     else
         registry.advise_focused(std::nullopt, id);
 
-    existing->get_output()->advise_workspace_active(id);
+    existing->get_output()->advise_workspace_active(*this, id);
     existing->select_first_window();
     return true;
 }
 
 Workspace* WorkspaceManager::workspace(int num) const
 {
-    for (auto const& output : state.output_list)
+    for (auto const& output : output_manager->outputs())
     {
         for (auto const& workspace : output->get_workspaces())
         {
@@ -264,7 +264,7 @@ Workspace* WorkspaceManager::workspace(int num) const
 
 Workspace* WorkspaceManager::workspace(uint32_t id) const
 {
-    for (auto const& output : state.output_list)
+    for (auto const& output : output_manager->outputs())
     {
         for (auto const& workspace : output->get_workspaces())
         {
@@ -278,7 +278,7 @@ Workspace* WorkspaceManager::workspace(uint32_t id) const
 
 Workspace* WorkspaceManager::workspace(std::string const& name) const
 {
-    for (auto const& output : state.output_list)
+    for (auto const& output : output_manager->outputs())
     {
         for (auto const& workspace : output->get_workspaces())
         {
@@ -293,7 +293,7 @@ Workspace* WorkspaceManager::workspace(std::string const& name) const
 std::vector<Workspace const*> WorkspaceManager::workspaces() const
 {
     std::vector<Workspace const*> result;
-    for (auto const& output : state.output_list)
+    for (auto const& output : output_manager->outputs())
     {
         for (auto const& w : output->get_workspaces())
         {

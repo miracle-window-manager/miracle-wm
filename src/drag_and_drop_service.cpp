@@ -23,15 +23,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "constants.h"
 #include "feature_flags.h"
+#include "output_manager.h"
 
 #include <mir/log.h>
 #include <miral/toolkit_event.h>
 
 using namespace miracle;
 
-DragAndDropService::DragAndDropService(CommandController& command_controller, std::shared_ptr<Config> const& config) :
+DragAndDropService::DragAndDropService(
+    CommandController& command_controller,
+    std::shared_ptr<Config> const& config,
+    OutputManager* output_manager) :
     command_controller { command_controller },
-    config { config }
+    config { config },
+    output_manager { output_manager }
 {
 }
 
@@ -71,15 +76,15 @@ bool DragAndDropService::handle_pointer_event(CompositorState& state, float x, f
             static_cast<int>(container_start_x + diff_x),
             static_cast<int>(container_start_y + diff_y));
 
-        if (state.focused_output()->active()->get_tree()->is_empty())
+        if (output_manager->focused()->active()->get_tree()->is_empty())
         {
-            drag_to(state.focused_container(), state.focused_output()->active()->get_tree());
+            drag_to(state.focused_container(), output_manager->focused()->active()->get_tree());
             return true;
         }
 
         // Get the intersection and try to move ourselves there. We only care if we're intersecting
         // a leaf container, as those would be the only one in the grid.
-        std::shared_ptr<Container> intersected = state.focused_output()->intersect_leaf(x, y, true);
+        std::shared_ptr<Container> intersected = output_manager->focused()->intersect_leaf(x, y, true);
         if (!intersected)
         {
             last_intersected.reset();
@@ -105,10 +110,10 @@ bool DragAndDropService::handle_pointer_event(CompositorState& state, float x, f
             return false;
         }
 
-        if (state.focused_output() == nullptr)
+        if (output_manager->focused() == nullptr)
             return false;
 
-        std::shared_ptr<Container> intersected = state.focused_output()->intersect(x, y);
+        std::shared_ptr<Container> intersected = output_manager->focused()->intersect(x, y);
         if (!intersected)
             return false;
 

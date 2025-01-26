@@ -28,17 +28,19 @@ class Container;
 class Config;
 class CompositorState;
 class CommandController;
+class OutputManager;
 class TilingWindowTree;
 
 class DragAndDropService
 {
 public:
-    DragAndDropService(CommandController& command_controller, std::shared_ptr<Config> const& config);
+    DragAndDropService(CommandController& command_controller, std::shared_ptr<Config> const& config, OutputManager* output_manager);
     bool handle_pointer_event(CompositorState& state, float x, float y, MirPointerAction action, uint modifiers);
 
 private:
     CommandController& command_controller;
     std::shared_ptr<Config> config;
+    OutputManager* output_manager;
 
     float cursor_start_x = 0;
     float cursor_start_y = 0;

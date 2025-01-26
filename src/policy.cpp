@@ -24,6 +24,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "container_group_container.h"
 #include "feature_flags.h"
 #include "floating_tree_container.h"
+#include "miral_output_factory.h"
+#include "output_manager.h"
 #include "parent_container.h"
 #include "shell_component_container.h"
 #include "window_helpers.h"
@@ -116,16 +118,23 @@ Policy::Policy(
     state { compositor_state },
     floating_window_manager(std::make_unique<MinimalWindowManager>(tools, config)),
     animator_loop(std::make_unique<ThreadedAnimatorLoop>(animator)),
-    workspace_manager(workspace_observer_registrar, config, state),
+    output_manager(std::make_unique<OutputManager>(
+        std::make_unique<MiralOutputFactory>(
+            floating_window_manager,
+            state,
+            config,
+            window_controller,
+            *animator))),
+    workspace_manager(workspace_observer_registrar, config, output_manager.get()),
     window_controller(tools, *animator, state, config, server.the_main_loop(), this),
-    scratchpad_(window_controller, state),
+    scratchpad_(window_controller, output_manager.get()),
     self(std::make_shared<Self>(*this)),
     command_controller(
         config, self->mutex, state, window_controller,
         workspace_manager, mode_observer_registrar,
-        std::make_unique<MirRunnerCommandControllerInterface>(runner), scratchpad_),
-    drag_and_drop_service(command_controller, config),
-    i3_command_executor(command_controller, workspace_manager, compositor_state, external_client_launcher, window_controller),
+        std::make_unique<MirRunnerCommandControllerInterface>(runner), scratchpad_, output_manager.get()),
+    drag_and_drop_service(command_controller, config, output_manager.get()),
+    i3_command_executor(command_controller, output_manager.get(), workspace_manager, compositor_state, external_client_launcher, window_controller),
     ipc(std::make_shared<Ipc>(runner, command_controller, i3_command_executor, config))
 {
     workspace_observer_registrar.register_interest(ipc);
@@ -133,14 +142,7 @@ Policy::Policy(
     mode_observer_registrar.register_interest(ipc);
     window_tools_accessor->set_tools(tools);
     animator_loop->start();
-
-    auto output_content = std::make_shared<MiralWrapperOutput>(
-        "default", -1, workspace_manager, mir::geometry::Rectangle(mir::geometry::Point(0, 0), mir::geometry::Size(1920, 1280)), floating_window_manager,
-        state, this->config, window_controller, *this->animator);
-    state.output_list.push_back(output_content);
-    output_content->set_defunct();
-    workspace_manager.request_first_available_workspace(output_content.get());
-    state.focus_output(output_content);
+    workspace_manager.request_first_available_workspace(output_manager->focused());
 }
 
 Policy::~Policy()
@@ -283,15 +285,15 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
     state.cursor_position = { x, y };
 
     // Select the output first
-    for (auto const& output : state.output_list)
+    for (auto const& output : output_manager->outputs())
     {
         if (output->point_is_in_output(static_cast<int>(x), static_cast<int>(y)))
         {
-            if (state.focused_output() != output)
+            if (output_manager->focused() != output.get())
             {
-                if (state.focused_output())
-                    state.unfocus_output(state.focused_output());
-                state.focus_output(output);
+                if (output_manager->focused())
+                    output_manager->unfocus(output_manager->focused()->id());
+                output_manager->focus(output->id());
                 if (auto active = output->active())
                     workspace_manager.request_focus(active->id());
             }
@@ -302,7 +304,7 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
     if (drag_and_drop_service.handle_pointer_event(state, x, y, action, modifiers))
         return true;
 
-    if (state.focused_output() && state.mode() != WindowManagerMode::resizing)
+    if (output_manager->focused() && state.mode() != WindowManagerMode::resizing)
     {
         if (MIRACLE_FEATURE_FLAG_MULTI_SELECT && action == mir_pointer_action_button_down)
         {
@@ -326,7 +328,7 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
         }
 
         // Get Container intersection. Depending on the state, do something with that Container
-        std::shared_ptr<Container> intersected = state.focused_output()->intersect(x, y);
+        std::shared_ptr<Container> intersected = output_manager->focused()->intersect(x, y);
         switch (state.mode())
         {
         case WindowManagerMode::normal:
@@ -370,24 +372,24 @@ auto Policy::place_new_window(
     const miral::WindowSpecification& requested_specification) -> miral::WindowSpecification
 {
     std::lock_guard lock(self->mutex);
-    if (!state.focused_output())
+    if (!output_manager->focused())
     {
         mir::log_warning("place_new_window: no output available");
         return requested_specification;
     }
 
     auto new_spec = requested_specification;
-    pending_allocation = state.focused_output()->allocate_position(app_info, new_spec, {});
+    pending_allocation = output_manager->focused()->allocate_position(app_info, new_spec, {});
     return new_spec;
 }
 
 void Policy::advise_new_window(miral::WindowInfo const& window_info)
 {
     std::lock_guard lock(self->mutex);
-    if (!state.focused_output())
+    if (!output_manager->focused())
         mir::fatal_error("create_container: an output should always be available");
 
-    auto container = state.focused_output()->create_container(window_info, pending_allocation);
+    auto container = output_manager->focused()->create_container(window_info, pending_allocation);
     container->animation_handle(animator->register_animateable());
     container->on_open();
     state.add(container);
@@ -449,7 +451,7 @@ void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
 
         // TODO: This logic was put in place to navigate to the focused
         //  workspace.
-        // if (workspace && workspace != state.focused_output()->active())
+        // if (workspace && workspace != output_manager->focused()->active())
         //    workspace_manager.request_focus(workspace->id());
 
         if (workspace)
@@ -518,75 +520,22 @@ void Policy::advise_move_to(miral::WindowInfo const& window_info, geom::Point to
 void Policy::advise_output_create(miral::Output const& output)
 {
     std::lock_guard lock(self->mutex);
-    std::shared_ptr<Output> output_content;
-    if (state.output_list.size() == 1 && state.output_list[0]->is_defunct())
-    {
-        state.output_list[0]->unset_defunct();
-        state.output_list[0]->set_info(output.id(), output.name());
-        state.output_list[0]->update_area(output.extents());
-        output_content = state.output_list[0];
-    }
-    else
-    {
-        output_content = std::make_shared<MiralWrapperOutput>(
-            output.name(), output.id(), workspace_manager, output.extents(), floating_window_manager,
-            state, config, window_controller, *animator);
-        state.output_list.push_back(output_content);
-        workspace_manager.request_first_available_workspace(output_content.get());
-    }
-
-    if (state.focused_output() == nullptr)
-        state.focus_output(output_content);
+    auto prev_size = output_manager->outputs().size();
+    auto created = output_manager->create(output.name(), output.id(), output.extents());
+    if (prev_size < output_manager->outputs().size())
+        workspace_manager.request_first_available_workspace(created);
 }
 
 void Policy::advise_output_update(miral::Output const& updated, miral::Output const& original)
 {
     std::lock_guard lock(self->mutex);
-    for (auto& output : state.output_list)
-    {
-        if (output->id() == original.id())
-        {
-            output->update_area(updated.extents());
-            break;
-        }
-    }
+    output_manager->update(updated.id(), updated.extents());
 }
 
 void Policy::advise_output_delete(miral::Output const& output)
 {
     std::lock_guard lock(self->mutex);
-    for (auto it = state.output_list.begin(); it != state.output_list.end(); it++)
-    {
-        auto other_output = *it;
-        if (other_output->id() == output.id())
-        {
-            auto const remove_workspaces = [&]()
-            {
-                // WARNING: We copy the workspace numbers first because we shouldn't delete while iterating
-                std::vector<uint32_t> workspaces;
-                workspaces.reserve(other_output->get_workspaces().size());
-                for (auto const& workspace : other_output->get_workspaces())
-                    workspaces.push_back(workspace->id());
-
-                for (auto const w : workspaces)
-                    workspace_manager.delete_workspace(w);
-            };
-
-            if (state.output_list.size() == 1)
-            {
-                state.output_list[0]->set_defunct();
-            }
-            else
-            {
-                state.focus_output(state.output_list.front());
-                for (auto& window : other_output->collect_all_windows())
-                    state.focused_output()->add_immediately(window);
-
-                remove_workspaces();
-            }
-            break;
-        }
-    }
+    output_manager->remove(output.id());
 }
 
 void Policy::handle_modify_window(
@@ -604,7 +553,7 @@ void Policy::handle_modify_window(
     auto const* workspace = container->get_workspace();
     if (workspace)
     {
-        if (workspace != state.focused_output()->active())
+        if (workspace != output_manager->focused()->active())
             return;
     }
     else if (scratchpad_.contains(container) && !scratchpad_.is_showing(container))
@@ -685,7 +634,7 @@ mir::geometry::Rectangle Policy::confirm_inherited_move(
 void Policy::advise_application_zone_create(miral::Zone const& application_zone)
 {
     std::lock_guard lock(self->mutex);
-    for (auto const& output : state.output_list)
+    for (auto const& output : output_manager->outputs())
     {
         output->advise_application_zone_create(application_zone);
     }
@@ -694,7 +643,7 @@ void Policy::advise_application_zone_create(miral::Zone const& application_zone)
 void Policy::advise_application_zone_update(miral::Zone const& updated, miral::Zone const& original)
 {
     std::lock_guard lock(self->mutex);
-    for (auto const& output : state.output_list)
+    for (auto const& output : output_manager->outputs())
     {
         output->advise_application_zone_update(updated, original);
     }
@@ -703,7 +652,7 @@ void Policy::advise_application_zone_update(miral::Zone const& updated, miral::Z
 void Policy::advise_application_zone_delete(miral::Zone const& application_zone)
 {
     std::lock_guard lock(self->mutex);
-    for (auto const& output : state.output_list)
+    for (auto const& output : output_manager->outputs())
     {
         output->advise_application_zone_delete(application_zone);
     }

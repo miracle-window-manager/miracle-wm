@@ -40,8 +40,8 @@ namespace test
             (const, override));
         MOCK_METHOD(void, delete_container, (std::shared_ptr<Container> const& container), (override));
         MOCK_METHOD(void, advise_new_workspace, (WorkspaceCreationData const&&), (override));
-        MOCK_METHOD(void, advise_workspace_deleted, (uint32_t id), (override));
-        MOCK_METHOD(bool, advise_workspace_active, (uint32_t id), (override));
+        MOCK_METHOD(void, advise_workspace_deleted, (WorkspaceManager&, uint32_t id), (override));
+        MOCK_METHOD(bool, advise_workspace_active, (WorkspaceManager&, uint32_t id), (override));
         MOCK_METHOD(void, advise_application_zone_create, (miral::Zone const& application_zone), (override));
         MOCK_METHOD(void, advise_application_zone_update,
             (miral::Zone const& updated, miral::Zone const& original),
@@ -62,7 +62,6 @@ namespace test
         MOCK_METHOD(std::vector<miral::Zone> const&, get_app_zones, (), (const, override));
         MOCK_METHOD(std::string const&, name, (), (const, override));
         MOCK_METHOD(int, id, (), (const, override));
-        MOCK_METHOD(bool, is_active, (), (const, override));
         MOCK_METHOD(glm::mat4, get_transform, (), (const, override));
         MOCK_METHOD(geom::Rectangle, get_workspace_rectangle, (size_t i), (const, override));
         MOCK_METHOD(Workspace const*, workspace, (uint32_t id), (const, override));

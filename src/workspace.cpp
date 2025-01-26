@@ -25,6 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "floating_window_container.h"
 #include "leaf_container.h"
 #include "output.h"
+#include "output_manager.h"
 #include "parent_container.h"
 #include "render_data_manager.h"
 #include "shell_component_container.h"
@@ -73,7 +74,8 @@ MiralWorkspace::MiralWorkspace(
     std::shared_ptr<Config> const& config,
     WindowController& window_controller,
     CompositorState const& state,
-    std::shared_ptr<MinimalWindowManager> const& floating_window_manager) :
+    std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
+    OutputManager* output_manager) :
     output { output },
     id_ { id },
     num_ { num },
@@ -81,10 +83,11 @@ MiralWorkspace::MiralWorkspace(
     window_controller { window_controller },
     state { state },
     config { config },
+    output_manager { output_manager },
     floating_window_manager { floating_window_manager },
     tree(std::make_shared<MiralTilingWindowTree>(
         std::make_unique<OutputTilingWindowTreeInterface>(output, this),
-        window_controller, state, config, output->get_area()))
+        window_controller, state, output_manager, config, output->get_area()))
 {
 }
 
@@ -294,7 +297,7 @@ void MiralWorkspace::transfer_pinned_windows_to(std::shared_ptr<Workspace> const
 std::shared_ptr<FloatingWindowContainer> MiralWorkspace::add_floating_window(miral::Window const& window)
 {
     auto floating = std::make_shared<FloatingWindowContainer>(
-        window, floating_window_manager, window_controller, this, state, config);
+        window, floating_window_manager, window_controller, this, state, config, output_manager);
     floating_windows.push_back(floating);
     return floating;
 }
@@ -453,6 +456,7 @@ std::string MiralWorkspace::display_name() const
 
 nlohmann::json MiralWorkspace::to_json() const
 {
+    bool is_output_focused = output_manager->focused() == output;
     bool const is_focused = output->active() == this;
 
     // Note: The reported workspace area appears to be the placement
@@ -477,8 +481,8 @@ nlohmann::json MiralWorkspace::to_json() const
         { "id", reinterpret_cast<std::uintptr_t>(this) },
         { "type", "workspace" },
         { "name", display_name() },
-        { "visible", output->is_active() && is_focused },
-        { "focused", output->is_active() && is_focused },
+        { "visible", is_output_focused && is_focused },
+        { "focused", is_output_focused && is_focused },
         { "urgent", false },
         { "output", output->name() },
         { "border", "none" },

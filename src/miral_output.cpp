@@ -18,12 +18,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MIR_LOG_COMPONENT "output_content"
 #define GLM_ENABLE_EXPERIMENTAL
 
-#include "output.h"
+#include "miral_output.h"
 #include "animator.h"
 #include "compositor_state.h"
 #include "config.h"
 #include "floating_window_container.h"
 #include "leaf_container.h"
+#include "output_manager.h"
 #include "vector_helpers.h"
 #include "window_helpers.h"
 
@@ -32,7 +33,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <glm/gtx/transform.hpp>
 #include <memory>
 #include <mir/log.h>
-#include <mir/scene/surface.h>
 #include <miral/toolkit_event.h>
 #include <miral/window_info.h>
 
@@ -41,20 +41,20 @@ using namespace miracle;
 MiralWrapperOutput::MiralWrapperOutput(
     std::string name,
     int id,
-    WorkspaceManager& workspace_manager,
     geom::Rectangle const& area,
     std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
     CompositorState& state,
+    OutputManager* output_manager,
     std::shared_ptr<Config> const& config,
     WindowController& node_interface,
     Animator& animator) :
     name_ { std::move(name) },
     id_ { id },
-    workspace_manager { workspace_manager },
     area { area },
     floating_window_manager { floating_window_manager },
     state { state },
     config { config },
+    output_manager { output_manager },
     window_controller { node_interface },
     animator { animator },
     handle { animator.register_animateable() }
@@ -146,7 +146,7 @@ void MiralWrapperOutput::advise_new_workspace(WorkspaceCreationData const&& data
 {
     // Workspaces are always kept in sorted order with numbered workspaces in front followed by all other workspaces
     std::shared_ptr<Workspace> new_workspace = std::make_shared<MiralWorkspace>(
-        this, data.id, data.num, data.name, config, window_controller, state, floating_window_manager);
+        this, data.id, data.num, data.name, config, window_controller, state, floating_window_manager, output_manager);
     insert_sorted(workspaces, new_workspace, [](std::shared_ptr<Workspace> const& a, std::shared_ptr<Workspace> const& b)
     {
         if (a->num() && b->num())
@@ -160,7 +160,7 @@ void MiralWrapperOutput::advise_new_workspace(WorkspaceCreationData const&& data
     });
 }
 
-void MiralWrapperOutput::advise_workspace_deleted(uint32_t id)
+void MiralWrapperOutput::advise_workspace_deleted(WorkspaceManager& workspace_manager, uint32_t id)
 {
     for (auto it = workspaces.begin(); it != workspaces.end(); it++)
     {
@@ -172,7 +172,7 @@ void MiralWrapperOutput::advise_workspace_deleted(uint32_t id)
     }
 }
 
-bool MiralWrapperOutput::advise_workspace_active(uint32_t id)
+bool MiralWrapperOutput::advise_workspace_active(WorkspaceManager& workspace_manager, uint32_t id)
 {
     std::shared_ptr<Workspace> from = nullptr;
     std::shared_ptr<Workspace> to = nullptr;
@@ -446,11 +446,6 @@ geom::Rectangle MiralWrapperOutput::get_workspace_rectangle(size_t i) const
     return nullptr;
 }
 
-bool MiralWrapperOutput::is_active() const
-{
-    return state.focused_output().get() == this;
-}
-
 glm::mat4 MiralWrapperOutput::get_transform() const
 {
     return final_transform;
@@ -500,7 +495,7 @@ nlohmann::json MiralWrapperOutput::to_json() const
         { "layout",               "output"                               },
         { "orientation",          "none"                                 },
         { "visible",              true                                   },
-        { "focused",              is_active()                            },
+        { "focused",              output_manager->focused() == this      },
         { "urgent",               false                                  },
         { "border",               "none"                                 },
         { "current_border_width", 0                                      },

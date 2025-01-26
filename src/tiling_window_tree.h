@@ -39,6 +39,7 @@ class Config;
 class WindowController;
 class LeafContainer;
 class Workspace;
+class OutputManager;
 
 class TilingWindowTreeInterface
 {
@@ -151,6 +152,7 @@ public:
         std::unique_ptr<TilingWindowTreeInterface> tree_interface,
         WindowController&,
         CompositorState const&,
+        OutputManager* output_manager,
         std::shared_ptr<Config> const& options,
         geom::Rectangle const& area);
     ~MiralTilingWindowTree();
@@ -211,6 +213,7 @@ private:
 
     WindowController& window_controller;
     CompositorState const& state;
+    OutputManager* output_manager;
     std::shared_ptr<Config> config;
     std::shared_ptr<ParentContainer> root_lane;
     std::unique_ptr<TilingWindowTreeInterface> tree_interface;

@@ -28,8 +28,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace miracle
 {
-class Output;
-
 enum class WindowManagerMode
 {
     normal = 0,
@@ -53,17 +51,13 @@ public:
     mir::geometry::Point cursor_position;
     uint32_t modifiers = 0;
     bool has_clicked_floating_window = false;
-    std::vector<std::shared_ptr<Output>> output_list;
 
     [[nodiscard]] std::shared_ptr<Container> focused_container() const;
-    [[nodiscard]] std::shared_ptr<Output> focused_output() const;
 
     /// Focuses the provided container. If [is_anonymous] is true, the container
     /// will be focused even if it does not exist in the list.
     void focus_container(std::shared_ptr<Container> const&, bool is_anonymous = false);
     void unfocus_container(std::shared_ptr<Container> const& container);
-    void focus_output(std::shared_ptr<Output> const&);
-    void unfocus_output(std::shared_ptr<Output> const&);
     void add(std::shared_ptr<Container> const& container);
     void remove(std::shared_ptr<Container> const& container);
     [[nodiscard]] std::shared_ptr<Container> get_first_with_type(ContainerType type) const;
@@ -75,7 +69,6 @@ public:
 private:
     std::weak_ptr<Container> focused;
     std::vector<std::weak_ptr<Container>> focus_order;
-    std::weak_ptr<Output> output;
     WindowManagerMode mode_ = WindowManagerMode::normal;
     std::unique_ptr<RenderDataManager> render_data_manager_;
 };

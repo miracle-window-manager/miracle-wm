@@ -51,12 +51,14 @@ FloatingTreeContainer::FloatingTreeContainer(
     Workspace* workspace,
     WindowController& window_controller,
     CompositorState const& compositor_state,
-    std::shared_ptr<Config> const& config) :
+    std::shared_ptr<Config> const& config,
+    OutputManager* output_manager) :
     tree_ {
         std::make_unique<MiralTilingWindowTree>(
             std::make_unique<FloatingTreeTilingWindowTreeInterface>(workspace),
             window_controller,
             compositor_state,
+            output_manager,
             config,
             geom::Rectangle { geom::Point { 100, 100 }, geom::Size { 640, 480 } }
              )

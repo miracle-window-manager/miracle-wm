@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "command_controller.h"
 #include "config.h"
 #include "mode_observer.h"
+#include "output_manager.h"
 #include "parent_container.h"
 #include "scratchpad.h"
 #include "window_helpers.h"
@@ -38,7 +39,8 @@ CommandController::CommandController(
     WorkspaceManager& workspace_manager,
     ModeObserverRegistrar& mode_observer_registrar,
     std::unique_ptr<CommandControllerInterface> interface,
-    Scratchpad& scratchpad_) :
+    Scratchpad& scratchpad_,
+    OutputManager* output_manager) :
     config { config },
     mutex { mutex },
     state { state },
@@ -46,7 +48,8 @@ CommandController::CommandController(
     workspace_manager { workspace_manager },
     mode_observer_registrar { mode_observer_registrar },
     interface { std::move(interface) },
-    scratchpad_ { scratchpad_ }
+    scratchpad_ { scratchpad_ },
+    output_manager { output_manager }
 {
 }
 
@@ -341,10 +344,10 @@ bool CommandController::select_workspace(int number, bool back_and_forth)
     if (state.mode() != WindowManagerMode::normal)
         return false;
 
-    if (!state.focused_output())
+    if (!output_manager->focused())
         return false;
 
-    workspace_manager.request_workspace(state.focused_output().get(), number, back_and_forth);
+    workspace_manager.request_workspace(output_manager->focused(), number, back_and_forth);
     return true;
 }
 
@@ -355,7 +358,7 @@ bool CommandController::select_workspace(std::string const& name, bool back_and_
     if (state.mode() != WindowManagerMode::normal)
         return false;
 
-    return workspace_manager.request_workspace(state.focused_output().get(), name, back_and_forth);
+    return workspace_manager.request_workspace(output_manager->focused(), name, back_and_forth);
 }
 
 bool CommandController::next_workspace()
@@ -364,7 +367,7 @@ bool CommandController::next_workspace()
     if (state.mode() != WindowManagerMode::normal)
         return false;
 
-    workspace_manager.request_next(state.focused_output());
+    workspace_manager.request_next(output_manager->focused());
     return true;
 }
 
@@ -374,7 +377,7 @@ bool CommandController::prev_workspace()
     if (state.mode() != WindowManagerMode::normal)
         return false;
 
-    workspace_manager.request_prev(state.focused_output());
+    workspace_manager.request_prev(output_manager->focused());
     return true;
 }
 
@@ -417,9 +420,9 @@ bool CommandController::move_active_to_workspace(int number, bool back_and_forth
     state.unfocus_container(container);
 
     if (workspace_manager.request_workspace(
-            state.focused_output().get(), number, back_and_forth))
+            output_manager->focused(), number, back_and_forth))
     {
-        state.focused_output()->graft(container);
+        output_manager->focused()->graft(container);
         if (container->window().value())
             window_controller.select_active_window(container->window().value());
         return true;
@@ -438,9 +441,9 @@ bool CommandController::move_active_to_workspace_named(std::string const& name, 
     container->get_output()->delete_container(container);
     state.unfocus_container(container);
 
-    if (workspace_manager.request_workspace(state.focused_output().get(), name, back_and_forth))
+    if (workspace_manager.request_workspace(output_manager->focused(), name, back_and_forth))
     {
-        state.focused_output()->graft(container);
+        output_manager->focused()->graft(container);
         return true;
     }
 
@@ -457,9 +460,9 @@ bool CommandController::move_active_to_next_workspace()
     container->get_output()->delete_container(container);
     state.unfocus_container(container);
 
-    if (workspace_manager.request_next(state.focused_output()))
+    if (workspace_manager.request_next(output_manager->focused()))
     {
-        state.focused_output()->graft(container);
+        output_manager->focused()->graft(container);
         return true;
     }
 
@@ -476,9 +479,9 @@ bool CommandController::move_active_to_prev_workspace()
     container->get_output()->delete_container(container);
     state.unfocus_container(container);
 
-    if (workspace_manager.request_prev(state.focused_output()))
+    if (workspace_manager.request_prev(output_manager->focused()))
     {
-        state.focused_output()->graft(container);
+        output_manager->focused()->graft(container);
         return true;
     }
 
@@ -497,7 +500,7 @@ bool CommandController::move_active_to_back_and_forth()
 
     if (workspace_manager.request_back_and_forth())
     {
-        state.focused_output()->graft(container);
+        output_manager->focused()->graft(container);
         return true;
     }
 
@@ -522,7 +525,7 @@ bool CommandController::move_to_scratchpad()
     // If the window isn't floating already, we should make it floating
     if (container->get_type() != ContainerType::floating_window)
     {
-        if (!state.focused_output())
+        if (!output_manager->focused())
             return false;
 
         container = toggle_floating_internal(container);
@@ -564,7 +567,7 @@ std::shared_ptr<Container> CommandController::toggle_floating_internal(std::shar
                                   AllocationHint const& result)
     {
         auto& info = window_controller.info_for(window);
-        auto new_container = state.focused_output()->create_container(info, result);
+        auto new_container = output_manager->focused()->create_container(info, result);
         new_container->handle_ready();
         state.add(new_container);
         window_controller.select_active_window(state.focused_container()->window().value());
@@ -587,7 +590,7 @@ std::shared_ptr<Container> CommandController::toggle_floating_internal(std::shar
         auto spec = window_helpers::copy_from(prev_info);
         spec.top_left() = geom::Point { window->top_left().x.as_int() + 20, window->top_left().y.as_int() + 20 };
         window_controller.noclip(*window);
-        auto result = state.focused_output()->allocate_position(
+        auto result = output_manager->focused()->allocate_position(
             window_controller.info_for(window->application()), spec, { ContainerType::floating_window });
         window_controller.modify(*window, spec);
 
@@ -611,7 +614,7 @@ std::shared_ptr<Container> CommandController::toggle_floating_internal(std::shar
         // Next, place the container
         auto& prev_info = window_controller.info_for(*window);
         miral::WindowSpecification spec = window_helpers::copy_from(prev_info);
-        auto result = state.focused_output()->allocate_position(
+        auto result = output_manager->focused()->allocate_position(
             window_controller.info_for(window->application()), spec, { ContainerType::leaf });
         window_controller.modify(*window, spec);
 
@@ -710,15 +713,15 @@ void CommandController::move_cursor_to_output(Output const& output)
 bool CommandController::try_select_next_output()
 {
     std::lock_guard lock(mutex);
-    for (size_t i = 0; i < state.output_list.size(); i++)
+    for (size_t i = 0; i < output_manager->outputs().size(); i++)
     {
-        if (state.output_list[i] == state.focused_output())
+        if (output_manager->outputs()[i].get() == output_manager->focused())
         {
             size_t j = i + 1;
-            if (j == state.output_list.size())
+            if (j == output_manager->outputs().size())
                 j = 0;
 
-            move_cursor_to_output(*state.output_list[j]);
+            move_cursor_to_output(*output_manager->outputs()[j]);
             return true;
         }
     }
@@ -729,15 +732,15 @@ bool CommandController::try_select_next_output()
 bool CommandController::try_select_prev_output()
 {
     std::lock_guard lock(mutex);
-    for (int i = state.output_list.size() - 1; i >= 0; i++)
+    for (int i = output_manager->outputs().size() - 1; i >= 0; i++)
     {
-        if (state.output_list[i] == state.focused_output())
+        if (output_manager->outputs()[i].get() == output_manager->focused())
         {
             size_t j = i - 1;
             if (j < 0)
-                j = state.output_list.size() - 1;
+                j = output_manager->outputs().size() - 1;
 
-            move_cursor_to_output(*state.output_list[j]);
+            move_cursor_to_output(*output_manager->outputs()[j]);
             return true;
         }
     }
@@ -745,13 +748,13 @@ bool CommandController::try_select_prev_output()
     return false;
 }
 
-std::shared_ptr<Output> CommandController::_next_output_in_direction(Direction direction)
+Output* CommandController::_next_output_in_direction(Direction direction)
 {
-    auto const& active = state.focused_output();
+    auto const& active = output_manager->focused();
     auto const& active_area = active->get_area();
-    for (auto const& output : state.output_list)
+    for (auto const& output : output_manager->outputs())
     {
-        if (output == state.focused_output())
+        if (output.get() == output_manager->focused())
             continue;
 
         auto const& other_area = output->get_area();
@@ -761,7 +764,7 @@ std::shared_ptr<Output> CommandController::_next_output_in_direction(Direction d
         {
             if (active_area.top_left.x.as_int() == (other_area.top_left.x.as_int() + other_area.size.width.as_int()))
             {
-                return output;
+                return output.get();
             }
             break;
         }
@@ -769,7 +772,7 @@ std::shared_ptr<Output> CommandController::_next_output_in_direction(Direction d
         {
             if (active_area.top_left.x.as_int() + active_area.size.width.as_int() == other_area.top_left.x.as_int())
             {
-                return output;
+                return output.get();
             }
             break;
         }
@@ -777,7 +780,7 @@ std::shared_ptr<Output> CommandController::_next_output_in_direction(Direction d
         {
             if (active_area.top_left.y.as_int() == (other_area.top_left.y.as_int() + other_area.size.height.as_int()))
             {
-                return output;
+                return output.get();
             }
             break;
         }
@@ -785,7 +788,7 @@ std::shared_ptr<Output> CommandController::_next_output_in_direction(Direction d
         {
             if (active_area.top_left.y.as_int() + active_area.size.height.as_int() == other_area.top_left.y.as_int())
             {
-                return output;
+                return output.get();
             }
             break;
         }
@@ -801,7 +804,7 @@ bool CommandController::try_select_output(Direction direction)
 {
     std::lock_guard lock(mutex);
     auto const& next = _next_output_in_direction(direction);
-    if (next != state.focused_output())
+    if (next != output_manager->focused())
     {
         move_cursor_to_output(*next);
         return true;
@@ -810,12 +813,12 @@ bool CommandController::try_select_output(Direction direction)
     return false;
 }
 
-std::shared_ptr<Output> CommandController::_next_output_in_list(std::vector<std::string> const& names)
+Output* CommandController::_next_output_in_list(std::vector<std::string> const& names)
 {
     if (names.empty())
-        return state.focused_output();
+        return output_manager->focused();
 
-    auto current_name = state.focused_output()->name();
+    auto current_name = output_manager->focused()->name();
     size_t next = 0;
     for (size_t i = 0; i < names.size(); i++)
     {
@@ -829,23 +832,23 @@ std::shared_ptr<Output> CommandController::_next_output_in_list(std::vector<std:
     if (next == names.size())
         next = 0;
 
-    for (auto const& output : state.output_list)
+    for (auto const& output : output_manager->outputs())
     {
         if (output->name() == names[next])
-            return output;
+            return output.get();
     }
 
-    return state.focused_output();
+    return output_manager->focused();
 }
 
 bool CommandController::try_select_output(std::vector<std::string> const& names)
 {
     std::lock_guard lock(mutex);
-    if (!state.focused_output())
+    if (!output_manager->focused())
         return false;
 
     auto const& output = _next_output_in_list(names);
-    if (output != state.focused_output())
+    if (output != output_manager->focused())
         move_cursor_to_output(*output);
     return true;
 }
@@ -853,14 +856,14 @@ bool CommandController::try_select_output(std::vector<std::string> const& names)
 bool CommandController::try_move_active_to_output(miracle::Direction direction)
 {
     std::lock_guard lock(mutex);
-    if (!state.focused_output())
+    if (!output_manager->focused())
         return false;
 
     if (!can_move_container())
         return false;
 
     auto const& next = _next_output_in_direction(direction);
-    if (next != state.focused_output())
+    if (next != output_manager->focused())
     {
         auto container = state.focused_container();
         container->get_output()->delete_container(container);
@@ -878,20 +881,20 @@ bool CommandController::try_move_active_to_output(miracle::Direction direction)
 bool CommandController::try_move_active_to_current()
 {
     std::lock_guard lock(mutex);
-    if (!state.focused_output())
+    if (!output_manager->focused())
         return false;
 
     if (!can_move_container())
         return false;
 
-    if (state.focused_container()->get_output() == state.focused_output().get())
+    if (state.focused_container()->get_output() == output_manager->focused())
         return false;
 
     auto container = state.focused_container();
     container->get_output()->delete_container(container);
     state.unfocus_container(container);
 
-    state.focused_output()->graft(container);
+    output_manager->focused()->graft(container);
     if (container->window().value())
         window_controller.select_active_window(container->window().value());
     return true;
@@ -900,20 +903,20 @@ bool CommandController::try_move_active_to_current()
 bool CommandController::try_move_active_to_primary()
 {
     std::lock_guard lock(mutex);
-    if (state.output_list.empty())
+    if (output_manager->outputs().empty())
         return false;
 
     if (!can_move_container())
         return false;
 
-    if (state.focused_container()->get_output() == state.output_list[0].get())
+    if (state.focused_container()->get_output() == output_manager->outputs()[0].get())
         return false;
 
     auto container = state.focused_container();
     container->get_output()->delete_container(container);
     state.unfocus_container(container);
 
-    state.output_list[0]->graft(container);
+    output_manager->outputs()[0]->graft(container);
     if (container->window().value())
         window_controller.select_active_window(container->window().value());
     return true;
@@ -923,20 +926,20 @@ bool CommandController::try_move_active_to_nonprimary()
 {
     std::lock_guard lock(mutex);
     constexpr int MIN_SIZE_TO_HAVE_NONPRIMARY_OUTPUT = 2;
-    if (state.output_list.size() < MIN_SIZE_TO_HAVE_NONPRIMARY_OUTPUT)
+    if (output_manager->outputs().size() < MIN_SIZE_TO_HAVE_NONPRIMARY_OUTPUT)
         return false;
 
     if (!can_move_container())
         return false;
 
-    if (state.focused_output() != state.output_list[0])
+    if (output_manager->focused() != output_manager->outputs()[0].get())
         return false;
 
     auto container = state.focused_container();
     container->get_output()->delete_container(container);
     state.unfocus_container(container);
 
-    state.output_list[1]->graft(container);
+    output_manager->outputs()[1]->graft(container);
     if (container->window().value())
         window_controller.select_active_window(container->window().value());
     return true;
@@ -948,18 +951,22 @@ bool CommandController::try_move_active_to_next()
     if (!can_move_container())
         return false;
 
-    auto it = std::find(state.output_list.begin(), state.output_list.end(), state.focused_output());
-    if (it == state.output_list.end())
+    auto it = std::find_if(output_manager->outputs().begin(), output_manager->outputs().end(), [output_manager = output_manager](std::unique_ptr<Output> const& output)
+    {
+        return output.get() == output_manager->focused();
+    });
+
+    if (it == output_manager->outputs().end())
     {
         mir::log_error("CommandController::try_move_active_to_next: cannot find active output in list");
         return false;
     }
 
     it++;
-    if (it == state.output_list.end())
-        it = state.output_list.begin();
+    if (it == output_manager->outputs().end())
+        it = output_manager->outputs().begin();
 
-    if (*it == state.focused_output())
+    if (it->get() == output_manager->focused())
         return false;
 
     if ((*it).get() == state.focused_container()->get_output())
@@ -982,7 +989,7 @@ bool CommandController::try_move_active(std::vector<std::string> const& names)
         return false;
 
     auto const& output = _next_output_in_list(names);
-    if (output.get() != state.focused_container()->get_output())
+    if (output != state.focused_container()->get_output())
     {
         auto container = state.focused_container();
         container->get_output()->delete_container(container);
@@ -1026,7 +1033,7 @@ nlohmann::json CommandController::to_json() const
     geom::Point top_left { INT_MAX, INT_MAX };
     geom::Point bottom_right { 0, 0 };
     nlohmann::json outputs_json = nlohmann::json::array();
-    for (auto const& output : state.output_list)
+    for (auto const& output : output_manager->outputs())
     {
         if (output->is_defunct())
             continue;
@@ -1072,7 +1079,7 @@ nlohmann::json CommandController::outputs_json() const
 {
     std::lock_guard lock(mutex);
     nlohmann::json j = nlohmann::json::array();
-    for (auto const& output : state.output_list)
+    for (auto const& output : output_manager->outputs())
     {
         if (output->is_defunct())
             continue;

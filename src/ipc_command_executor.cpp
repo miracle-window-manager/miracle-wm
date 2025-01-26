@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "direction.h"
 #include "ipc_command.h"
 #include "leaf_container.h"
+#include "output_manager.h"
 #include "parent_container.h"
 #include "policy.h"
 #include "utility_general.h"
@@ -102,11 +103,13 @@ protected:
 
 IpcCommandExecutor::IpcCommandExecutor(
     CommandController& policy,
+    OutputManager* output_manager,
     WorkspaceManager& workspace_manager,
     CompositorState const& state,
     AutoRestartingLauncher& launcher,
     WindowController& window_controller) :
     policy { policy },
+    output_manager { output_manager },
     workspace_manager { workspace_manager },
     state { state },
     launcher { launcher },
@@ -393,7 +396,7 @@ bool parse_move_distance(std::vector<std::string> const& arguments, int& index, 
 
 IpcValidationResult IpcCommandExecutor::process_move(IpcCommand const& command, IpcParseResult const& command_list)
 {
-    auto const& active_output = state.focused_output();
+    auto const& active_output = output_manager->focused();
     if (!active_output)
         return parse_error("process_move: output is not set");
 
@@ -471,7 +474,7 @@ IpcValidationResult IpcCommandExecutor::process_move(IpcCommand const& command, 
             return parse_error("process_move: move absolute position ... expected 'center' as the third argument");
 
         float x = 0, y = 0;
-        for (auto const& output : state.output_list)
+        for (auto const& output : output_manager->outputs())
         {
             auto area = output->get_area();
             float end_x = (float)area.size.width.as_int() + (float)area.top_left.x.as_int();
@@ -663,14 +666,14 @@ IpcValidationResult IpcCommandExecutor::process_workspace(IpcCommand const& comm
         policy.prev_workspace();
     else if (arg0 == "next_on_output")
     {
-        if (auto const& output = state.focused_output())
+        if (auto const& output = output_manager->focused())
             policy.next_workspace_on_output(*output);
         else
             mir::log_error("process_workspace: next_on_output has no output to go next on");
     }
     else if (arg0 == "prev_on_output")
     {
-        if (auto const& output = state.focused_output())
+        if (auto const& output = output_manager->focused())
             policy.prev_workspace_on_output(*output);
         else
             mir::log_error("process_workspace: prev_on_output has no output to go prev on");

@@ -47,7 +47,7 @@ add_library(miracle-wm-implementation
     src/window_helpers.cpp
     src/config.cpp
     src/config.h
-    src/output.cpp
+    src/miral_output.cpp
     src/workspace_manager.cpp
     src/ipc.cpp
     src/auto_restarting_launcher.cpp
@@ -84,6 +84,10 @@ add_library(miracle-wm-implementation
     src/command_controller.cpp src/command_controller.h
     src/animator_loop.cpp src/animator_loop.h
     src/drag_and_drop_service.cpp src/drag_and_drop_service.h
+    src/output_factory.h
+    src/output_manager.cpp src/output_manager.h
+    src/miral_output_factory.cpp src/miral_output_factory.cpp
+    src/miral_output.h src/miral_output.cpp
 )
 
 add_executable(miracle-wm
