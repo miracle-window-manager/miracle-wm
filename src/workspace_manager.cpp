@@ -328,16 +328,5 @@ void WorkspaceManager::move_workspace_to_output(uint32_t id, Output* hint)
         return;
     }
 
-    if (w->get_output() == hint)
-    {
-        mir::log_warning("move_workspace_to_output: workspace with id %d is already on this output", id);
-        return;
-    }
-
-    if (auto old = w->get_output())
-        old->advise_workspace_deleted(*this, id);
-
-    hint->advise_new_workspace({ .id = id,
-        .num = w->num(),
-        .name = w->name() });
+    hint->move_workspace_to(*this, w);
 }

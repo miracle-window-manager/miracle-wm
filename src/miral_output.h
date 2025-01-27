@@ -54,6 +54,7 @@ public:
     void advise_application_zone_create(miral::Zone const& application_zone) override;
     void advise_application_zone_update(miral::Zone const& updated, miral::Zone const& original) override;
     void advise_application_zone_delete(miral::Zone const& application_zone) override;
+    void move_workspace_to(WorkspaceManager& workspace_manager, Workspace* workspace) override;
     bool point_is_in_output(int x, int y) override;
     void update_area(geom::Rectangle const& area) override;
     void add_immediately(miral::Window& window, AllocationHint hint = AllocationHint()) override;
@@ -107,6 +108,7 @@ private:
         AnimationStepResult const& result,
         std::shared_ptr<Workspace> const& to,
         std::shared_ptr<Workspace> const& from);
+    void insert_workspace_sorted(std::shared_ptr<Workspace> const& new_workspace);
 
     std::string name_;
     int id_;

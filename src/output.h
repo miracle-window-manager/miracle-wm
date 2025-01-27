@@ -68,6 +68,7 @@ public:
     virtual void advise_application_zone_create(miral::Zone const& application_zone) = 0;
     virtual void advise_application_zone_update(miral::Zone const& updated, miral::Zone const& original) = 0;
     virtual void advise_application_zone_delete(miral::Zone const& application_zone) = 0;
+    virtual void move_workspace_to(WorkspaceManager& workspace_manager, Workspace* workspace) = 0;
     virtual bool point_is_in_output(int x, int y) = 0;
     virtual void update_area(geom::Rectangle const& area) = 0;
 

@@ -43,15 +43,14 @@ namespace
 class OutputTilingWindowTreeInterface : public TilingWindowTreeInterface
 {
 public:
-    explicit OutputTilingWindowTreeInterface(Output* screen, MiralWorkspace* workspace) :
-        screen { screen },
+    explicit OutputTilingWindowTreeInterface(MiralWorkspace* workspace) :
         workspace { workspace }
     {
     }
 
     std::vector<miral::Zone> const& get_zones() override
     {
-        return screen->get_app_zones();
+        return workspace->get_output()->get_app_zones();
     }
 
     MiralWorkspace* get_workspace() const override
@@ -60,7 +59,6 @@ public:
     }
 
 private:
-    Output* screen;
     MiralWorkspace* workspace;
 };
 
@@ -86,7 +84,7 @@ MiralWorkspace::MiralWorkspace(
     output_manager { output_manager },
     floating_window_manager { floating_window_manager },
     tree(std::make_shared<MiralTilingWindowTree>(
-        std::make_unique<OutputTilingWindowTreeInterface>(output, this),
+        std::make_unique<OutputTilingWindowTreeInterface>(this),
         window_controller, state, output_manager, config, output->get_area()))
 {
 }
@@ -377,6 +375,12 @@ void MiralWorkspace::select_first_window()
 Output* MiralWorkspace::get_output() const
 {
     return output;
+}
+
+void MiralWorkspace::set_output(Output* new_output)
+{
+    this->output = new_output;
+    set_area(output->get_area());
 }
 
 void MiralWorkspace::workspace_transform_change_hack()

@@ -82,6 +82,8 @@ public:
 
     virtual Output* get_output() const = 0;
 
+    virtual void set_output(Output*) = 0;
+
     [[deprecated("Do not use unless you have a very good reason to do so!")]]
     virtual void workspace_transform_change_hack()
         = 0;
@@ -131,6 +133,7 @@ public:
     void remove_floating_hack(std::shared_ptr<Container> const&) override;
     void select_first_window() override;
     Output* get_output() const override;
+    void set_output(Output*) override;
     void workspace_transform_change_hack() override;
     [[nodiscard]] bool is_empty() const override;
     void graft(std::shared_ptr<Container> const&) override;
