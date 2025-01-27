@@ -34,6 +34,7 @@ namespace miracle
 {
 class Scratchpad;
 class ModeObserverRegistrar;
+class OutputManager;
 
 class CommandControllerInterface
 {
@@ -60,7 +61,8 @@ public:
         WorkspaceManager& workspace_manager,
         ModeObserverRegistrar& mode_observer_registrar,
         std::unique_ptr<CommandControllerInterface> interface,
-        Scratchpad& scratchpad);
+        Scratchpad& scratchpad,
+        OutputManager* output_manager);
 
     bool try_request_horizontal();
     bool try_request_vertical();
@@ -130,13 +132,14 @@ private:
     ModeObserverRegistrar& mode_observer_registrar;
     std::unique_ptr<CommandControllerInterface> interface;
     Scratchpad& scratchpad_;
+    OutputManager* output_manager;
 
     bool can_move_container() const;
     bool can_set_layout() const;
     std::shared_ptr<Container> toggle_floating_internal(std::shared_ptr<Container> const& container);
 
-    std::shared_ptr<Output> _next_output_in_list(std::vector<std::string> const& names);
-    std::shared_ptr<Output> _next_output_in_direction(Direction direction);
+    Output* _next_output_in_list(std::vector<std::string> const& names);
+    Output* _next_output_in_direction(Direction direction);
 };
 }
 

@@ -29,6 +29,7 @@ class CommandController;
 class WorkspaceManager;
 class AutoRestartingLauncher;
 class WindowController;
+class OutputManager;
 
 struct IpcValidationResult
 {
@@ -44,6 +45,7 @@ class IpcCommandExecutor
 public:
     IpcCommandExecutor(
         CommandController&,
+        OutputManager*,
         WorkspaceManager&,
         CompositorState const&,
         AutoRestartingLauncher&,
@@ -52,6 +54,7 @@ public:
 
 private:
     CommandController& policy;
+    OutputManager* output_manager;
     WorkspaceManager& workspace_manager;
     CompositorState const& state;
     AutoRestartingLauncher& launcher;

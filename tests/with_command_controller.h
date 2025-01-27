@@ -16,7 +16,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
 #include "command_controller.h"
+#include "mock_output_factory.h"
 #include "mode_observer.h"
+#include "output_manager.h"
 #include "scratchpad.h"
 #include "stub_configuration.h"
 #include "stub_container.h"
@@ -39,10 +41,11 @@ class WithCommandController
 {
 public:
     WithCommandController() :
+        output_manager(std::unique_ptr<test::MockOutputFactory>(output_factory)),
         config(std::make_shared<test::StubConfiguration>()),
         window_controller(data),
-        workspace_manager(workspace_registry, config, state),
-        scratchpad(window_controller, state),
+        workspace_manager(workspace_registry, config, &output_manager),
+        scratchpad(window_controller, &output_manager),
         command_controller(
             config,
             mutex,
@@ -51,7 +54,8 @@ public:
             workspace_manager,
             mode_observer_registrar,
             std::make_unique<StubCommandControllerInterface>(),
-            scratchpad)
+            scratchpad,
+            &output_manager)
     {
     }
 
@@ -60,6 +64,8 @@ protected:
     CompositorState state;
 
 private:
+    test::MockOutputFactory* output_factory = new test::MockOutputFactory();
+    OutputManager output_manager;
     std::shared_ptr<Config> config;
     std::recursive_mutex mutex;
     std::vector<StubWindowData> data;

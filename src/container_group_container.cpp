@@ -255,12 +255,12 @@ ContainerGroupContainer::confirm_placement(MirWindowState state, mir::geometry::
 
 Workspace* ContainerGroupContainer::get_workspace() const
 {
-    return state.focused_output()->active();
+    return nullptr;
 }
 
 Output* ContainerGroupContainer::get_output() const
 {
-    return state.focused_output().get();
+    return nullptr;
 }
 
 glm::mat4 ContainerGroupContainer::get_transform() const

@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "floating_window_container.h"
 #include "leaf_container.h"
 #include "output.h"
+#include "output_manager.h"
 #include "render_data_manager.h"
 #include "workspace.h"
 
@@ -58,13 +59,15 @@ FloatingWindowContainer::FloatingWindowContainer(
     WindowController& window_controller,
     Workspace* workspace,
     CompositorState const& state,
-    std::shared_ptr<Config> const& config) :
+    std::shared_ptr<Config> const& config,
+    OutputManager* output_manager) :
     window_ { window },
     wm { wm },
     window_controller { window_controller },
     workspace_ { workspace },
     state { state },
-    config { config }
+    config { config },
+    output_manager { output_manager }
 {
     state.render_data_manager()->add(*this);
 }
@@ -410,7 +413,7 @@ nlohmann::json FloatingWindowContainer::to_json() const
 
     if (output)
     {
-        if (!output->is_active())
+        if (output_manager->focused() != output)
             visible = false;
 
         if (output->active() != workspace)

@@ -32,7 +32,7 @@ namespace miracle
 
 class Output;
 class Config;
-class CompositorState;
+class OutputManager;
 
 /// A central place to request operations on workspaces.
 /// [Workspace] objects are held in their [Output] containers.
@@ -42,7 +42,7 @@ public:
     WorkspaceManager(
         WorkspaceObserverRegistrar& registry,
         std::shared_ptr<Config> const& config,
-        CompositorState const& state);
+        OutputManager* output_manager);
     WorkspaceManager(WorkspaceManager const&) = delete;
     virtual ~WorkspaceManager() = default;
 
@@ -69,10 +69,10 @@ public:
     int request_first_available_workspace(Output* output);
 
     /// Selects the next workspace after the current selected one.
-    bool request_next(std::shared_ptr<Output> const& output);
+    bool request_next(Output* output);
 
     /// Selects the workspace before the current selected one
-    bool request_prev(std::shared_ptr<Output> const& output);
+    bool request_prev(Output* output);
 
     bool request_back_and_forth();
 
@@ -104,7 +104,7 @@ private:
 
     WorkspaceObserverRegistrar& registry;
     std::shared_ptr<Config> config;
-    CompositorState const& state;
+    OutputManager* output_manager;
     std::optional<Workspace*> last_selected;
 };
 }

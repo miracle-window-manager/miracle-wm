@@ -21,14 +21,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "container.h"
 #include "floating_window_container.h"
 #include "output.h"
+#include "output_manager.h"
 
 #include <mir/log.h>
 
 using namespace miracle;
 
-Scratchpad::Scratchpad(WindowController& window_controller, CompositorState& compositor_state) :
+Scratchpad::Scratchpad(WindowController& window_controller, OutputManager* output_manager) :
     window_controller { window_controller },
-    compositor_state { compositor_state }
+    output_manager { output_manager }
 {
 }
 
@@ -58,7 +59,7 @@ void Scratchpad::toggle(ScratchpadItem& other)
     if (other.is_showing)
     {
         auto window = other.container->window().value();
-        auto output_extents = compositor_state.focused_output()->get_area();
+        auto output_extents = output_manager->focused()->get_area();
         other.container->show();
         miral::WindowSpecification spec;
         spec.top_left() = {

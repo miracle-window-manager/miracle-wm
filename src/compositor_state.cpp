@@ -35,14 +35,6 @@ std::shared_ptr<Container> CompositorState::focused_container() const
     return nullptr;
 }
 
-std::shared_ptr<Output> CompositorState::focused_output() const
-{
-    if (!output.expired())
-        return output.lock();
-
-    return nullptr;
-}
-
 void CompositorState::focus_container(std::shared_ptr<Container> const& container, bool is_anonymous)
 {
     if (is_anonymous)
@@ -69,20 +61,6 @@ void CompositorState::unfocus_container(std::shared_ptr<Container> const& contai
     {
         if (focused.lock() == container)
             focused.reset();
-    }
-}
-
-void CompositorState::focus_output(std::shared_ptr<Output> const& next)
-{
-    output = next;
-}
-
-void CompositorState::unfocus_output(std::shared_ptr<Output> const& prev)
-{
-    if (!output.expired())
-    {
-        if (output.lock() == prev)
-            output.reset();
     }
 }
 

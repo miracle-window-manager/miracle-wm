@@ -27,6 +27,7 @@ add_executable(miracle-wm-tests
     mock_configuration.h
     mock_container.h
     mock_output.h
+    mock_output_factory.h
     test_filesystem_configuration.cpp
     test_tiling_window_tree.cpp
     test_ipc_command_parser.cpp
@@ -34,6 +35,7 @@ add_executable(miracle-wm-tests
     test_feature_flags.cpp
     test_drag_and_drop_service.cpp
     test_render_data_manager.cpp
+    test_output_manager.cpp
     with_command_controller.h
     stub_configuration.h
     stub_session.h

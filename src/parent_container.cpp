@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "container.h"
 #include "leaf_container.h"
 #include "output.h"
+#include "output_manager.h"
 #include "tiling_window_tree.h"
 #include "workspace.h"
 #include <cmath>
@@ -91,14 +92,16 @@ ParentContainer::ParentContainer(
     std::shared_ptr<Config> const& config,
     TilingWindowTree* tree,
     std::shared_ptr<ParentContainer> const& parent,
-    CompositorState const& state) :
+    CompositorState const& state,
+    OutputManager* output_manager) :
     node_interface { node_interface },
     logical_area { std::move(area) },
     tree_ { tree },
     config { config },
     parent { parent },
     state { state },
-    scheme { config->get_default_layout_scheme() }
+    scheme { config->get_default_layout_scheme() },
+    output_manager { output_manager }
 {
 }
 
@@ -219,7 +222,8 @@ std::shared_ptr<LeafContainer> ParentContainer::create_space_for_window(int pend
         config,
         tree_,
         as_parent(shared_from_this()),
-        state);
+        state,
+        output_manager);
     sub_nodes.insert(sub_nodes.begin() + pending_index, pending_node);
     return pending_node;
 }
@@ -265,7 +269,8 @@ std::shared_ptr<ParentContainer> ParentContainer::convert_to_parent(std::shared_
         config,
         tree_,
         Container::as_parent(shared_from_this()),
-        state);
+        state,
+        output_manager);
     new_parent_node->sub_nodes.push_back(container);
     container->set_parent(new_parent_node);
     sub_nodes[index] = new_parent_node;
@@ -822,7 +827,7 @@ nlohmann::json ParentContainer::to_json() const
     auto output = get_output();
     auto locked_parent = parent.lock();
     bool visible = true;
-    if (!output->is_active())
+    if (output_manager->focused() != output)
         visible = false;
 
     if (output->active() != workspace)

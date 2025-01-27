@@ -27,6 +27,7 @@ namespace miracle
 class WindowController;
 class CompositorState;
 class RenderDataManager;
+class OutputManager;
 
 enum class ScratchpadState
 {
@@ -45,7 +46,8 @@ public:
         WindowController& window_controller,
         Workspace* workspace,
         CompositorState const& state,
-        std::shared_ptr<Config> const&);
+        std::shared_ptr<Config> const&,
+        OutputManager* output_manager);
     ~FloatingWindowContainer();
     [[nodiscard]] mir::geometry::Rectangle get_logical_area() const override;
     void set_logical_area(mir::geometry::Rectangle const&) override;
@@ -112,6 +114,7 @@ private:
     WindowController& window_controller;
     CompositorState const& state;
     std::shared_ptr<Config> config;
+    OutputManager* output_manager;
 
     bool is_pinned = false;
     std::optional<MirWindowState> restore_state_;

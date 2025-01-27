@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "mock_output.h"
 #include "mock_tiling_window_tree.h"
 #include "mock_workspace.h"
+#include "output_manager.h"
 #include "with_command_controller.h"
 #include <gtest/gtest.h>
 
@@ -31,8 +32,9 @@ class DragAndDropServiceTest : public testing::Test, public test::WithCommandCon
 
 public:
     DragAndDropServiceTest() :
+        output_manager(std::unique_ptr<test::MockOutputFactory>(output_factory)),
         config(std::make_shared<::testing::NiceMock<test::MockConfig>>()),
-        service(command_controller, config)
+        service(command_controller, config, &output_manager)
     {
         ON_CALL(*config, drag_and_drop())
             .WillByDefault(::testing::Return(DragAndDropConfiguration {
@@ -42,19 +44,26 @@ public:
 
     std::shared_ptr<::testing::NiceMock<test::MockConfig>> config;
     DragAndDropService service;
+    test::MockOutputFactory* output_factory = new test::MockOutputFactory();
+    OutputManager output_manager;
 };
 
 TEST_F(DragAndDropServiceTest, can_start_dragging)
 {
-    auto output = std::make_shared<::testing::NiceMock<test::MockOutput>>();
-    state.output_list.push_back(output);
-    state.focus_output(output);
-
     auto container = std::make_shared<::testing::NiceMock<test::MockContainer>>();
+    test::MockOutput* mock_output = new test::MockOutput();
+    ON_CALL(*mock_output, intersect(::testing::_, ::testing::_))
+        .WillByDefault(::testing::Return(container));
+
+    EXPECT_CALL(*output_factory, create(::testing::_, ::testing::_, ::testing::_, ::testing::_))
+        .WillOnce(testing::Return(std::unique_ptr<Output>(mock_output)));
+    output_manager.create("Output1", 1, {
+                                            { 0,    0    },
+                                            { 1920, 1080 }
+    });
+
     state.add(container);
     state.focus_container(container);
-    ON_CALL(*output, intersect(::testing::_, ::testing::_))
-        .WillByDefault(::testing::Return(container));
 
     ON_CALL(*container, drag_start())
         .WillByDefault(::testing::Return(true));
@@ -71,15 +80,19 @@ TEST_F(DragAndDropServiceTest, can_start_dragging)
 
 TEST_F(DragAndDropServiceTest, can_stop_dragging)
 {
-    auto output = std::make_shared<::testing::NiceMock<test::MockOutput>>();
-    state.output_list.push_back(output);
-    state.focus_output(output);
-
     auto container = std::make_shared<::testing::NiceMock<test::MockContainer>>();
+    test::MockOutput* mock_output = new test::MockOutput();
+    ON_CALL(*mock_output, intersect(::testing::_, ::testing::_))
+        .WillByDefault(::testing::Return(container));
+    EXPECT_CALL(*output_factory, create(::testing::_, ::testing::_, ::testing::_, ::testing::_))
+        .WillOnce(testing::Return(std::unique_ptr<Output>(mock_output)));
+    output_manager.create("Output1", 1, {
+                                            { 0,    0    },
+                                            { 1920, 1080 }
+    });
+
     state.add(container);
     state.focus_container(container);
-    ON_CALL(*output, intersect(::testing::_, ::testing::_))
-        .WillByDefault(::testing::Return(container));
 
     ON_CALL(*container, drag_start())
         .WillByDefault(::testing::Return(true));
@@ -105,14 +118,18 @@ TEST_F(DragAndDropServiceTest, can_stop_dragging)
 
 TEST_F(DragAndDropServiceTest, can_drag_to_other_container)
 {
-    auto output = std::make_shared<::testing::NiceMock<test::MockOutput>>();
-    state.output_list.push_back(output);
-    state.focus_output(output);
+    test::MockOutput* mock_output = new test::MockOutput();
+    EXPECT_CALL(*output_factory, create(::testing::_, ::testing::_, ::testing::_, ::testing::_))
+        .WillOnce(testing::Return(std::unique_ptr<Output>(mock_output)));
+    output_manager.create("Output1", 1, {
+                                            { 0,    0    },
+                                            { 1920, 1080 }
+    });
 
     auto container_drag = std::make_shared<::testing::NiceMock<test::MockContainer>>();
     state.add(container_drag);
     state.focus_container(container_drag);
-    ON_CALL(*output, intersect(::testing::_, ::testing::_))
+    ON_CALL(*mock_output, intersect(::testing::_, ::testing::_))
         .WillByDefault(::testing::Return(container_drag));
 
     ON_CALL(*container_drag, drag_start())
@@ -130,9 +147,9 @@ TEST_F(DragAndDropServiceTest, can_drag_to_other_container)
 
     std::shared_ptr<test::MockWorkspace> workspace = std::make_shared<test::MockWorkspace>();
     std::shared_ptr<test::MockTilingWindowTree> tree = std::make_shared<test::MockTilingWindowTree>();
-    ON_CALL(*output, active())
+    ON_CALL(*mock_output, active())
         .WillByDefault(::testing::Return(workspace.get()));
-    ON_CALL(*output, intersect_leaf(::testing::_, ::testing::_, ::testing::_))
+    ON_CALL(*mock_output, intersect_leaf(::testing::_, ::testing::_, ::testing::_))
         .WillByDefault(::testing::Return(other_container));
     ON_CALL(*workspace, get_tree())
         .WillByDefault(::testing::Return(tree.get()));

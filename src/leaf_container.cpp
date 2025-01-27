@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "container_group_container.h"
 #include "output.h"
+#include "output_manager.h"
 #include "parent_container.h"
 #include "render_data_manager.h"
 #include "tiling_window_tree.h"
@@ -42,13 +43,15 @@ LeafContainer::LeafContainer(
     std::shared_ptr<Config> const& config,
     TilingWindowTree* tree,
     std::shared_ptr<ParentContainer> const& parent,
-    CompositorState const& state) :
+    CompositorState const& state,
+    OutputManager* output_manager) :
     window_controller { node_interface },
     logical_area { std::move(area) },
     config { config },
     tree_ { tree },
     parent { parent },
-    state { state }
+    state { state },
+    output_manager { output_manager }
 {
 }
 
@@ -483,7 +486,7 @@ nlohmann::json LeafContainer::to_json() const
     auto locked_parent = parent.lock();
     bool visible = true;
 
-    if (!output->is_active())
+    if (output_manager->focused() != output)
         visible = false;
 
     if (output->active() != workspace)

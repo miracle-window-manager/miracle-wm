@@ -37,6 +37,7 @@ class CompositorState;
 class ParentContainer;
 class FloatingWindowContainer;
 class FloatingTreeContainer;
+class OutputManager;
 
 struct AllocationHint
 {
@@ -107,7 +108,8 @@ public:
         std::shared_ptr<Config> const& config,
         WindowController& window_controller,
         CompositorState const& state,
-        std::shared_ptr<MinimalWindowManager> const& floating_window_manager);
+        std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
+        OutputManager* output_manager);
 
     void set_area(mir::geometry::Rectangle const&) override;
     void recalculate_area() override;
@@ -150,6 +152,7 @@ private:
     WindowController& window_controller;
     CompositorState const& state;
     std::shared_ptr<Config> config;
+    OutputManager* output_manager;
     std::shared_ptr<MinimalWindowManager> floating_window_manager;
     std::weak_ptr<Container> last_selected_container;
 

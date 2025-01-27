@@ -28,6 +28,7 @@ class Workspace;
 class WindowController;
 class CompositorState;
 class Config;
+class OutputManager;
 
 class FloatingTreeContainer : public Container
 {
@@ -36,7 +37,8 @@ public:
         Workspace*,
         WindowController&,
         CompositorState const&,
-        std::shared_ptr<Config> const&);
+        std::shared_ptr<Config> const&,
+        OutputManager*);
 
     ContainerType get_type() const override;
     void show() override;
