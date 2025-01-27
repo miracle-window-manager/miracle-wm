@@ -62,10 +62,10 @@ public:
 protected:
     CommandController command_controller;
     CompositorState state;
-    test::MockOutputFactory* output_factory = new test::MockOutputFactory();
-    OutputManager output_manager;
 
 private:
+    test::MockOutputFactory* output_factory = new test::MockOutputFactory();
+    OutputManager output_manager;
     std::shared_ptr<Config> config;
     std::recursive_mutex mutex;
     std::vector<StubWindowData> data;

@@ -32,6 +32,7 @@ class DragAndDropServiceTest : public testing::Test, public test::WithCommandCon
 
 public:
     DragAndDropServiceTest() :
+        output_manager(std::unique_ptr<test::MockOutputFactory>(output_factory)),
         config(std::make_shared<::testing::NiceMock<test::MockConfig>>()),
         service(command_controller, config, &output_manager)
     {
@@ -43,11 +44,17 @@ public:
 
     std::shared_ptr<::testing::NiceMock<test::MockConfig>> config;
     DragAndDropService service;
+    test::MockOutputFactory* output_factory = new test::MockOutputFactory();
+    OutputManager output_manager;
 };
 
 TEST_F(DragAndDropServiceTest, can_start_dragging)
 {
+    auto container = std::make_shared<::testing::NiceMock<test::MockContainer>>();
     test::MockOutput* mock_output = new test::MockOutput();
+    ON_CALL(*mock_output, intersect(::testing::_, ::testing::_))
+        .WillByDefault(::testing::Return(container));
+
     EXPECT_CALL(*output_factory, create(::testing::_, ::testing::_, ::testing::_, ::testing::_))
         .WillOnce(testing::Return(std::unique_ptr<Output>(mock_output)));
     output_manager.create("Output1", 1, {
@@ -55,11 +62,8 @@ TEST_F(DragAndDropServiceTest, can_start_dragging)
                                             { 1920, 1080 }
     });
 
-    auto container = std::make_shared<::testing::NiceMock<test::MockContainer>>();
     state.add(container);
     state.focus_container(container);
-    ON_CALL(*mock_output, intersect(::testing::_, ::testing::_))
-        .WillByDefault(::testing::Return(container));
 
     ON_CALL(*container, drag_start())
         .WillByDefault(::testing::Return(true));
@@ -76,40 +80,40 @@ TEST_F(DragAndDropServiceTest, can_start_dragging)
 
 TEST_F(DragAndDropServiceTest, can_stop_dragging)
 {
-//    test::MockOutput* mock_output = new test::MockOutput();
-//    EXPECT_CALL(*output_factory, create(::testing::_, ::testing::_, ::testing::_, ::testing::_))
-//        .WillOnce(testing::Return(std::unique_ptr<Output>(mock_output)));
-//    output_manager.create("Output1", 1, {
-//                                            { 0,    0    },
-//                                            { 1920, 1080 }
-//    });
-//
-//    auto container = std::make_shared<::testing::NiceMock<test::MockContainer>>();
-//    state.add(container);
-//    state.focus_container(container);
-//    ON_CALL(*mock_output, intersect(::testing::_, ::testing::_))
-//        .WillByDefault(::testing::Return(container));
-//
-//    ON_CALL(*container, drag_start())
-//        .WillByDefault(::testing::Return(true));
-//
-//    service.handle_pointer_event(
-//        state,
-//        100,
-//        100,
-//        mir_pointer_action_button_down,
-//        mir_input_event_modifier_meta);
-//
-//    ASSERT_EQ(state.mode(), WindowManagerMode::dragging);
-//
-//    service.handle_pointer_event(
-//        state,
-//        100,
-//        100,
-//        mir_pointer_action_button_up,
-//        mir_input_event_modifier_meta);
-//
-//    ASSERT_EQ(state.mode(), WindowManagerMode::normal);
+    auto container = std::make_shared<::testing::NiceMock<test::MockContainer>>();
+    test::MockOutput* mock_output = new test::MockOutput();
+    ON_CALL(*mock_output, intersect(::testing::_, ::testing::_))
+        .WillByDefault(::testing::Return(container));
+    EXPECT_CALL(*output_factory, create(::testing::_, ::testing::_, ::testing::_, ::testing::_))
+        .WillOnce(testing::Return(std::unique_ptr<Output>(mock_output)));
+    output_manager.create("Output1", 1, {
+                                            { 0,    0    },
+                                            { 1920, 1080 }
+    });
+
+    state.add(container);
+    state.focus_container(container);
+
+    ON_CALL(*container, drag_start())
+        .WillByDefault(::testing::Return(true));
+
+    service.handle_pointer_event(
+        state,
+        100,
+        100,
+        mir_pointer_action_button_down,
+        mir_input_event_modifier_meta);
+
+    ASSERT_EQ(state.mode(), WindowManagerMode::dragging);
+
+    service.handle_pointer_event(
+        state,
+        100,
+        100,
+        mir_pointer_action_button_up,
+        mir_input_event_modifier_meta);
+
+    ASSERT_EQ(state.mode(), WindowManagerMode::normal);
 }
 
 TEST_F(DragAndDropServiceTest, can_drag_to_other_container)
