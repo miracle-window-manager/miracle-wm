@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 namespace miracle
 {
 class Output;
+class WorkspaceManager;
 
 class OutputManager
 {
@@ -37,9 +38,10 @@ public:
     Output* create(
         std::string name,
         int id,
-        mir::geometry::Rectangle area);
+        mir::geometry::Rectangle area,
+        WorkspaceManager& workspace_manager);
     void update(int id, mir::geometry::Rectangle area);
-    bool remove(int id);
+    bool remove(int id, WorkspaceManager& workspace_manager);
     [[nodiscard]] std::vector<std::unique_ptr<Output>> const& outputs() const;
     bool focus(int id);
     bool unfocus(int id);
