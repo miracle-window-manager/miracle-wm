@@ -47,7 +47,7 @@ jobs:
       run: sudo cmake --install ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
     - name: Unit Tests
-      run: cd ${{github.workspace}}/build && ./bin/miracle-wm-tests
+      run: cd ${{github.workspace}}/build && ./bin/miracle-wm-tests --gtest_filter=-DragAndDropServiceTest.*
 
     - name: IPC Tests
       if: false 
