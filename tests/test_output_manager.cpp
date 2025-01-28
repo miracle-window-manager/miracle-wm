@@ -18,8 +18,8 @@
 #include "mock_output_factory.h"
 #include "output_manager.h"
 #include "stub_configuration.h"
-#include "workspace_observer.h"
 #include "workspace_manager.h"
+#include "workspace_observer.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <mir/geometry/rectangle.h>
@@ -55,7 +55,8 @@ TEST(OutputManagerTest, create_output_success)
     Output* created_output = manager.create("Output1", 1, {
                                                               { 0,    0    },
                                                               { 1920, 1080 }
-    }, *workspace_manager);
+    },
+        *workspace_manager);
 
     // Assert
     EXPECT_EQ(created_output, mock_output);
@@ -95,7 +96,8 @@ TEST(OutputManagerTest, update_output_area)
     manager.create("Output1", 1, {
                                      { 0,    0    },
                                      { 1920, 1080 }
-    }, *workspace_manager);
+    },
+        *workspace_manager);
 
     // Act
     manager.update(1, {
@@ -134,7 +136,8 @@ TEST(OutputManagerTest, remove_output)
     manager.create("Output1", 1, {
                                      { 0,    0    },
                                      { 1920, 1080 }
-    }, *workspace_manager);
+    },
+        *workspace_manager);
     ASSERT_EQ(manager.outputs().size(), 1);
 
     // Act
@@ -172,7 +175,8 @@ TEST(OutputManagerTest, focus_and_unfocus)
     manager.create("Output1", 1, {
                                      { 0,    0    },
                                      { 1920, 1080 }
-    }, *workspace_manager);
+    },
+        *workspace_manager);
 
     // Act
     bool focused = manager.focus(1);
@@ -218,7 +222,8 @@ TEST(OutputManagerTest, remove_focused_output)
     manager.create("Output1", 1, {
                                      { 0,    0    },
                                      { 1920, 1080 }
-    }, *workspace_manager);
+    },
+        *workspace_manager);
     manager.focus(1);
     ASSERT_EQ(manager.focused(), mock_output);
 

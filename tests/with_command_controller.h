@@ -41,21 +41,21 @@ class WithCommandController
 {
 public:
     WithCommandController() :
-    output_manager(std::unique_ptr<test::MockOutputFactory>(output_factory)),
-    config(std::make_shared<test::StubConfiguration>()),
-    window_controller(data),
-    workspace_manager(workspace_registry, config, &output_manager),
-    scratchpad(window_controller, &output_manager),
-    command_controller(
-    config,
-    mutex,
-    state,
-    window_controller,
-    workspace_manager,
-    mode_observer_registrar,
-    std::make_unique<StubCommandControllerInterface>(),
-    scratchpad,
-    &output_manager)
+        output_manager(std::unique_ptr<test::MockOutputFactory>(output_factory)),
+        config(std::make_shared<test::StubConfiguration>()),
+        window_controller(data),
+        workspace_manager(workspace_registry, config, &output_manager),
+        scratchpad(window_controller, &output_manager),
+        command_controller(
+            config,
+            mutex,
+            state,
+            window_controller,
+            workspace_manager,
+            mode_observer_registrar,
+            std::make_unique<StubCommandControllerInterface>(),
+            scratchpad,
+            &output_manager)
     {
     }
 
