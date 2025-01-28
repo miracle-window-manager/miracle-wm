@@ -91,6 +91,9 @@ public:
     /// Builds and returns a sorted array of all active workspaces.
     std::vector<Workspace const*> workspaces() const;
 
+    /// Moves the workspace associated with [id] to the [hint].
+    void move_workspace_to_output(uint32_t id, Output* hint);
+
     /// The number of default workspaces
     static constexpr int NUM_DEFAULT_WORKSPACES = 10;
 

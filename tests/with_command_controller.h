@@ -60,19 +60,17 @@ public:
     }
 
 protected:
-    CommandController command_controller;
-    CompositorState state;
-
-private:
+    std::recursive_mutex mutex;
+    std::vector<StubWindowData> data;
     test::MockOutputFactory* output_factory = new test::MockOutputFactory();
     OutputManager output_manager;
     std::shared_ptr<Config> config;
-    std::recursive_mutex mutex;
-    std::vector<StubWindowData> data;
     StubWindowController window_controller;
     WorkspaceObserverRegistrar workspace_registry;
     WorkspaceManager workspace_manager;
-    ModeObserverRegistrar mode_observer_registrar;
     Scratchpad scratchpad;
+    ModeObserverRegistrar mode_observer_registrar;
+    CompositorState state;
+    CommandController command_controller;
 };
 }

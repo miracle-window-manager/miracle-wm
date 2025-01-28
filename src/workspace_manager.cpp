@@ -318,3 +318,15 @@ std::vector<Workspace const*> WorkspaceManager::workspaces() const
     }
     return result;
 }
+
+void WorkspaceManager::move_workspace_to_output(uint32_t id, Output* hint)
+{
+    auto w = workspace(id);
+    if (!w)
+    {
+        mir::log_error("move_workspace_to_output: cannot find workspace with id %d", id);
+        return;
+    }
+
+    hint->move_workspace_to(*this, w);
+}

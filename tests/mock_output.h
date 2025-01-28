@@ -46,6 +46,7 @@ namespace test
         MOCK_METHOD(void, advise_application_zone_update,
             (miral::Zone const& updated, miral::Zone const& original),
             (override));
+        MOCK_METHOD(void, move_workspace_to, (WorkspaceManager&, Workspace*), (override));
         MOCK_METHOD(void, advise_application_zone_delete, (miral::Zone const& application_zone), (override));
         MOCK_METHOD(bool, point_is_in_output, (int x, int y), (override));
         MOCK_METHOD(void, update_area, (geom::Rectangle const& area), (override));

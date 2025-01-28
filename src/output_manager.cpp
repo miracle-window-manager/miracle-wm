@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "output_manager.h"
 #include "output.h"
 #include "output_factory.h"
+#include "workspace_manager.h"
 
 using namespace miracle;
 
@@ -28,7 +29,7 @@ OutputManager::OutputManager(
 }
 
 Output* OutputManager::create(
-    std::string name, int id, mir::geometry::Rectangle area)
+    std::string name, int id, mir::geometry::Rectangle area, WorkspaceManager& workspace_manager)
 {
     if (outputs_.size() == 1 && outputs_[0]->is_defunct())
     {
@@ -39,6 +40,7 @@ Output* OutputManager::create(
     else
     {
         outputs_.push_back(output_factory->create(name, id, area, this));
+        workspace_manager.request_first_available_workspace(outputs_.back().get());
     }
 
     if (focused_ == nullptr)
@@ -59,26 +61,41 @@ void OutputManager::update(int id, mir::geometry::Rectangle area)
     }
 }
 
-bool OutputManager::remove(int id)
+bool OutputManager::remove(int id, WorkspaceManager& workspace_manager)
 {
     for (auto it = outputs_.begin(); it != outputs_.end(); it++)
     {
-        auto const& other_output = *it;
-        if (other_output->id() == id)
-        {
-            if (other_output.get() == focused_)
-                unfocus(id);
+        auto const& output = *it;
+        if (output->id() != id)
+            continue;
 
-            if (outputs_.size() == 1)
-            {
-                outputs_[0]->set_defunct();
-            }
-            else
-            {
-                // TODO: !
-            }
-            return true;
+        if (output.get() == focused_)
+            unfocus(id);
+
+        if (outputs_.size() == 1)
+        {
+            outputs_[0]->set_defunct();
         }
+        else
+        {
+            // Find the workspace ids
+            std::vector<size_t> workspaces(output->get_workspaces().size());
+            for (auto const& workspace : output->get_workspaces())
+                workspaces.push_back(workspace->id());
+
+            // Find the next available output
+            auto next_it = it + 1;
+            if (next_it == outputs_.end())
+                next_it = outputs_.begin();
+
+            // Move workspaces to the next available output
+            for (auto workspace_id : workspaces)
+                workspace_manager.move_workspace_to_output(workspace_id, next_it->get());
+
+            focus(next_it->get()->id());
+            outputs_.erase(it);
+        }
+        return true;
     }
 
     return false;

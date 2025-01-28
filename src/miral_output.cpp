@@ -142,11 +142,8 @@ void MiralWrapperOutput::delete_container(std::shared_ptr<miracle::Container> co
     workspace->delete_container(container);
 }
 
-void MiralWrapperOutput::advise_new_workspace(WorkspaceCreationData const&& data)
+void MiralWrapperOutput::insert_workspace_sorted(std::shared_ptr<Workspace> const& new_workspace)
 {
-    // Workspaces are always kept in sorted order with numbered workspaces in front followed by all other workspaces
-    std::shared_ptr<Workspace> new_workspace = std::make_shared<MiralWorkspace>(
-        this, data.id, data.num, data.name, config, window_controller, state, floating_window_manager, output_manager);
     insert_sorted(workspaces, new_workspace, [](std::shared_ptr<Workspace> const& a, std::shared_ptr<Workspace> const& b)
     {
         if (a->num() && b->num())
@@ -160,6 +157,14 @@ void MiralWrapperOutput::advise_new_workspace(WorkspaceCreationData const&& data
     });
 }
 
+void MiralWrapperOutput::advise_new_workspace(WorkspaceCreationData const&& data)
+{
+    // Workspaces are always kept in sorted order with numbered workspaces in front followed by all other workspaces
+    std::shared_ptr<Workspace> new_workspace = std::make_shared<MiralWorkspace>(
+        this, data.id, data.num, data.name, config, window_controller, state, floating_window_manager, output_manager);
+    insert_workspace_sorted(new_workspace);
+}
+
 void MiralWrapperOutput::advise_workspace_deleted(WorkspaceManager& workspace_manager, uint32_t id)
 {
     for (auto it = workspaces.begin(); it != workspaces.end(); it++)
@@ -170,6 +175,40 @@ void MiralWrapperOutput::advise_workspace_deleted(WorkspaceManager& workspace_ma
             return;
         }
     }
+}
+
+void MiralWrapperOutput::move_workspace_to(WorkspaceManager& workspace_manager, Workspace* workspace)
+{
+    if (workspace->get_output() == this)
+        return;
+
+    std::shared_ptr<Workspace> to_add = nullptr;
+    if (auto old = workspace->get_output())
+    {
+        for (auto const& w : old->get_workspaces())
+        {
+            if (w->id() == workspace->id())
+            {
+                to_add = w;
+                old->advise_workspace_deleted(workspace_manager, workspace->id());
+                break;
+            }
+        }
+    }
+
+    if (to_add == nullptr)
+    {
+        mir::log_error("Failed to find the old workspace!");
+        return;
+    }
+
+    mir::log_info("Moving workspace %d to output %d", workspace->id(), id_);
+    insert_workspace_sorted(to_add);
+    to_add->set_output(this);
+    to_add->hide();
+
+    if (to_add->is_empty())
+        workspace_manager.delete_workspace(to_add->id());
 }
 
 bool MiralWrapperOutput::advise_workspace_active(WorkspaceManager& workspace_manager, uint32_t id)

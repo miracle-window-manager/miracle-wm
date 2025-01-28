@@ -520,9 +520,7 @@ void Policy::advise_output_create(miral::Output const& output)
 {
     std::lock_guard lock(self->mutex);
     auto prev_size = output_manager->outputs().size();
-    auto created = output_manager->create(output.name(), output.id(), output.extents());
-    if (prev_size < output_manager->outputs().size())
-        workspace_manager.request_first_available_workspace(created);
+    auto created = output_manager->create(output.name(), output.id(), output.extents(), workspace_manager);
 }
 
 void Policy::advise_output_update(miral::Output const& updated, miral::Output const& original)
@@ -534,7 +532,7 @@ void Policy::advise_output_update(miral::Output const& updated, miral::Output co
 void Policy::advise_output_delete(miral::Output const& output)
 {
     std::lock_guard lock(self->mutex);
-    output_manager->remove(output.id());
+    output_manager->remove(output.id(), workspace_manager);
 }
 
 void Policy::handle_modify_window(
