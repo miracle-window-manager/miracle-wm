@@ -68,6 +68,7 @@ namespace test
         MOCK_METHOD(void, select_first_window, (), (override));
 
         MOCK_METHOD(Output*, get_output, (), (const, override));
+        MOCK_METHOD(void, set_output, (Output*), (override));
 
         MOCK_METHOD(void, workspace_transform_change_hack, (), (override));
 

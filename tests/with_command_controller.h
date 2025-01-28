@@ -41,38 +41,36 @@ class WithCommandController
 {
 public:
     WithCommandController() :
-        output_manager(std::unique_ptr<test::MockOutputFactory>(output_factory)),
-        config(std::make_shared<test::StubConfiguration>()),
-        window_controller(data),
-        workspace_manager(workspace_registry, config, &output_manager),
-        scratchpad(window_controller, &output_manager),
-        command_controller(
-            config,
-            mutex,
-            state,
-            window_controller,
-            workspace_manager,
-            mode_observer_registrar,
-            std::make_unique<StubCommandControllerInterface>(),
-            scratchpad,
-            &output_manager)
+    output_manager(std::unique_ptr<test::MockOutputFactory>(output_factory)),
+    config(std::make_shared<test::StubConfiguration>()),
+    window_controller(data),
+    workspace_manager(workspace_registry, config, &output_manager),
+    scratchpad(window_controller, &output_manager),
+    command_controller(
+    config,
+    mutex,
+    state,
+    window_controller,
+    workspace_manager,
+    mode_observer_registrar,
+    std::make_unique<StubCommandControllerInterface>(),
+    scratchpad,
+    &output_manager)
     {
     }
 
 protected:
-    CommandController command_controller;
-    CompositorState state;
-
-private:
+    std::recursive_mutex mutex;
+    std::vector<StubWindowData> data;
     test::MockOutputFactory* output_factory = new test::MockOutputFactory();
     OutputManager output_manager;
     std::shared_ptr<Config> config;
-    std::recursive_mutex mutex;
-    std::vector<StubWindowData> data;
     StubWindowController window_controller;
     WorkspaceObserverRegistrar workspace_registry;
     WorkspaceManager workspace_manager;
-    ModeObserverRegistrar mode_observer_registrar;
     Scratchpad scratchpad;
+    ModeObserverRegistrar mode_observer_registrar;
+    CompositorState state;
+    CommandController command_controller;
 };
 }

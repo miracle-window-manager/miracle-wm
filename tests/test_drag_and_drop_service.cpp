@@ -32,6 +32,7 @@ class DragAndDropServiceTest : public testing::Test, public test::WithCommandCon
 
 public:
     DragAndDropServiceTest() :
+        test::WithCommandController(),
         output_manager(std::unique_ptr<test::MockOutputFactory>(output_factory)),
         config(std::make_shared<::testing::NiceMock<test::MockConfig>>()),
         service(command_controller, config, &output_manager)
@@ -60,7 +61,7 @@ TEST_F(DragAndDropServiceTest, can_start_dragging)
     output_manager.create("Output1", 1, {
                                             { 0,    0    },
                                             { 1920, 1080 }
-    });
+    }, workspace_manager);
 
     state.add(container);
     state.focus_container(container);
@@ -89,7 +90,7 @@ TEST_F(DragAndDropServiceTest, can_stop_dragging)
     output_manager.create("Output1", 1, {
                                             { 0,    0    },
                                             { 1920, 1080 }
-    });
+    }, workspace_manager);
 
     state.add(container);
     state.focus_container(container);
@@ -124,7 +125,7 @@ TEST_F(DragAndDropServiceTest, can_drag_to_other_container)
     output_manager.create("Output1", 1, {
                                             { 0,    0    },
                                             { 1920, 1080 }
-    });
+    }, workspace_manager);
 
     auto container_drag = std::make_shared<::testing::NiceMock<test::MockContainer>>();
     state.add(container_drag);

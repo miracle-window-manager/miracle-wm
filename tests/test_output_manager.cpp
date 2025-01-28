@@ -17,6 +17,9 @@
 #include "mock_output.h"
 #include "mock_output_factory.h"
 #include "output_manager.h"
+#include "stub_configuration.h"
+#include "workspace_observer.h"
+#include "workspace_manager.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <mir/geometry/rectangle.h>
@@ -31,7 +34,7 @@ TEST(OutputManagerTest, create_output_success)
 {
     // Arrange
     auto mock_factory = std::make_unique<test::MockOutputFactory>();
-    test::MockOutput* mock_output = new test::MockOutput(); // Will be owned by unique_ptr
+    auto mock_output = new test::MockOutput(); // Will be owned by unique_ptr
 
     EXPECT_CALL(*mock_factory, create("Output1", 1, mir::geometry::Rectangle {
                                                         { 0,    0    },
@@ -40,13 +43,19 @@ TEST(OutputManagerTest, create_output_success)
                                    ::testing::_))
         .WillOnce(testing::Return(std::unique_ptr<Output>(mock_output))); // Mock return value
 
+    static const std::vector<std::shared_ptr<Workspace>> empty_workspaces;
+    ON_CALL(*mock_output, get_workspaces).WillByDefault(::testing::ReturnRef(empty_workspaces));
+
+    WorkspaceObserverRegistrar workspace_registry;
+    auto config = std::make_shared<test::StubConfiguration>();
     OutputManager manager(std::move(mock_factory));
+    auto workspace_manager = std::make_shared<WorkspaceManager>(workspace_registry, config, &manager);
 
     // Act
     Output* created_output = manager.create("Output1", 1, {
                                                               { 0,    0    },
                                                               { 1920, 1080 }
-    });
+    }, *workspace_manager);
 
     // Assert
     EXPECT_EQ(created_output, mock_output);
@@ -58,7 +67,7 @@ TEST(OutputManagerTest, update_output_area)
 {
     // Arrange
     auto mock_factory = std::make_unique<test::MockOutputFactory>();
-    test::MockOutput* mock_output = new test::MockOutput(); // Will be owned by unique_ptr
+    auto mock_output = new test::MockOutput(); // Will be owned by unique_ptr
 
     EXPECT_CALL(*mock_factory, create("Output1", 1, mir::geometry::Rectangle {
                                                         { 0,    0    },
@@ -74,13 +83,19 @@ TEST(OutputManagerTest, update_output_area)
                                   { 1280, 720 }
     }));
 
+    static const std::vector<std::shared_ptr<Workspace>> empty_workspaces;
+    ON_CALL(*mock_output, get_workspaces).WillByDefault(::testing::ReturnRef(empty_workspaces));
+
+    WorkspaceObserverRegistrar workspace_registry;
+    auto config = std::make_shared<test::StubConfiguration>();
     OutputManager manager(std::move(mock_factory));
+    auto workspace_manager = std::make_shared<WorkspaceManager>(workspace_registry, config, &manager);
 
     // Create output
     manager.create("Output1", 1, {
                                      { 0,    0    },
                                      { 1920, 1080 }
-    });
+    }, *workspace_manager);
 
     // Act
     manager.update(1, {
@@ -93,7 +108,7 @@ TEST(OutputManagerTest, remove_output)
 {
     // Arrange
     auto mock_factory = std::make_unique<test::MockOutputFactory>();
-    test::MockOutput* mock_output = new test::MockOutput(); // Will be owned by unique_ptr
+    auto mock_output = new test::MockOutput(); // Will be owned by unique_ptr
 
     EXPECT_CALL(*mock_factory, create("Output1", 1, mir::geometry::Rectangle {
                                                         { 0,    0    },
@@ -102,22 +117,28 @@ TEST(OutputManagerTest, remove_output)
                                    ::testing::_))
         .WillOnce(testing::Return(std::unique_ptr<Output>(mock_output)));
 
+    static const std::vector<std::shared_ptr<Workspace>> empty_workspaces;
+    ON_CALL(*mock_output, get_workspaces).WillByDefault(::testing::ReturnRef(empty_workspaces));
+
     ON_CALL(*mock_output, id())
         .WillByDefault(testing::Return(1));
 
     EXPECT_CALL(*mock_output, set_defunct());
 
+    WorkspaceObserverRegistrar workspace_registry;
+    auto config = std::make_shared<test::StubConfiguration>();
     OutputManager manager(std::move(mock_factory));
+    auto workspace_manager = std::make_shared<WorkspaceManager>(workspace_registry, config, &manager);
 
     // Create output
     manager.create("Output1", 1, {
                                      { 0,    0    },
                                      { 1920, 1080 }
-    });
+    }, *workspace_manager);
     ASSERT_EQ(manager.outputs().size(), 1);
 
     // Act
-    bool removed = manager.remove(1);
+    bool removed = manager.remove(1, *workspace_manager);
 
     // Assert
     EXPECT_TRUE(removed);
@@ -128,7 +149,7 @@ TEST(OutputManagerTest, focus_and_unfocus)
 {
     // Arrange
     auto mock_factory = std::make_unique<test::MockOutputFactory>();
-    test::MockOutput* mock_output = new test::MockOutput(); // Will be owned by unique_ptr
+    auto mock_output = new test::MockOutput(); // Will be owned by unique_ptr
 
     EXPECT_CALL(*mock_factory, create("Output1", 1, mir::geometry::Rectangle {
                                                         { 0,    0    },
@@ -139,13 +160,19 @@ TEST(OutputManagerTest, focus_and_unfocus)
     ON_CALL(*mock_output, id())
         .WillByDefault(testing::Return(1));
 
+    static const std::vector<std::shared_ptr<Workspace>> empty_workspaces;
+    ON_CALL(*mock_output, get_workspaces).WillByDefault(::testing::ReturnRef(empty_workspaces));
+
+    WorkspaceObserverRegistrar workspace_registry;
+    auto config = std::make_shared<test::StubConfiguration>();
     OutputManager manager(std::move(mock_factory));
+    auto workspace_manager = std::make_shared<WorkspaceManager>(workspace_registry, config, &manager);
 
     // Create output
     manager.create("Output1", 1, {
                                      { 0,    0    },
                                      { 1920, 1080 }
-    });
+    }, *workspace_manager);
 
     // Act
     bool focused = manager.focus(1);
@@ -168,7 +195,7 @@ TEST(OutputManagerTest, remove_focused_output)
 {
     // Arrange
     auto mock_factory = std::make_unique<test::MockOutputFactory>();
-    test::MockOutput* mock_output = new test::MockOutput(); // Will be owned by unique_ptr
+    auto mock_output = new test::MockOutput(); // Will be owned by unique_ptr
 
     EXPECT_CALL(*mock_factory, create("Output1", 1, mir::geometry::Rectangle {
                                                         { 0,    0    },
@@ -179,18 +206,24 @@ TEST(OutputManagerTest, remove_focused_output)
     ON_CALL(*mock_output, id())
         .WillByDefault(testing::Return(1));
 
+    static const std::vector<std::shared_ptr<Workspace>> empty_workspaces;
+    ON_CALL(*mock_output, get_workspaces).WillByDefault(::testing::ReturnRef(empty_workspaces));
+
+    WorkspaceObserverRegistrar workspace_registry;
+    auto config = std::make_shared<test::StubConfiguration>();
     OutputManager manager(std::move(mock_factory));
+    auto workspace_manager = std::make_shared<WorkspaceManager>(workspace_registry, config, &manager);
 
     // Create and focus output
     manager.create("Output1", 1, {
                                      { 0,    0    },
                                      { 1920, 1080 }
-    });
+    }, *workspace_manager);
     manager.focus(1);
     ASSERT_EQ(manager.focused(), mock_output);
 
     // Act: Remove focused output
-    bool removed = manager.remove(1);
+    bool removed = manager.remove(1, *workspace_manager);
     Output* focused_output = manager.focused();
 
     // Assert
