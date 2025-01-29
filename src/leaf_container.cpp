@@ -37,6 +37,46 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace miracle;
 
+namespace
+{
+std::shared_ptr<LeafContainer> get_closest_window_to_select_from_node(
+    std::shared_ptr<Container> node,
+    miracle::Direction direction)
+{
+    // This function attempts to get the first window within a node provided the direction that we are coming
+    // from as a hint. If the node that we want to move to has the same direction as that which we are coming
+    // from, a seamless experience would mean that - at times - we select the _LAST_ node in that list, instead
+    // of the first one. This makes it feel as though we are moving "across" the screen.
+    if (node->is_leaf())
+        return Container::as_leaf(node);
+
+    bool is_vertical = is_vertical_direction(direction);
+    bool is_negative = is_negative_direction(direction);
+    auto lane_node = Container::as_parent(node);
+    if (is_vertical && lane_node->get_direction() == LayoutScheme::vertical
+        || !is_vertical && lane_node->get_direction() == LayoutScheme::horizontal)
+    {
+        if (is_negative)
+        {
+            auto sub_nodes = lane_node->get_sub_nodes();
+            for (auto i = sub_nodes.size() - 1; i != 0; i--)
+            {
+                if (auto retval = get_closest_window_to_select_from_node(sub_nodes[i], direction))
+                    return retval;
+            }
+        }
+    }
+
+    for (auto const& sub_node : lane_node->get_sub_nodes())
+    {
+        if (auto retval = get_closest_window_to_select_from_node(sub_node, direction))
+            return retval;
+    }
+
+    return nullptr;
+}
+}
+
 LeafContainer::LeafContainer(
     WindowController& node_interface,
     geom::Rectangle area,
@@ -152,7 +192,14 @@ size_t LeafContainer::get_min_height() const
 
 void LeafContainer::handle_ready()
 {
-    tree_->handle_container_ready(*this);
+    constrain();
+    if (!state.focused_container() || !state.focused_container()->is_fullscreen())
+    {
+        auto& info = window_controller.info_for(window_);
+        if (info.can_be_active())
+            window_controller.select_active_window(window_);
+    }
+
     get_workspace()->handle_ready_hack(*this);
     if (window_controller.is_fullscreen(window_))
         toggle_fullscreen();
@@ -172,9 +219,19 @@ void LeafContainer::handle_modify(miral::WindowSpecification const& modification
         commit_changes();
 
         if (window_helpers::is_window_fullscreen(mods.state().value()))
-            tree_->advise_fullscreen_container(*this);
+        {
+            window_controller.select_active_window(window_);
+            window_controller.raise(window_);
+        }
         else if (mods.state().value() == mir_window_state_restored)
-            tree_->advise_restored_container(*this);
+        {
+            auto active = state.focused_container();
+            if (active && active->window() == window_)
+            {
+                set_logical_area(get_logical_area());
+                commit_changes();
+            }
+        }
     }
 
     window_controller.modify(window_, mods);
@@ -187,12 +244,129 @@ void LeafContainer::handle_raise()
 
 bool LeafContainer::resize(miracle::Direction direction, int pixels)
 {
-    return tree_->resize_container(direction, pixels, *this);
+    handle_resize(this, direction, pixels);
+    return true;
+}
+
+void LeafContainer::handle_resize(Container* container, Direction direction, int amount)
+{
+    auto sh_parent = container->get_parent().lock();
+    if (!sh_parent)
+        return;
+
+    bool is_vertical = direction == Direction::up || direction == Direction::down;
+    bool is_main_axis_movement = (is_vertical && sh_parent->get_direction() == LayoutScheme::vertical)
+        || (!is_vertical && sh_parent->get_direction() == LayoutScheme::horizontal);
+
+    if (is_main_axis_movement && sh_parent->num_nodes() == 1)
+    {
+        // Can't resize if we only have ourselves!
+        return;
+    }
+
+    if (!is_main_axis_movement)
+    {
+        handle_resize(sh_parent.get(), direction, amount);
+        return;
+    }
+
+    bool is_negative = direction == Direction::left || direction == Direction::up;
+    auto resize_amount = is_negative ? -amount : amount;
+    auto nodes = sh_parent->get_sub_nodes();
+    std::vector<geom::Rectangle> pending_node_resizes;
+    if (is_vertical)
+    {
+        int height_for_others = (int)floor(-(double)resize_amount / static_cast<double>(nodes.size() - 1));
+        int total_height = 0;
+        for (size_t i = 0; i < nodes.size(); i++)
+        {
+            auto const& other_node = nodes[i];
+            auto other_rect = other_node->get_logical_area();
+            if (container == other_node.get())
+                other_rect.size.height = geom::Height { other_rect.size.height.as_int() + resize_amount };
+            else
+                other_rect.size.height = geom::Height { other_rect.size.height.as_int() + height_for_others };
+
+            if (i != 0)
+            {
+                auto const& prev_rect = pending_node_resizes[i - 1];
+                other_rect.top_left.y = geom::Y { prev_rect.top_left.y.as_int() + prev_rect.size.height.as_int() };
+            }
+
+            if (other_rect.size.height.as_int() <= other_node->get_min_height())
+            {
+                mir::log_warning("Unable to resize a rectangle that would cause another to be negative");
+                return;
+            }
+
+            total_height += other_rect.size.height.as_int();
+            pending_node_resizes.push_back(other_rect);
+        }
+
+        // Due to some rounding errors, we may have to extend the final node
+        int leftover_height = sh_parent->get_logical_area().size.height.as_int() - total_height;
+        pending_node_resizes.back().size.height = geom::Height { pending_node_resizes.back().size.height.as_int() + leftover_height };
+    }
+    else
+    {
+        int width_for_others = (int)floor((double)-resize_amount / static_cast<double>(nodes.size() - 1));
+        int total_width = 0;
+        for (size_t i = 0; i < nodes.size(); i++)
+        {
+            auto const& other_node = nodes[i];
+            auto other_rect = other_node->get_logical_area();
+            if (container == other_node.get())
+                other_rect.size.width = geom::Width { other_rect.size.width.as_int() + resize_amount };
+            else
+                other_rect.size.width = geom::Width { other_rect.size.width.as_int() + width_for_others };
+
+            if (i != 0)
+            {
+                auto const& prev_rect = pending_node_resizes[i - 1];
+                other_rect.top_left.x = geom::X { prev_rect.top_left.x.as_int() + prev_rect.size.width.as_int() };
+            }
+
+            if (other_rect.size.width.as_int() <= other_node->get_min_width())
+            {
+                mir::log_warning("Unable to resize a rectangle that would cause another to be negative");
+                return;
+            }
+
+            total_width += other_rect.size.width.as_int();
+            pending_node_resizes.push_back(other_rect);
+        }
+
+        // Due to some rounding errors, we may have to extend the final node
+        int leftover_width = sh_parent->get_logical_area().size.width.as_int() - total_width;
+        pending_node_resizes.back().size.width = geom::Width { pending_node_resizes.back().size.width.as_int() + leftover_width };
+    }
+
+    for (size_t i = 0; i < nodes.size(); i++)
+    {
+        nodes[i]->set_logical_area(pending_node_resizes[i]);
+        nodes[i]->commit_changes();
+    }
 }
 
 bool LeafContainer::set_size(std::optional<int> const& width, std::optional<int> const& height)
 {
-    return tree_->set_size(width, height, *this);
+    auto rectangle = get_visible_area();
+    int new_width = width ? width.value() : rectangle.size.width.as_int();
+    int new_height = height ? height.value() : rectangle.size.height.as_int();
+    int diff_x = new_width - rectangle.size.width.as_int();
+    int diff_y = new_height - rectangle.size.height.as_int();
+
+    if (diff_x < 0)
+        resize(Direction::left, -diff_x);
+    else
+        resize(Direction::right, diff_x);
+
+    if (diff_y < 0)
+        resize(Direction::up, -diff_y);
+    else
+        resize(Direction::down, diff_y);
+
+    return true;
 }
 
 void LeafContainer::show()
@@ -216,18 +390,20 @@ bool LeafContainer::toggle_fullscreen()
     if (window_controller.is_fullscreen(window_))
         next_state = mir_window_state_restored;
     else
+    {
         next_state = mir_window_state_fullscreen;
+        window_controller.select_active_window(window_);
+        window_controller.raise(window_);
+    }
 
     commit_changes();
-    return tree_->toggle_fullscreen(*this);
+    return true;
 }
 
 mir::geometry::Rectangle LeafContainer::confirm_placement(
     MirWindowState state, mir::geometry::Rectangle const& placement)
 {
-    auto new_placement = placement;
-    tree_->confirm_placement_on_display(*this, state, new_placement);
-    return new_placement;
+    return placement;
 }
 
 void LeafContainer::on_open()
@@ -237,7 +413,9 @@ void LeafContainer::on_open()
 
 void LeafContainer::on_focus_gained()
 {
-    tree_->advise_focus_gained(*this);
+    window_controller.raise(window_);
+    if (auto sh_parent = parent.lock())
+        sh_parent->on_focus_gained();
     state.render_data_manager()->focus_change(*this);
 }
 
@@ -290,17 +468,34 @@ void LeafContainer::handle_request_resize(MirInputEvent const* input_event, MirR
 
 void LeafContainer::request_horizontal_layout()
 {
-    tree_->request_horizontal_layout(*this);
+    handle_layout_scheme(this, LayoutScheme::horizontal);
 }
 
 void LeafContainer::request_vertical_layout()
 {
-    tree_->request_vertical_layout(*this);
+    handle_layout_scheme(this, LayoutScheme::vertical);
 }
 
 void LeafContainer::toggle_layout(bool cycle_thru_all)
 {
-    tree_->toggle_layout(*this, cycle_thru_all);
+    auto sh_parent = parent.lock();
+    if (!sh_parent)
+    {
+        mir::log_error("toggle_layout: unable to get parent container");
+        return;
+    }
+
+    if (cycle_thru_all)
+        handle_layout_scheme(this, get_next_layout(sh_parent->get_direction()));
+    else
+    {
+        if (sh_parent->get_direction() == LayoutScheme::horizontal)
+            handle_layout_scheme(this, LayoutScheme::vertical);
+        else if (sh_parent->get_direction() == LayoutScheme::vertical)
+            handle_layout_scheme(this, LayoutScheme::horizontal);
+        else
+            mir::log_error("Parent with stack layout scheme cannot be toggled");
+    }
 }
 
 TilingWindowTree* LeafContainer::tree() const
@@ -370,7 +565,62 @@ ContainerType LeafContainer::get_type() const
 
 bool LeafContainer::select_next(miracle::Direction direction)
 {
-    return tree_->select_next(direction, *this);
+    auto next = handle_select(*this, direction);
+    if (!next)
+    {
+        mir::log_warning("Unable to select the next window: handle_select failed");
+        return false;
+    }
+
+    window_controller.select_active_window(next->window().value());
+    return true;
+}
+
+std::shared_ptr<LeafContainer> LeafContainer::handle_select(
+    Container& from,
+    Direction direction)
+{
+    // Algorithm:
+    //  1. Retrieve the parent
+    //  2. If the parent matches the target direction, then
+    //     we select the next node in the direction
+    //  3. If the current_node does NOT match the target direction,
+    //     then we climb the tree until we find a current_node who matches
+    //  4. If none match, we return nullptr
+    bool is_vertical = is_vertical_direction(direction);
+    bool is_negative = is_negative_direction(direction);
+    auto current_node = from.shared_from_this();
+    auto parent = current_node->get_parent().lock();
+    if (!parent)
+    {
+        mir::log_warning("Cannot handle_select the root node");
+        return nullptr;
+    }
+
+    do
+    {
+        auto grandparent_direction = parent->get_direction();
+        int index = parent->get_index_of_node(current_node);
+        if (is_vertical && (grandparent_direction == LayoutScheme::vertical || grandparent_direction == LayoutScheme::stacking)
+            || !is_vertical && (grandparent_direction == LayoutScheme::horizontal || grandparent_direction == LayoutScheme::tabbing))
+        {
+            if (is_negative)
+            {
+                if (index > 0)
+                    return get_closest_window_to_select_from_node(parent->at(index - 1), direction);
+            }
+            else
+            {
+                if (index < parent->num_nodes() - 1)
+                    return get_closest_window_to_select_from_node(parent->at(index + 1), direction);
+            }
+        }
+
+        current_node = parent;
+        parent = Container::as_parent(parent->get_parent().lock());
+    } while (parent != nullptr);
+
+    return nullptr;
 }
 
 bool LeafContainer::pinned(bool)
@@ -403,9 +653,9 @@ bool LeafContainer::toggle_tabbing()
     if (auto sh_parent = parent.lock())
     {
         if (sh_parent->get_direction() == LayoutScheme::tabbing)
-            tree_->request_horizontal_layout(*this);
+            request_horizontal_layout();
         else
-            tree_->request_tabbing_layout(*this);
+            handle_layout_scheme(this, LayoutScheme::tabbing);
     }
     return true;
 }
@@ -415,9 +665,9 @@ bool LeafContainer::toggle_stacking()
     if (auto sh_parent = parent.lock())
     {
         if (sh_parent->get_direction() == LayoutScheme::stacking)
-            tree_->request_horizontal_layout(*this);
+            request_horizontal_layout();
         else
-            tree_->request_stacking_layout(*this);
+            handle_layout_scheme(this, LayoutScheme::stacking);
     }
     return true;
 }
@@ -460,8 +710,28 @@ bool LeafContainer::drag_stop()
 
 bool LeafContainer::set_layout(LayoutScheme scheme)
 {
-    tree_->request_layout(*this, scheme);
+    handle_layout_scheme(this, scheme);
     return true;
+}
+
+void LeafContainer::handle_layout_scheme(Container* container, LayoutScheme scheme)
+{
+    auto parent = container->get_parent().lock();
+    if (!parent)
+    {
+        mir::log_warning("handle_layout_scheme: parent is not set");
+        return;
+    }
+
+    // If the parent already has more than just [container] as a child AND
+    // the parent is NOT a tabbing/stacking parent, then we create a new parent for this
+    // single [container].
+    if (parent->num_nodes() > 1
+        && parent->get_direction() != LayoutScheme::tabbing
+        && parent->get_direction() != LayoutScheme::stacking)
+        parent = parent->convert_to_parent(container->shared_from_this());
+
+    parent->set_layout(scheme);
 }
 
 LayoutScheme LeafContainer::get_layout() const

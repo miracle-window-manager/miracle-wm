@@ -26,7 +26,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "window_helpers.h"
 
 #include <cmath>
-#include <iostream>
 #include <memory>
 #include <mir/log.h>
 
@@ -101,56 +100,6 @@ void MiralTilingWindowTree::graft(
     leaf->tree(this);
     parent->graft_existing(leaf, index == -1 ? (int)parent->num_nodes() : index);
     parent->commit_changes();
-}
-
-bool MiralTilingWindowTree::resize_container(miracle::Direction direction, int pixels, Container& container)
-{
-    handle_resize(container, direction, pixels);
-    return true;
-}
-
-bool MiralTilingWindowTree::set_size(std::optional<int> const& width, std::optional<int> const& height, Container& container)
-{
-    auto const& rectangle = container.get_visible_area();
-    int new_width = width ? width.value() : rectangle.size.width.as_int();
-    int new_height = height ? height.value() : rectangle.size.height.as_int();
-    int diff_x = new_width - rectangle.size.width.as_int();
-    int diff_y = new_height - rectangle.size.height.as_int();
-
-    if (diff_x < 0)
-        handle_resize(container, Direction::left, -diff_x);
-    else
-        handle_resize(container, Direction::right, diff_x);
-
-    if (diff_y < 0)
-        handle_resize(container, Direction::up, -diff_y);
-    else
-        handle_resize(container, Direction::down, diff_y);
-
-    return true;
-}
-
-bool MiralTilingWindowTree::select_next(
-    miracle::Direction direction, Container& container)
-{
-    auto node = handle_select(container, direction);
-    if (!node)
-    {
-        mir::log_warning("Unable to select the next window: handle_select failed");
-        return false;
-    }
-
-    window_controller.select_active_window(node->window().value());
-    return true;
-}
-
-bool MiralTilingWindowTree::toggle_fullscreen(LeafContainer& container)
-{
-    if (container.is_fullscreen())
-        advise_fullscreen_container(container);
-    else
-        advise_restored_container(container);
-    return true;
 }
 
 void MiralTilingWindowTree::set_area(geom::Rectangle const& new_area)
@@ -239,80 +188,6 @@ bool MiralTilingWindowTree::move_to_tree(std::shared_ptr<Container> const& conta
     return true;
 }
 
-void MiralTilingWindowTree::request_layout(Container& container, miracle::LayoutScheme scheme)
-{
-    handle_layout_scheme(scheme, container);
-}
-
-void MiralTilingWindowTree::request_vertical_layout(Container& container)
-{
-    handle_layout_scheme(LayoutScheme::vertical, container);
-}
-
-void MiralTilingWindowTree::request_horizontal_layout(Container& container)
-{
-    handle_layout_scheme(LayoutScheme::horizontal, container);
-}
-
-void MiralTilingWindowTree::request_tabbing_layout(Container& container)
-{
-    handle_layout_scheme(LayoutScheme::tabbing, container);
-}
-
-void MiralTilingWindowTree::request_stacking_layout(Container& container)
-{
-    handle_layout_scheme(LayoutScheme::stacking, container);
-}
-
-void MiralTilingWindowTree::toggle_layout(Container& container, bool cycle_thru_all)
-{
-    auto parent = Container::as_parent(container.get_parent().lock());
-    if (!parent)
-    {
-        mir::log_error("toggle_layout: unable to get parent container");
-        return;
-    }
-
-    if (cycle_thru_all)
-        handle_layout_scheme(get_next_layout(parent->get_direction()), container);
-    else
-    {
-        if (parent->get_direction() == LayoutScheme::horizontal)
-            handle_layout_scheme(LayoutScheme::vertical, container);
-        else if (parent->get_direction() == LayoutScheme::vertical)
-            handle_layout_scheme(LayoutScheme::horizontal, container);
-        else
-            mir::log_error("Parent with stack layout scheme cannot be toggled");
-    }
-}
-
-void MiralTilingWindowTree::handle_layout_scheme(LayoutScheme scheme, Container& container)
-{
-    auto parent = container.get_parent().lock();
-    if (!parent)
-    {
-        mir::log_warning("handle_layout_scheme: parent is not set");
-        return;
-    }
-
-    // If the parent already has more than just [container] as a child AND
-    // the parent is NOT a tabbing/stacking parent, then we create a new parent for this
-    // single [container].
-    if (parent->num_nodes() > 1
-        && parent->get_direction() != LayoutScheme::tabbing
-        && parent->get_direction() != LayoutScheme::stacking)
-        parent = parent->convert_to_parent(container.shared_from_this());
-
-    parent->set_layout(scheme);
-}
-
-void MiralTilingWindowTree::advise_focus_gained(LeafContainer& container)
-{
-    window_controller.raise(container.window().value());
-    if (auto const& parent = container.get_parent().lock())
-        parent->on_focus_gained();
-}
-
 void MiralTilingWindowTree::advise_delete_window(std::shared_ptr<Container> const& container)
 {
     auto parent = handle_remove(container);
@@ -337,100 +212,6 @@ LayoutScheme from_direction(Direction direction)
         return LayoutScheme::horizontal;
     }
 }
-
-bool is_negative_direction(Direction direction)
-{
-    return direction == Direction::left || direction == Direction::up;
-}
-
-bool is_vertical_direction(Direction direction)
-{
-    return direction == Direction::up || direction == Direction::down;
-}
-
-std::shared_ptr<LeafContainer> get_closest_window_to_select_from_node(
-    std::shared_ptr<Container> node,
-    miracle::Direction direction)
-{
-    // This function attempts to get the first window within a node provided the direction that we are coming
-    // from as a hint. If the node that we want to move to has the same direction as that which we are coming
-    // from, a seamless experience would mean that - at times - we select the _LAST_ node in that list, instead
-    // of the first one. This makes it feel as though we are moving "across" the screen.
-    if (node->is_leaf())
-        return Container::as_leaf(node);
-
-    bool is_vertical = is_vertical_direction(direction);
-    bool is_negative = is_negative_direction(direction);
-    auto lane_node = Container::as_parent(node);
-    if (is_vertical && lane_node->get_direction() == LayoutScheme::vertical
-        || !is_vertical && lane_node->get_direction() == LayoutScheme::horizontal)
-    {
-        if (is_negative)
-        {
-            auto sub_nodes = lane_node->get_sub_nodes();
-            for (auto i = sub_nodes.size() - 1; i != 0; i--)
-            {
-                if (auto retval = get_closest_window_to_select_from_node(sub_nodes[i], direction))
-                    return retval;
-            }
-        }
-    }
-
-    for (auto const& sub_node : lane_node->get_sub_nodes())
-    {
-        if (auto retval = get_closest_window_to_select_from_node(sub_node, direction))
-            return retval;
-    }
-
-    return nullptr;
-}
-}
-
-std::shared_ptr<LeafContainer> MiralTilingWindowTree::handle_select(
-    Container& from,
-    Direction direction)
-{
-    // Algorithm:
-    //  1. Retrieve the parent
-    //  2. If the parent matches the target direction, then
-    //     we select the next node in the direction
-    //  3. If the current_node does NOT match the target direction,
-    //     then we climb the tree until we find a current_node who matches
-    //  4. If none match, we return nullptr
-    bool is_vertical = is_vertical_direction(direction);
-    bool is_negative = is_negative_direction(direction);
-    auto current_node = from.shared_from_this();
-    auto parent = current_node->get_parent().lock();
-    if (!parent)
-    {
-        mir::log_warning("Cannot handle_select the root node");
-        return nullptr;
-    }
-
-    do
-    {
-        auto grandparent_direction = parent->get_direction();
-        int index = parent->get_index_of_node(current_node);
-        if (is_vertical && (grandparent_direction == LayoutScheme::vertical || grandparent_direction == LayoutScheme::stacking)
-            || !is_vertical && (grandparent_direction == LayoutScheme::horizontal || grandparent_direction == LayoutScheme::tabbing))
-        {
-            if (is_negative)
-            {
-                if (index > 0)
-                    return get_closest_window_to_select_from_node(parent->at(index - 1), direction);
-            }
-            else
-            {
-                if (index < parent->num_nodes() - 1)
-                    return get_closest_window_to_select_from_node(parent->at(index + 1), direction);
-            }
-        }
-
-        current_node = parent;
-        parent = Container::as_parent(parent->get_parent().lock());
-    } while (parent != nullptr);
-
-    return nullptr;
 }
 
 MiralTilingWindowTree::MoveResult MiralTilingWindowTree::handle_move(Container& from, Direction direction)
@@ -440,7 +221,7 @@ MiralTilingWindowTree::MoveResult MiralTilingWindowTree::handle_move(Container& 
     //     currently is
     //  2. If our parent layout direction does not equal the root layout direction, we can append
     //     or prepend to the root
-    if (auto insert_node = handle_select(from, direction))
+    if (auto insert_node = LeafContainer::handle_select(from, direction))
     {
         return {
             MoveResult::traversal_type_insert,
@@ -480,112 +261,6 @@ MiralTilingWindowTree::MoveResult MiralTilingWindowTree::handle_move(Container& 
             MoveResult::traversal_type_append,
             root_lane
         };
-}
-
-void MiralTilingWindowTree::handle_resize(
-    Container& node,
-    Direction direction,
-    int amount)
-{
-    auto parent = Container::as_parent(node.get_parent().lock());
-    if (parent == nullptr)
-    {
-        // Can't resize, most likely the root
-        return;
-    }
-
-    bool is_vertical = direction == Direction::up || direction == Direction::down;
-    bool is_main_axis_movement = (is_vertical && parent->get_direction() == LayoutScheme::vertical)
-        || (!is_vertical && parent->get_direction() == LayoutScheme::horizontal);
-
-    if (is_main_axis_movement && parent->num_nodes() == 1)
-    {
-        // Can't resize if we only have ourselves!
-        return;
-    }
-
-    if (!is_main_axis_movement)
-    {
-        handle_resize(*parent, direction, amount);
-        return;
-    }
-
-    bool is_negative = direction == Direction::left || direction == Direction::up;
-    auto resize_amount = is_negative ? -amount : amount;
-    auto nodes = parent->get_sub_nodes();
-    std::vector<geom::Rectangle> pending_node_resizes;
-    if (is_vertical)
-    {
-        int height_for_others = (int)floor(-(double)resize_amount / static_cast<double>(nodes.size() - 1));
-        int total_height = 0;
-        for (size_t i = 0; i < nodes.size(); i++)
-        {
-            auto const& other_node = nodes[i];
-            auto other_rect = other_node->get_logical_area();
-            if (node.shared_from_this() == other_node)
-                other_rect.size.height = geom::Height { other_rect.size.height.as_int() + resize_amount };
-            else
-                other_rect.size.height = geom::Height { other_rect.size.height.as_int() + height_for_others };
-
-            if (i != 0)
-            {
-                auto const& prev_rect = pending_node_resizes[i - 1];
-                other_rect.top_left.y = geom::Y { prev_rect.top_left.y.as_int() + prev_rect.size.height.as_int() };
-            }
-
-            if (other_rect.size.height.as_int() <= other_node->get_min_height())
-            {
-                mir::log_warning("Unable to resize a rectangle that would cause another to be negative");
-                return;
-            }
-
-            total_height += other_rect.size.height.as_int();
-            pending_node_resizes.push_back(other_rect);
-        }
-
-        // Due to some rounding errors, we may have to extend the final node
-        int leftover_height = parent->get_logical_area().size.height.as_int() - total_height;
-        pending_node_resizes.back().size.height = geom::Height { pending_node_resizes.back().size.height.as_int() + leftover_height };
-    }
-    else
-    {
-        int width_for_others = (int)floor((double)-resize_amount / static_cast<double>(nodes.size() - 1));
-        int total_width = 0;
-        for (size_t i = 0; i < nodes.size(); i++)
-        {
-            auto const& other_node = nodes[i];
-            auto other_rect = other_node->get_logical_area();
-            if (node.shared_from_this() == other_node)
-                other_rect.size.width = geom::Width { other_rect.size.width.as_int() + resize_amount };
-            else
-                other_rect.size.width = geom::Width { other_rect.size.width.as_int() + width_for_others };
-
-            if (i != 0)
-            {
-                auto const& prev_rect = pending_node_resizes[i - 1];
-                other_rect.top_left.x = geom::X { prev_rect.top_left.x.as_int() + prev_rect.size.width.as_int() };
-            }
-
-            if (other_rect.size.width.as_int() <= other_node->get_min_width())
-            {
-                mir::log_warning("Unable to resize a rectangle that would cause another to be negative");
-                return;
-            }
-
-            total_width += other_rect.size.width.as_int();
-            pending_node_resizes.push_back(other_rect);
-        }
-
-        // Due to some rounding errors, we may have to extend the final node
-        int leftover_width = parent->get_logical_area().size.width.as_int() - total_width;
-        pending_node_resizes.back().size.width = geom::Width { pending_node_resizes.back().size.width.as_int() + leftover_width };
-    }
-
-    for (size_t i = 0; i < nodes.size(); i++)
-    {
-        nodes[i]->set_logical_area(pending_node_resizes[i]);
-        nodes[i]->commit_changes();
-    }
 }
 
 std::shared_ptr<ParentContainer> MiralTilingWindowTree::handle_remove(std::shared_ptr<Container> const& node)
@@ -631,73 +306,6 @@ void MiralTilingWindowTree::recalculate_root_node_area()
         root_lane->commit_changes();
         break;
     }
-}
-
-bool MiralTilingWindowTree::advise_fullscreen_container(LeafContainer& container)
-{
-    auto window = container.window().value();
-    window_controller.select_active_window(window);
-    window_controller.raise(window);
-    return true;
-}
-
-bool MiralTilingWindowTree::advise_restored_container(LeafContainer& container)
-{
-    auto active = state.focused_container();
-    if (active && active->window() == container.window().value())
-    {
-        container.set_logical_area(container.get_logical_area());
-        container.commit_changes();
-    }
-
-    return true;
-}
-
-bool MiralTilingWindowTree::handle_container_ready(LeafContainer& container)
-{
-    constrain(container);
-    if (state.focused_container() && state.focused_container()->is_fullscreen())
-        return true;
-
-    auto window = container.window().value();
-    auto& info = window_controller.info_for(window);
-    if (info.can_be_active())
-        window_controller.select_active_window(window);
-
-    return true;
-}
-
-bool MiralTilingWindowTree::confirm_placement_on_display(
-    Container& container,
-    MirWindowState new_state,
-    mir::geometry::Rectangle& new_placement)
-{
-    //    auto rect = container.get_visible_area();
-    switch (new_state)
-    {
-    case mir_window_state_restored:
-        //        new_placement = rect;
-        break;
-    default:
-        break;
-    }
-
-    return true;
-}
-
-bool MiralTilingWindowTree::constrain(Container& container)
-{
-    if (is_hidden)
-        return false;
-
-    if (container.get_parent().expired())
-    {
-        mir::log_error("Unable to constrain node without parent");
-        return true;
-    }
-
-    container.get_parent().lock()->constrain();
-    return true;
 }
 
 namespace

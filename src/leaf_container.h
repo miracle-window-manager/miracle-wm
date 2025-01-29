@@ -107,6 +107,10 @@ public:
     LayoutScheme get_layout() const override;
     nlohmann::json to_json() const override;
 
+    static std::shared_ptr<LeafContainer> handle_select(
+        Container& from,
+        Direction direction);
+
 private:
     WindowController& window_controller;
     geom::Rectangle logical_area;
@@ -120,11 +124,13 @@ private:
 
     std::optional<MirWindowState> before_shown_state;
     std::optional<MirWindowState> next_state;
-    LayoutScheme tentative_direction = LayoutScheme::none;
     glm::mat4 transform = glm::mat4(1.f);
     uint32_t animation_handle_ = 0;
     bool is_dragging_ = false;
     geom::Point dragged_position;
+
+    static void handle_resize(Container* container, Direction direction, int amount);
+    static void handle_layout_scheme(Container* container, LayoutScheme scheme);
 };
 
 } // miracle

@@ -28,6 +28,16 @@ enum class Direction
     right,
     MAX
 };
+
+inline bool is_negative_direction(Direction direction)
+{
+    return direction == Direction::left || direction == Direction::up;
+}
+
+inline bool is_vertical_direction(Direction direction)
+{
+    return direction == Direction::up || direction == Direction::down;
+}
 }
 
 #endif // MIRACLEWM_DIRECTION_H

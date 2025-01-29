@@ -40,3 +40,4 @@ temp-build
 
 *.snap
 .idea
+.aider*

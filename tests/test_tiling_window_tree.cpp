@@ -103,7 +103,7 @@ public:
         pairs.push_back({ window, leaf });
 
         state.add(leaf);
-        target_tree->advise_focus_gained(*leaf);
+        leaf->on_focus_gained();
         state.focus_container(leaf);
         return leaf;
     }
@@ -138,8 +138,7 @@ TEST_F(TilingWindowTreeTest, can_add_two_windows_horizontally_without_border_and
 TEST_F(TilingWindowTreeTest, can_add_two_windows_vertically_without_border_and_gaps)
 {
     auto leaf1 = create_leaf();
-
-    tree.request_vertical_layout(*leaf1);
+    leaf1->request_vertical_layout();
 
     auto leaf2 = create_leaf();
     ASSERT_EQ(leaf1->get_logical_area().size, geom::Size(OUTPUT_WIDTH, OUTPUT_HEIGHT / 2.f));
@@ -208,7 +207,7 @@ TEST_F(TilingWindowTreeTest, can_move_container_to_different_parent)
 {
     auto leaf1 = create_leaf();
     auto leaf2 = create_leaf();
-    tree.request_vertical_layout(*leaf2);
+    leaf2->request_vertical_layout();
     auto leaf3 = create_leaf(leaf2->get_parent().lock());
 
     ASSERT_TRUE(tree.move_to(*leaf1, *leaf3));
