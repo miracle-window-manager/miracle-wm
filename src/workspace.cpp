@@ -159,13 +159,6 @@ std::shared_ptr<Container> MiralWorkspace::create_container(
     spec.min_width() = mir::geometry::Width(0);
     spec.min_height() = mir::geometry::Height(0);
     window_controller.modify(window_info.window(), spec);
-
-    // TODO: hack
-    //  Warning: We need to advise fullscreen only after we've associated the userdata() appropriately
-    if (hint.container_type == ContainerType::leaf && window_helpers::is_window_fullscreen(window_info.state()))
-    {
-        hint.placement_tree->advise_fullscreen_container(*Container::as_leaf(container));
-    }
     return container;
 }
 
