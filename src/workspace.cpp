@@ -324,7 +324,7 @@ bool MiralWorkspace::move_container(miracle::Direction direction, Container& con
     {
     case MoveResult::traversal_type_insert:
     {
-        move_to(container, *traversal_result.node);
+        move_to_container_position(container, *traversal_result.node);
         break;
     }
     case MoveResult::traversal_type_append:
@@ -355,7 +355,7 @@ bool MiralWorkspace::move_container(miracle::Direction direction, Container& con
     return true;
 }
 
-bool MiralWorkspace::move_to(Container& to_move, Container& target)
+bool MiralWorkspace::move_to_container_position(Container& to_move, Container& target)
 {
     auto target_parent = target.get_parent().lock();
     if (!target_parent)
@@ -379,7 +379,7 @@ bool MiralWorkspace::move_to(Container& to_move, Container& target)
     return true;
 }
 
-bool MiralWorkspace::move_to(Container& to_move)
+bool MiralWorkspace::add_to_root(Container& to_move)
 {
     root->graft_existing(to_move.shared_from_this(), root->num_nodes());
     to_move.set_workspace(this);

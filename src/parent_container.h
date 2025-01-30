@@ -118,6 +118,7 @@ public:
     bool drag_stop() override { return false; }
     bool set_layout(LayoutScheme scheme) override;
     bool set_anchored(bool anchor);
+    bool anchored() const;
     LayoutScheme get_layout() const override;
     nlohmann::json to_json() const override;
     [[nodiscard]] LayoutScheme get_scheme() const { return scheme; }

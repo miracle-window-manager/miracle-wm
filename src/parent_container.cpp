@@ -849,6 +849,11 @@ bool ParentContainer::set_anchored(bool anchor)
     return true;
 }
 
+bool ParentContainer::anchored() const
+{
+    return is_anchored;
+}
+
 LayoutScheme ParentContainer::get_layout() const
 {
     return scheme;

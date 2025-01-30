@@ -65,8 +65,8 @@ public:
     virtual void handle_ready_hack(LeafContainer& container) = 0;
     virtual void delete_container(std::shared_ptr<Container> const& container) = 0;
     virtual bool move_container(Direction direction, Container&) = 0;
-    virtual bool move_to(Container& to_move, Container& target) = 0;
-    virtual bool move_to(Container& to_move) = 0;
+    virtual bool move_to_container_position(Container& to_move, Container& target) = 0;
+    virtual bool add_to_root(Container& to_move) = 0;
     virtual void show() = 0;
     virtual void hide() = 0;
 
@@ -131,8 +131,8 @@ public:
     void handle_ready_hack(LeafContainer& container) override;
     void delete_container(std::shared_ptr<Container> const& container) override;
     bool move_container(Direction direction, Container&) override;
-    bool move_to(Container& to_move, Container& target) override;
-    bool move_to(Container& to_move) override;
+    bool move_to_container_position(Container& to_move, Container& target) override;
+    bool add_to_root(Container& to_move) override;
     void show() override;
     void hide() override;
     void transfer_pinned_windows_to(std::shared_ptr<Workspace> const& other) override;

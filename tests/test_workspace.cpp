@@ -192,7 +192,7 @@ TEST_F(WorkspaceTest, can_move_container_to_sibling)
     auto leaf1 = create_leaf();
     auto leaf2 = create_leaf();
 
-    ASSERT_TRUE(workspace.move_to(*leaf1, *leaf2));
+    ASSERT_TRUE(workspace.move_to_container_position(*leaf1, *leaf2));
 
     // Assert that leaf2 is in the first position
     ASSERT_EQ(leaf2->get_logical_area().top_left, geom::Point(0, 0));
@@ -206,7 +206,7 @@ TEST_F(WorkspaceTest, can_move_container_to_different_parent)
     leaf2->request_vertical_layout();
     auto leaf3 = create_leaf(leaf2->get_parent().lock());
 
-    ASSERT_TRUE(workspace.move_to(*leaf1, *leaf3));
+    ASSERT_TRUE(workspace.move_to_container_position(*leaf1, *leaf3));
 
     ASSERT_EQ(leaf2->get_logical_area().top_left, geom::Point(0, 0));
     ASSERT_EQ(leaf3->get_logical_area().top_left, geom::Point(0, ceilf(OUTPUT_HEIGHT / 3.f)));
@@ -233,7 +233,7 @@ TEST_F(WorkspaceTest, can_move_container_to_container_in_other_tree)
     ASSERT_EQ(leaf1->get_workspace(), &workspace);
     ASSERT_EQ(leaf2->get_workspace(), &other);
 
-    ASSERT_TRUE(workspace.move_to(*leaf1, *leaf2));
+    ASSERT_TRUE(workspace.move_to_container_position(*leaf1, *leaf2));
 
     ASSERT_EQ(leaf2->get_workspace(), &other);
 }
@@ -254,7 +254,7 @@ TEST_F(WorkspaceTest, can_move_container_to_tree)
     auto leaf1 = create_leaf();
 
     ASSERT_EQ(leaf1->get_workspace(), &workspace);
-    ASSERT_TRUE(other.move_to(*leaf1));
+    ASSERT_TRUE(other.add_to_root(*leaf1));
     ASSERT_EQ(leaf1->get_workspace(), &other);
     ASSERT_EQ(leaf1->get_logical_area(), OTHER_TREE_BOUNDS);
 }

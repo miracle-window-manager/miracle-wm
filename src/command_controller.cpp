@@ -568,8 +568,45 @@ std::shared_ptr<Container> CommandController::toggle_floating_internal(std::shar
     {
     case ContainerType::leaf:
     {
-        // TODO: reimplement
-        break;
+        auto focused_output = output_manager->focused();
+        if (!focused_output)
+            return nullptr;
+
+        // Walk up the parent tree to get the root node.
+        auto parent = container->get_parent();
+        if (parent.expired())
+            return nullptr;
+
+        while (!parent.lock()->get_parent().expired())
+            parent = parent.lock()->get_parent();
+
+        // Remove the container from whatever workspace it is on.
+        auto workspace = container->get_workspace();
+        workspace->delete_container(container);
+
+        // If the parent is anchored, we move [container] to a new floating tree.
+        if (parent.lock()->anchored())
+        {
+            geom::Rectangle new_area = {
+                geom::Point{
+                    container->get_logical_area().top_left.x.as_int() + 10,
+                    container->get_logical_area().top_left.y.as_int() + 10
+                },
+                geom::Size{
+                    container->get_logical_area().size.width,
+                    container->get_logical_area().size.height
+                }
+            };
+            auto new_parent = workspace->create_floating_tree(new_area);
+            new_parent->graft_existing(container, new_parent->num_nodes());
+            container->set_workspace(workspace);
+        }
+        else
+        {
+            // Otherwise, we move the container to the root
+            workspace->graft(container);
+        }
+        return container;
     }
     default:
         mir::log_warning("toggle_floating: has no effect on window of type: %d", (int)container->get_type());
