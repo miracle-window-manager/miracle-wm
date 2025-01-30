@@ -119,9 +119,19 @@ AllocationHint MiralWrapperOutput::allocate_position(
     miral::WindowSpecification& requested_specification,
     AllocationHint hint)
 {
-    hint.container_type = hint.container_type == ContainerType::none
-        ? window_helpers::get_ideal_type(requested_specification)
-        : hint.container_type;
+    auto has_exclusive_rect = requested_specification.exclusive_rect().is_set();
+    auto is_attached = requested_specification.attached_edges().is_set();
+    if (has_exclusive_rect || is_attached)
+        hint.container_type = ContainerType::shell;
+    else
+    {
+        auto t = requested_specification.type();
+        if (t == mir_window_type_normal || t == mir_window_type_freestyle)
+            hint.container_type = ContainerType::leaf;
+        else
+            hint.container_type = ContainerType::shell;  // This is probably a tooltip or something
+    }
+
     if (hint.container_type == ContainerType::shell)
         return hint;
 

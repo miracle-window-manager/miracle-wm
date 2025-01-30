@@ -72,17 +72,20 @@ public:
 
     virtual void transfer_pinned_windows_to(std::shared_ptr<Workspace> const& other) = 0;
 
-    virtual void for_each_window(std::function<bool(std::shared_ptr<Container>)> const&) const = 0;
+    /// Iterates all containers on this workspace that represent a window until the predicate is satisfied.
+    /// Returns true if the predicate returned true.
+    virtual bool for_each_window(std::function<bool(std::shared_ptr<Container>)> const&) const = 0;
 
-    virtual std::shared_ptr<FloatingWindowContainer> add_floating_window(miral::Window const&) = 0;
+    /// Creates a new floating tree on this workspace. The tree is empty by default
+    /// and must be filled in by subsequent calls, lest it become a zombie tree with
+    /// zero sub containers.
+    virtual std::shared_ptr<ParentContainer> create_floating_tree(mir::geometry::Rectangle const& area) = 0;
 
     virtual void advise_focus_gained(std::shared_ptr<Container> const& container) = 0;
 
-    virtual void remove_floating_hack(std::shared_ptr<Container> const&) = 0;
-
     virtual void select_first_window() = 0;
 
-    virtual Output* get_output() const = 0;
+    [[nodiscard]] virtual Output* get_output() const = 0;
 
     virtual void set_output(Output*) = 0;
 
@@ -133,10 +136,9 @@ public:
     void show() override;
     void hide() override;
     void transfer_pinned_windows_to(std::shared_ptr<Workspace> const& other) override;
-    void for_each_window(std::function<bool(std::shared_ptr<Container>)> const&) const override;
-    std::shared_ptr<FloatingWindowContainer> add_floating_window(miral::Window const&) override;
+    bool for_each_window(std::function<bool(std::shared_ptr<Container>)> const&) const override;
+    std::shared_ptr<ParentContainer> create_floating_tree(mir::geometry::Rectangle const& area) override;
     void advise_focus_gained(std::shared_ptr<Container> const& container) override;
-    void remove_floating_hack(std::shared_ptr<Container> const&) override;
     void select_first_window() override;
     Output* get_output() const override;
     void set_output(Output*) override;
@@ -148,7 +150,7 @@ public:
     [[nodiscard]] nlohmann::json to_json() const override;
     [[nodiscard]] std::optional<std::string> const& name() const override { return name_; }
     [[nodiscard]] std::string display_name() const override;
-    [[nodiscard]] std::shared_ptr<ParentContainer> get_root() const { return root; }
+    [[nodiscard]] std::shared_ptr<ParentContainer> get_root() const override { return root; }
 
 private:
     struct MoveResult
@@ -169,8 +171,7 @@ private:
     std::optional<int> num_;
     std::optional<std::string> name_;
     std::shared_ptr<ParentContainer> root;
-    std::vector<std::shared_ptr<FloatingWindowContainer>> floating_windows;
-    std::vector<std::shared_ptr<FloatingTreeContainer>> floating_trees;
+    std::vector<std::shared_ptr<ParentContainer>> floating_trees;
     WindowController& window_controller;
     CompositorState const& state;
     std::shared_ptr<Config> config;

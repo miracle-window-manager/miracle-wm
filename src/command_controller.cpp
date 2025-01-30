@@ -258,14 +258,15 @@ bool CommandController::try_select_floating()
     if (state.mode() != WindowManagerMode::normal)
         return false;
 
-    if (auto to_select = state.get_first_with_type(ContainerType::floating_window))
-    {
-        if (auto const& window = to_select->window())
-        {
-            window_controller.select_active_window(window.value());
-            return true;
-        }
-    }
+    // TODO: reimplement
+//    if (auto to_select = state.get_first_with_type(ContainerType::floating_window))
+//    {
+//        if (auto const& window = to_select->window())
+//        {
+//            window_controller.select_active_window(window.value());
+//            return true;
+//        }
+//    }
 
     return false;
 }
@@ -298,8 +299,9 @@ bool CommandController::try_select_toggle()
     {
         if (active->get_type() == ContainerType::leaf)
             return try_select_floating();
-        else if (active->get_type() == ContainerType::floating_window)
-            return try_select_tiling();
+        // TODO: reimplement
+//        else if (active->get_type() == ContainerType::floating_window)
+//            return try_select_tiling();
     }
 
     return false;
@@ -509,33 +511,33 @@ bool CommandController::move_active_to_back_and_forth()
 
 bool CommandController::move_to_scratchpad()
 {
-    std::lock_guard lock(mutex);
-    if (!can_move_container())
-        return false;
-
-    // Only floating or tiled windows can be moved to the scratchpad
-    auto container = state.focused_container();
-    if (container->get_type() != ContainerType::floating_window
-        && container->get_type() != ContainerType::leaf)
-    {
-        mir::log_error("move_to_scratchpad: cannot move window to scratchpad: %d", static_cast<int>(container->get_type()));
-        return false;
-    }
-
-    // If the window isn't floating already, we should make it floating
-    if (container->get_type() != ContainerType::floating_window)
-    {
-        if (!output_manager->focused())
-            return false;
-
-        container = toggle_floating_internal(container);
-    }
-
-    // Remove it from its current workspace since it is no longer wanted there
-    if (auto workspace = container->get_workspace())
-        workspace->remove_floating_hack(container);
-
-    return scratchpad_.move_to(container);
+    // TODO: reimplement
+//    std::lock_guard lock(mutex);
+//    if (!can_move_container())
+//        return false;
+//
+//    // Only floating or tiled windows can be moved to the scratchpad
+//    auto container = state.focused_container();
+//    if (container->get_type() != ContainerType::leaf)
+//    {
+//        mir::log_error("move_to_scratchpad: cannot move window to scratchpad: %d", static_cast<int>(container->get_type()));
+//        return false;
+//    }
+//
+//    // If the window isn't floating already, we should make it floating
+//    if (container->get_type() != ContainerType::floating_window)
+//    {
+//        if (!output_manager->focused())
+//            return false;
+//
+//        container = toggle_floating_internal(container);
+//    }
+//
+//    // Remove it from its current workspace since it is no longer wanted there
+//    if (auto workspace = container->get_workspace())
+//        workspace->remove_floating_hack(container);
+//
+//    return scratchpad_.move_to(container);
 }
 
 bool CommandController::show_scratchpad()
@@ -562,66 +564,12 @@ bool CommandController::can_move_container() const
 
 std::shared_ptr<Container> CommandController::toggle_floating_internal(std::shared_ptr<Container> const& container)
 {
-    auto const handle_ready = [&](
-                                  miral::Window const& window,
-                                  AllocationHint const& result)
-    {
-        auto& info = window_controller.info_for(window);
-        auto new_container = output_manager->focused()->create_container(info, result);
-        new_container->handle_ready();
-        state.add(new_container);
-        window_controller.select_active_window(state.focused_container()->window().value());
-        return new_container;
-    };
-
     switch (container->get_type())
     {
     case ContainerType::leaf:
     {
-        auto window = container->window();
-        if (!window)
-            return nullptr;
-
-        // First, remove the container
-        container->get_output()->delete_container(window_controller.get_container(*window));
-
-        // Next, place the new container
-        auto& prev_info = window_controller.info_for(*window);
-        auto spec = window_helpers::copy_from(prev_info);
-        spec.top_left() = geom::Point { window->top_left().x.as_int() + 20, window->top_left().y.as_int() + 20 };
-        window_controller.noclip(*window);
-        auto result = output_manager->focused()->allocate_position(
-            window_controller.info_for(window->application()), spec, { ContainerType::floating_window });
-        window_controller.modify(*window, spec);
-
-        state.remove(container);
-
-        // Finally, declare it ready
-        return handle_ready(*window, result);
-    }
-    case ContainerType::floating_window:
-    {
-        auto window = container->window();
-        if (!window)
-            return nullptr;
-
-        // First, remove the container
-        if (scratchpad_.contains(container))
-            scratchpad_.remove(container);
-        else
-            container->get_output()->delete_container(window_controller.get_container(*window));
-
-        // Next, place the container
-        auto& prev_info = window_controller.info_for(*window);
-        miral::WindowSpecification spec = window_helpers::copy_from(prev_info);
-        auto result = output_manager->focused()->allocate_position(
-            window_controller.info_for(window->application()), spec, { ContainerType::leaf });
-        window_controller.modify(*window, spec);
-
-        state.remove(container);
-
-        // Finally, declare it ready
-        return handle_ready(*window, result);
+        // TODO: reimplement
+        break;
     }
     default:
         mir::log_warning("toggle_floating: has no effect on window of type: %d", (int)container->get_type());

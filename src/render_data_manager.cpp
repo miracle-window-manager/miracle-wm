@@ -28,8 +28,7 @@ inline bool needs_outline(Container const& container)
 {
     auto const surface = container.window().value().operator std::shared_ptr<mir::scene::Surface>();
     container.window().value();
-    return (container.get_type() == ContainerType::leaf
-               || container.get_type() == ContainerType::floating_window)
+    return (container.get_type() == ContainerType::leaf)
         && (surface == nullptr || !surface->parent());
 }
 

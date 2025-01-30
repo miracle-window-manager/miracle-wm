@@ -29,22 +29,6 @@ class LeafContainer;
 namespace window_helpers
 {
     bool is_window_fullscreen(MirWindowState state);
-
-    template <typename T>
-    ContainerType get_ideal_type(T const& requested_specification)
-    {
-        auto has_exclusive_rect = requested_specification.exclusive_rect().is_set();
-        auto is_attached = requested_specification.attached_edges().is_set();
-        if (has_exclusive_rect || is_attached)
-            return ContainerType::shell;
-
-        auto t = requested_specification.type();
-        if (t == mir_window_type_normal || t == mir_window_type_freestyle)
-            return ContainerType::none;
-
-        return ContainerType::floating_window;
-    }
-
     miral::WindowSpecification copy_from(miral::WindowInfo const&);
 }
 }

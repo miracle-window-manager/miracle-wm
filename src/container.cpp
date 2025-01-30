@@ -33,8 +33,6 @@ ContainerType miracle::container_type_from_string(std::string const& str)
 {
     if (str == "tiled")
         return ContainerType::leaf;
-    else if (str == "floating")
-        return ContainerType::floating_window;
     else if (str == "shell")
         return ContainerType::shell;
     else

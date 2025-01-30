@@ -314,7 +314,7 @@ bool FloatingWindowContainer::is_fullscreen() const
 
 ContainerType FloatingWindowContainer::get_type() const
 {
-    return ContainerType::floating_window;
+    return ContainerType::leaf;
 }
 
 glm::mat4 FloatingWindowContainer::get_workspace_transform() const

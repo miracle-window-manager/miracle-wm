@@ -51,7 +51,7 @@ add_library(miracle-wm-implementation
     src/ipc.cpp
     src/auto_restarting_launcher.cpp
     src/workspace_observer.cpp
-    src/workspace.cpp
+    src/workspace.cpp src/workspace.h
     src/leaf_container.cpp
     src/parent_container.cpp
     src/window_manager_tools_window_controller.cpp
@@ -71,9 +71,7 @@ add_library(miracle-wm-implementation
     src/shell_component_container.cpp
     src/container_group_container.cpp
     src/container_group_container.h
-    src/floating_tree_container.cpp
-    src/floating_tree_container.h
-    src/layout_scheme.cpp
+        src/layout_scheme.cpp
     src/utility_general.h
     src/minimal_window_manager.cpp src/minimal_window_manager.h
     src/config_error_handler.cpp src/config_error_handler.h

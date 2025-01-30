@@ -46,8 +46,6 @@ enum class ContainerType
 {
     none,
     leaf,
-    floating_window,
-    floating_tree,
     shell,
     parent,
     group,

@@ -615,6 +615,8 @@ void ParentContainer::handle_request_resize(MirInputEvent const* input_event, Mi
 
 void ParentContainer::handle_raise()
 {
+    for (auto const& node : sub_nodes)
+        node->handle_raise();
 }
 
 bool ParentContainer::resize(Direction direction, int pixels)
@@ -838,6 +840,12 @@ bool ParentContainer::set_layout(LayoutScheme new_scheme)
     relayout();
     constrain();
     commit_changes();
+    return true;
+}
+
+bool ParentContainer::set_anchored(bool anchor)
+{
+    is_anchored = anchor;
     return true;
 }
 
