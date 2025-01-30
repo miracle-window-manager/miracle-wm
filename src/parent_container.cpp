@@ -86,21 +86,23 @@ InsertNodeInternalResult insert_node_internal(
 }
 
 ParentContainer::ParentContainer(
-    WindowController& node_interface,
-    geom::Rectangle area,
+    CompositorState const& state,
+    OutputManager* output_manager,
+    WindowController& window_controller,
     std::shared_ptr<Config> const& config,
+    geom::Rectangle area,
     Workspace* workspace,
     std::shared_ptr<ParentContainer> const& parent,
-    CompositorState const& state,
-    OutputManager* output_manager) :
-    node_interface { node_interface },
+    bool is_anchored) :
+    state { state },
+    output_manager { output_manager },
+    window_controller { window_controller },
+    config { config },
     logical_area { std::move(area) },
     workspace { workspace },
-    config { config },
     parent { parent },
-    state { state },
     scheme { config->get_default_layout_scheme() },
-    output_manager { output_manager }
+    is_anchored { is_anchored }
 {
 }
 
@@ -235,7 +237,7 @@ std::shared_ptr<LeafContainer> ParentContainer::create_space_for_window(int pend
         pending_index = num_nodes();
     pending_node = std::make_shared<LeafContainer>(
         workspace,
-        node_interface,
+        window_controller,
         create_space(pending_index),
         config,
         as_parent(shared_from_this()),
@@ -281,13 +283,14 @@ std::shared_ptr<ParentContainer> ParentContainer::convert_to_parent(std::shared_
     }
 
     auto new_parent_node = std::make_shared<ParentContainer>(
-        node_interface,
-        container->get_logical_area(),
+        state,
+        output_manager,
+        window_controller,
         config,
+        container->get_logical_area(),
         workspace,
         Container::as_parent(shared_from_this()),
-        state,
-        output_manager);
+        true);
     new_parent_node->sub_nodes.push_back(container);
     container->set_parent(new_parent_node);
     sub_nodes[index] = new_parent_node;
@@ -450,7 +453,7 @@ std::shared_ptr<Container> ParentContainer::find_where(std::function<bool(std::s
     return nullptr;
 }
 
-const std::vector<std::shared_ptr<Container>>& ParentContainer::get_sub_nodes() const
+std::vector<std::shared_ptr<Container>> const& ParentContainer::get_sub_nodes() const
 {
     return sub_nodes;
 }
@@ -621,7 +624,15 @@ bool ParentContainer::resize(Direction direction, int pixels)
 
 bool ParentContainer::set_size(std::optional<int> const& width, std::optional<int> const& height)
 {
-    return false;
+    if (is_anchored)
+        return false;
+
+    auto area = get_logical_area();
+    area.size.width = geom::Width { width.value_or(area.size.width.as_int()) };
+    area.size.height = geom::Height { height.value_or(area.size.height.as_int()) };
+    set_logical_area(area);
+    commit_changes();
+    return true;
 }
 
 bool ParentContainer::toggle_fullscreen()
@@ -663,7 +674,7 @@ void ParentContainer::on_focus_gained()
         for (auto const& container : sub_nodes)
         {
             if (container != state.focused_container() && container->window())
-                node_interface.send_to_back(container->window().value());
+                window_controller.send_to_back(container->window().value());
         }
     }
 }
@@ -753,7 +764,7 @@ bool ParentContainer::is_focused() const
 
 std::optional<miral::Window> ParentContainer::window() const
 {
-    return std::optional<miral::Window>();
+    return std::nullopt;
 }
 
 bool ParentContainer::select_next(miracle::Direction)
@@ -783,7 +794,15 @@ bool ParentContainer::move_by(Direction direction, int pixels)
 
 bool ParentContainer::move_to(int x, int y)
 {
-    return false;
+    if (is_anchored)
+        return false;
+
+    auto area = get_logical_area();
+    area.top_left.x = geom::X { x };
+    area.top_left.y = geom::Y { y };
+    set_logical_area(area);
+    commit_changes();
+    return true;
 }
 
 bool ParentContainer::is_fullscreen() const

@@ -29,13 +29,14 @@ FloatingTreeContainer::FloatingTreeContainer(
     OutputManager* output_manager) :
     tree_ {
         std::make_unique<ParentContainer>(
+            compositor_state,
+            output_manager,
             window_controller,
-            geom::Rectangle { geom::Point { 100, 100 }, geom::Size { 640, 480 } },
             config,
+            geom::Rectangle { geom::Point { 100, 100 }, geom::Size { 640, 480 } },
             workspace,
             nullptr,
-            compositor_state,
-            output_manager)
+            false)
 },
     workspace_ { workspace }
 {

@@ -34,18 +34,19 @@ class Config;
 class CompositorState;
 class OutputManager;
 
-/// A parent container defines the layout of containers beneath it.
-/// The container
+/// A parent container used to define the layout of containers beneath it.
 class ParentContainer : public Container
 {
 public:
-    ParentContainer(WindowController&,
-        geom::Rectangle,
-        std::shared_ptr<Config> const&,
+    ParentContainer(
+        CompositorState const& state,
+        OutputManager* output_manager,
+        WindowController& window_controller,
+        std::shared_ptr<Config> const& config,
+        geom::Rectangle area,
         Workspace* workspace,
         std::shared_ptr<ParentContainer> const& parent,
-        CompositorState const& state,
-        OutputManager* output_manager);
+        bool is_anchored);
     geom::Rectangle get_logical_area() const override;
     geom::Rectangle get_visible_area() const override;
     size_t num_nodes() const;
@@ -93,7 +94,7 @@ public:
     void hide() override;
     void on_open() override;
     Workspace* get_workspace() const override;
-    void set_workspace(Workspace* override);
+    void set_workspace(Workspace* override) override;
     Output* get_output() const override;
     glm::mat4 get_transform() const override;
     void set_transform(glm::mat4 transform) override;
@@ -121,13 +122,14 @@ public:
     [[nodiscard]] LayoutScheme get_scheme() const { return scheme; }
 
 private:
-    WindowController& node_interface;
-    geom::Rectangle logical_area;
-    Workspace* workspace;
-    std::shared_ptr<Config> config;
-    std::weak_ptr<ParentContainer> parent;
     CompositorState const& state;
     OutputManager* output_manager;
+    WindowController& window_controller;
+    std::shared_ptr<Config> config;
+    geom::Rectangle logical_area;
+    Workspace* workspace;
+    std::weak_ptr<ParentContainer> parent;
+    bool is_anchored;
 
     LayoutScheme scheme = LayoutScheme::horizontal;
     std::vector<std::shared_ptr<Container>> sub_nodes;

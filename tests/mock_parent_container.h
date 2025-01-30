@@ -13,14 +13,15 @@ namespace test
     {
     public:
         MockParentContainer(
+            CompositorState const& state,
+            OutputManager* output_manager,
             WindowController& window_controller,
-            geom::Rectangle const& area,
             std::shared_ptr<Config> const& config,
+            geom::Rectangle area,
             Workspace* workspace,
             std::shared_ptr<ParentContainer> const& parent,
-            CompositorState const& state,
-            OutputManager* output_manager) :
-            ParentContainer(window_controller, area, config, workspace, parent, state, output_manager)
+            bool is_anchored) :
+            ParentContainer(state, output_manager, window_controller, config, area, workspace, parent, is_anchored)
         {
         }
         MOCK_METHOD(void, show, (), (override));
