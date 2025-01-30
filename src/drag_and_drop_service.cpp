@@ -76,9 +76,9 @@ bool DragAndDropService::handle_pointer_event(CompositorState& state, float x, f
             static_cast<int>(container_start_x + diff_x),
             static_cast<int>(container_start_y + diff_y));
 
-        if (output_manager->focused()->active()->get_tree()->is_empty())
+        if (output_manager->focused()->active()->is_empty())
         {
-            drag_to(state.focused_container(), output_manager->focused()->active()->get_tree());
+            drag_to(state.focused_container(), output_manager->focused()->active());
             return true;
         }
 
@@ -148,20 +148,20 @@ void DragAndDropService::drag_to(
     if (!to->is_leaf() || !dragging->is_leaf())
         return;
 
-    auto tree = to->tree();
-    tree->move_to(*dragging, *to);
+    auto workspace = to->get_workspace();
+    workspace->move_to(*dragging, *to);
 }
 
 void DragAndDropService::drag_to(
     std::shared_ptr<Container> const& dragging,
-    TilingWindowTree* tree)
+    Workspace* workspace)
 {
-    if (dragging->tree() == tree)
+    if (dragging->get_workspace() == workspace)
         return;
 
     // TODO: Convert dragging to a leaf beforehand
     if (!dragging->is_leaf())
         return;
 
-    tree->move_to_tree(dragging);
+    workspace->move_to(*dragging);
 }

@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "container.h"
 #include "layout_scheme.h"
+#include "miral/window_specification.h"
 #include "window_controller.h"
 #include <mir/geometry/rectangle.h>
 
@@ -30,7 +31,6 @@ namespace miracle
 
 class LeafContainer;
 class Config;
-class TilingWindowTree;
 class CompositorState;
 class OutputManager;
 
@@ -42,13 +42,15 @@ public:
     ParentContainer(WindowController&,
         geom::Rectangle,
         std::shared_ptr<Config> const&,
-        TilingWindowTree* tree,
+        Workspace* workspace,
         std::shared_ptr<ParentContainer> const& parent,
         CompositorState const& state,
         OutputManager* output_manager);
     geom::Rectangle get_logical_area() const override;
     geom::Rectangle get_visible_area() const override;
     size_t num_nodes() const;
+    miral::WindowSpecification place_new_window(
+        miral::WindowSpecification const& requested_specification);
     std::shared_ptr<LeafContainer> create_space_for_window(int index = -1);
     std::shared_ptr<LeafContainer> confirm_window(miral::Window const&);
     void graft_existing(std::shared_ptr<Container> const& node, int index);
@@ -81,8 +83,6 @@ public:
     void request_horizontal_layout() override;
     void request_vertical_layout() override;
     void toggle_layout(bool cycle_thru_all) override;
-    TilingWindowTree* tree() const override;
-    void tree(TilingWindowTree*) override;
     void on_focus_gained() override;
     void on_focus_lost() override;
     void on_move_to(mir::geometry::Point const& top_left) override;
@@ -93,6 +93,7 @@ public:
     void hide() override;
     void on_open() override;
     Workspace* get_workspace() const override;
+    void set_workspace(Workspace* override);
     Output* get_output() const override;
     glm::mat4 get_transform() const override;
     void set_transform(glm::mat4 transform) override;
@@ -122,7 +123,7 @@ public:
 private:
     WindowController& node_interface;
     geom::Rectangle logical_area;
-    TilingWindowTree* tree_;
+    Workspace* workspace;
     std::shared_ptr<Config> config;
     std::weak_ptr<ParentContainer> parent;
     CompositorState const& state;

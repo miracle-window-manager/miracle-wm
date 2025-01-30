@@ -16,34 +16,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
 #include "floating_tree_container.h"
-#include "tiling_window_tree.h"
+#include "parent_container.h"
 #include "workspace.h"
-
-namespace
-{
-class FloatingTreeTilingWindowTreeInterface : public miracle::TilingWindowTreeInterface
-{
-public:
-    explicit FloatingTreeTilingWindowTreeInterface(miracle::Workspace* workspace) :
-        workspace { workspace }
-    {
-    }
-
-    std::vector<miral::Zone> const& get_zones() override
-    {
-        return zones;
-    }
-
-    miracle::Workspace* get_workspace() const override
-    {
-        return workspace;
-    }
-
-private:
-    miracle::Workspace* workspace;
-    std::vector<miral::Zone> zones;
-};
-}
 
 namespace miracle
 {
@@ -54,14 +28,14 @@ FloatingTreeContainer::FloatingTreeContainer(
     std::shared_ptr<Config> const& config,
     OutputManager* output_manager) :
     tree_ {
-        std::make_unique<MiralTilingWindowTree>(
-            std::make_unique<FloatingTreeTilingWindowTreeInterface>(workspace),
+        std::make_unique<ParentContainer>(
             window_controller,
-            compositor_state,
-            output_manager,
+            geom::Rectangle { geom::Point { 100, 100 }, geom::Size { 640, 480 } },
             config,
-            geom::Rectangle { geom::Point { 100, 100 }, geom::Size { 640, 480 } }
-             )
+            workspace,
+            nullptr,
+            compositor_state,
+            output_manager)
 },
     workspace_ { workspace }
 {
@@ -88,12 +62,12 @@ void FloatingTreeContainer::commit_changes()
 
 mir::geometry::Rectangle FloatingTreeContainer::get_logical_area() const
 {
-    return tree_->get_area();
+    return tree_->get_logical_area();
 }
 
 void FloatingTreeContainer::set_logical_area(mir::geometry::Rectangle const& rectangle)
 {
-    tree_->set_area(rectangle);
+    tree_->set_logical_area(rectangle);
 }
 
 mir::geometry::Rectangle FloatingTreeContainer::get_visible_area() const
@@ -191,9 +165,9 @@ void FloatingTreeContainer::on_focus_lost()
 
 void FloatingTreeContainer::on_move_to(mir::geometry::Point const& top_left)
 {
-    auto area = tree_->get_area();
+    auto area = tree_->get_logical_area();
     area.top_left = top_left;
-    tree_->set_area(area);
+    tree_->set_logical_area(area);
 }
 
 mir::geometry::Rectangle
@@ -288,9 +262,9 @@ bool FloatingTreeContainer::move_by(Direction direction, int pixels)
 
 bool FloatingTreeContainer::move_to(int x, int y)
 {
-    auto area = tree_->get_area();
+    auto area = tree_->get_logical_area();
     area.top_left = geom::Point { x, y };
-    tree_->set_area(area);
+    tree_->set_logical_area(area);
     return true;
 }
 } // miracle

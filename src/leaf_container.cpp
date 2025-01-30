@@ -25,7 +25,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "output_manager.h"
 #include "parent_container.h"
 #include "render_data_manager.h"
-#include "tiling_window_tree.h"
 #include "window_helpers.h"
 #include "workspace.h"
 
@@ -78,17 +77,17 @@ std::shared_ptr<LeafContainer> get_closest_window_to_select_from_node(
 }
 
 LeafContainer::LeafContainer(
+    Workspace* workspace,
     WindowController& node_interface,
     geom::Rectangle area,
     std::shared_ptr<Config> const& config,
-    TilingWindowTree* tree,
     std::shared_ptr<ParentContainer> const& parent,
     CompositorState const& state,
     OutputManager* output_manager) :
+    workspace { workspace },
     window_controller { node_interface },
     logical_area { std::move(area) },
     config { config },
-    tree_ { tree },
     parent { parent },
     state { state },
     output_manager { output_manager }
@@ -498,27 +497,19 @@ void LeafContainer::toggle_layout(bool cycle_thru_all)
     }
 }
 
-TilingWindowTree* LeafContainer::tree() const
-{
-    return tree_;
-}
-
-void LeafContainer::tree(TilingWindowTree* in)
-{
-    tree_ = in;
-    state.render_data_manager()->workspace_transform_change(*this);
-}
-
 Workspace* LeafContainer::get_workspace() const
 {
-    return tree_->get_workspace();
+    return workspace;
+}
+
+void LeafContainer::set_workspace(miracle::Workspace* in)
+{
+    workspace = in;
 }
 
 Output* LeafContainer::get_output() const
 {
-    if (auto workspace = get_workspace())
-        return workspace->get_output();
-    return nullptr;
+    return workspace->get_output();
 }
 
 glm::mat4 LeafContainer::get_transform() const
@@ -635,7 +626,7 @@ bool LeafContainer::pinned() const
 
 bool LeafContainer::move(miracle::Direction direction)
 {
-    return tree_->move_container(direction, *this);
+    return workspace->move_container(direction, *this);
 }
 
 bool LeafContainer::move_by(Direction, int)

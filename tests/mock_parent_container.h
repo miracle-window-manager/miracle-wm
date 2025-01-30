@@ -16,11 +16,11 @@ namespace test
             WindowController& window_controller,
             geom::Rectangle const& area,
             std::shared_ptr<Config> const& config,
-            TilingWindowTree* tree,
+            Workspace* workspace,
             std::shared_ptr<ParentContainer> const& parent,
             CompositorState const& state,
             OutputManager* output_manager) :
-            ParentContainer(window_controller, area, config, tree, parent, state, output_manager)
+            ParentContainer(window_controller, area, config, workspace, parent, state, output_manager)
         {
         }
         MOCK_METHOD(void, show, (), (override));
@@ -73,8 +73,7 @@ namespace test
         MOCK_METHOD(void, drag, (int, int), (override));
         MOCK_METHOD(bool, drag_stop, (), (override));
         MOCK_METHOD(bool, set_layout, (LayoutScheme), (override));
-        MOCK_METHOD(void, tree, (TilingWindowTree*), (override));
-        MOCK_METHOD(TilingWindowTree*, tree, (), (const, override));
+        MOCK_METHOD(void, set_workspace, (Workspace*), (override));
         MOCK_METHOD(LayoutScheme, get_layout, (), (const, override));
         MOCK_METHOD(nlohmann::json, to_json, (), (const, override));
     };

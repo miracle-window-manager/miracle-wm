@@ -29,7 +29,6 @@ namespace geom = mir::geometry;
 namespace miracle
 {
 class Container;
-class TilingWindowTree;
 
 /**
  * The sole interface for making changes to a window. This interface allows

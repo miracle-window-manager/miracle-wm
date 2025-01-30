@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "output.h"
 #include <gmock/gmock.h>
+#include <miral/zone.h>
 
 namespace miracle
 {

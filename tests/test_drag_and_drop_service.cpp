@@ -19,7 +19,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "mock_configuration.h"
 #include "mock_container.h"
 #include "mock_output.h"
-#include "mock_tiling_window_tree.h"
 #include "mock_workspace.h"
 #include "output_manager.h"
 #include "with_command_controller.h"
@@ -150,26 +149,23 @@ TEST_F(DragAndDropServiceTest, can_drag_to_other_container)
     state.add(other_container);
 
     std::shared_ptr<test::MockWorkspace> workspace = std::make_shared<test::MockWorkspace>();
-    std::shared_ptr<test::MockTilingWindowTree> tree = std::make_shared<test::MockTilingWindowTree>();
     ON_CALL(*mock_output, active())
         .WillByDefault(::testing::Return(workspace.get()));
     ON_CALL(*mock_output, intersect_leaf(::testing::_, ::testing::_, ::testing::_))
         .WillByDefault(::testing::Return(other_container));
-    ON_CALL(*workspace, get_tree())
-        .WillByDefault(::testing::Return(tree.get()));
-    ON_CALL(*tree, is_empty())
+    ON_CALL(*workspace, is_empty())
         .WillByDefault(::testing::Return(false));
     ON_CALL(*container_drag, get_type())
         .WillByDefault(::testing::Return(ContainerType::leaf));
     ON_CALL(*other_container, get_type())
         .WillByDefault(::testing::Return(ContainerType::leaf));
-    ON_CALL(*container_drag, tree())
+    ON_CALL(*container_drag, get_workspace())
         .WillByDefault(::testing::Return(nullptr));
 
-    ON_CALL(*other_container, tree())
-        .WillByDefault(::testing::Return(tree.get()));
+    ON_CALL(*other_container, get_workspace())
+        .WillByDefault(::testing::Return(workspace.get()));
 
-    EXPECT_CALL(*tree, move_to);
+    EXPECT_CALL(*workspace, move_to(::testing::_, ::testing::_));
 
     service.handle_pointer_event(
         state,

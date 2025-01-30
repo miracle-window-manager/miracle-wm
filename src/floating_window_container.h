@@ -80,7 +80,7 @@ public:
     void show() override;
     void hide() override;
     Workspace* get_workspace() const override;
-    void set_workspace(Workspace*);
+    void set_workspace(Workspace*) override;
     Output* get_output() const override;
     glm::mat4 get_transform() const override;
     void set_transform(glm::mat4 transform) override;
@@ -103,8 +103,6 @@ public:
     bool set_layout(LayoutScheme scheme) override { return false; }
     LayoutScheme get_layout() const override { return LayoutScheme::none; }
     std::weak_ptr<ParentContainer> get_parent() const override;
-    void tree(TilingWindowTree*) override { }
-    TilingWindowTree* tree() const override { return nullptr; }
     void set_scratchpad_state(ScratchpadState state);
     nlohmann::json to_json() const override;
 
