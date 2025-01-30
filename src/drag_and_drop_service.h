@@ -29,7 +29,7 @@ class Config;
 class CompositorState;
 class CommandController;
 class OutputManager;
-class TilingWindowTree;
+class Workspace;
 
 class DragAndDropService
 {
@@ -56,7 +56,7 @@ private:
 
     void drag_to(
         std::shared_ptr<Container> const& dragging,
-        TilingWindowTree* tree);
+        Workspace* workspace);
 };
 
 } // miracle

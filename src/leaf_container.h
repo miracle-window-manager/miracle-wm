@@ -31,7 +31,6 @@ namespace miracle
 {
 
 class Config;
-class TilingWindowTree;
 class CompositorState;
 class RenderDataManager;
 class OutputManager;
@@ -41,10 +40,10 @@ class LeafContainer : public Container
 {
 public:
     LeafContainer(
+        Workspace* workspace,
         WindowController& node_interface,
         geom::Rectangle area,
         std::shared_ptr<Config> const& config,
-        TilingWindowTree* tree,
         std::shared_ptr<ParentContainer> const& parent,
         CompositorState const& state,
         OutputManager* output_manager);
@@ -78,13 +77,12 @@ public:
     void request_horizontal_layout() override;
     void request_vertical_layout() override;
     void toggle_layout(bool cycle_thru_all) override;
-    [[nodiscard]] TilingWindowTree* tree() const override;
-    void tree(TilingWindowTree* tree) override;
     [[nodiscard]] std::optional<miral::Window> window() const override { return window_; }
     void commit_changes() override;
     void show() override;
     void hide() override;
     Workspace* get_workspace() const override;
+    void set_workspace(Workspace*) override;
     Output* get_output() const override;
     glm::mat4 get_transform() const override;
     void set_transform(glm::mat4 transform) override;
@@ -112,11 +110,11 @@ public:
         Direction direction);
 
 private:
+    Workspace* workspace;
     WindowController& window_controller;
     geom::Rectangle logical_area;
     std::optional<geom::Rectangle> next_logical_area;
     std::shared_ptr<Config> config;
-    TilingWindowTree* tree_;
     miral::Window window_;
     std::weak_ptr<ParentContainer> parent;
     CompositorState const& state;

@@ -18,11 +18,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "compositor_state.h"
 #include "config.h"
 #include "leaf_container.h"
-#include "mock_container.h"
 #include "mock_output_factory.h"
 #include "mock_parent_container.h"
-#include "mock_tiling_window_tree.h"
 #include "mock_window_controller.h"
+#include "mock_workspace.h"
 #include "output_manager.h"
 #include "stub_configuration.h"
 #include <gtest/gtest.h>
@@ -35,7 +34,7 @@ class LeafContainerTest : public ::testing::Test
 public:
     LeafContainerTest() :
         config(std::make_shared<test::StubConfiguration>()),
-        tree(std::make_unique<test::MockTilingWindowTree>()),
+        workspace(std::make_unique<test::MockWorkspace>()),
         parent(std::make_shared<test::MockParentContainer>(
             window_controller,
             geom::Rectangle {
@@ -43,15 +42,15 @@ public:
                 { 800, 600 }
     },
             config,
-            tree.get(),
+            workspace.get(),
             nullptr,
             state,
             output_manager.get())),
         leaf_container(std::make_shared<LeafContainer>(
+            workspace.get(),
             window_controller,
             geom::Rectangle { { 0, 0 }, { 400, 300 } },
             config,
-            tree.get(),
             parent,
             state,
             output_manager.get()))
@@ -64,7 +63,7 @@ protected:
     std::shared_ptr<Config> config;
     CompositorState state;
     std::unique_ptr<OutputManager> output_manager = std::make_unique<OutputManager>(std::make_unique<test::MockOutputFactory>());
-    std::unique_ptr<test::MockTilingWindowTree> tree;
+    std::unique_ptr<test::MockWorkspace> workspace;
     std::shared_ptr<test::MockParentContainer> parent;
     std::shared_ptr<LeafContainer> leaf_container;
 };
@@ -101,9 +100,9 @@ TEST_F(LeafContainerTest, SetsAndGetsStateCorrectly)
 
 TEST_F(LeafContainerTest, SetsAndGetsTreeCorrectly)
 {
-    auto new_tree = std::make_unique<test::MockTilingWindowTree>();
-    leaf_container->tree(new_tree.get());
-    ASSERT_EQ(leaf_container->tree(), new_tree.get());
+    auto new_workspace = std::make_unique<test::MockWorkspace>();
+    leaf_container->set_workspace(new_workspace.get());
+    ASSERT_EQ(leaf_container->get_workspace(), new_workspace.get());
 }
 
 TEST_F(LeafContainerTest, CorrectlyReportsIfFocused)

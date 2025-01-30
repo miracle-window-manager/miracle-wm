@@ -31,7 +31,6 @@ namespace miracle
 {
 class Output;
 class Config;
-class TilingWindowTree;
 class WindowController;
 class CompositorState;
 class ParentContainer;
@@ -42,7 +41,7 @@ class OutputManager;
 struct AllocationHint
 {
     ContainerType container_type = ContainerType::none;
-    TilingWindowTree* placement_tree = nullptr;
+    std::optional<std::shared_ptr<ParentContainer>> parent;
 };
 
 class Workspace
@@ -65,6 +64,9 @@ public:
 
     virtual void handle_ready_hack(LeafContainer& container) = 0;
     virtual void delete_container(std::shared_ptr<Container> const& container) = 0;
+    virtual bool move_container(Direction direction, Container&) = 0;
+    virtual bool move_to(Container& to_move, Container& target) = 0;
+    virtual bool move_to(Container& to_move) = 0;
     virtual void show() = 0;
     virtual void hide() = 0;
 
@@ -94,9 +96,9 @@ public:
     [[nodiscard]] virtual uint32_t id() const = 0;
     [[nodiscard]] virtual std::optional<int> num() const = 0;
     [[nodiscard]] virtual nlohmann::json to_json() const = 0;
-    [[nodiscard]] virtual TilingWindowTree* get_tree() const = 0;
     [[nodiscard]] virtual std::optional<std::string> const& name() const = 0;
     [[nodiscard]] virtual std::string display_name() const = 0;
+    [[nodiscard]] virtual std::shared_ptr<ParentContainer> get_root() const = 0;
 };
 
 class MiralWorkspace : public Workspace
@@ -112,6 +114,7 @@ public:
         CompositorState const& state,
         std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
         OutputManager* output_manager);
+    ~MiralWorkspace();
 
     void set_area(mir::geometry::Rectangle const&) override;
     void recalculate_area() override;
@@ -124,6 +127,9 @@ public:
         miral::WindowInfo const& window_info, AllocationHint const& type) override;
     void handle_ready_hack(LeafContainer& container) override;
     void delete_container(std::shared_ptr<Container> const& container) override;
+    bool move_container(Direction direction, Container&) override;
+    bool move_to(Container& to_move, Container& target) override;
+    bool move_to(Container& to_move) override;
     void show() override;
     void hide() override;
     void transfer_pinned_windows_to(std::shared_ptr<Workspace> const& other) override;
@@ -140,16 +146,29 @@ public:
     [[nodiscard]] uint32_t id() const override { return id_; }
     [[nodiscard]] std::optional<int> num() const override { return num_; }
     [[nodiscard]] nlohmann::json to_json() const override;
-    [[nodiscard]] TilingWindowTree* get_tree() const override { return tree.get(); }
     [[nodiscard]] std::optional<std::string> const& name() const override { return name_; }
     [[nodiscard]] std::string display_name() const override;
+    [[nodiscard]] std::shared_ptr<ParentContainer> get_root() const { return root; }
 
 private:
+    struct MoveResult
+    {
+        enum
+        {
+            traversal_type_invalid,
+            traversal_type_insert,
+            traversal_type_prepend,
+            traversal_type_append
+        } traversal_type
+            = traversal_type_invalid;
+        std::shared_ptr<Container> node = nullptr;
+    };
+
     Output* output;
     uint32_t id_;
     std::optional<int> num_;
     std::optional<std::string> name_;
-    std::shared_ptr<TilingWindowTree> tree;
+    std::shared_ptr<ParentContainer> root;
     std::vector<std::shared_ptr<FloatingWindowContainer>> floating_windows;
     std::vector<std::shared_ptr<FloatingTreeContainer>> floating_trees;
     WindowController& window_controller;
@@ -158,9 +177,21 @@ private:
     OutputManager* output_manager;
     std::shared_ptr<MinimalWindowManager> floating_window_manager;
     std::weak_ptr<Container> last_selected_container;
+    int config_handle = 0;
 
     /// Retrieves the container that is currently being used for layout
     std::shared_ptr<ParentContainer> get_layout_container();
+
+    /// From the provided node, find the next node in the provided direction.
+    /// This method is guaranteed to return a Window node, not a Lane.
+    MoveResult handle_move(Container& from, Direction direction);
+
+    // Transfer a node from its current parent to the parent of 'to'
+    /// in a position right after 'to'.
+    /// @returns The two parents who will need to have their changes committed
+    std::tuple<std::shared_ptr<ParentContainer>, std::shared_ptr<ParentContainer>> transfer_node(
+        std::shared_ptr<Container> const& node,
+        std::shared_ptr<Container> const& to);
 };
 
 } // miracle

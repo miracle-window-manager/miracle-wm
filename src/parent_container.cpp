@@ -23,7 +23,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "leaf_container.h"
 #include "output.h"
 #include "output_manager.h"
-#include "tiling_window_tree.h"
 #include "workspace.h"
 #include <cmath>
 #include <mir/log.h>
@@ -90,13 +89,13 @@ ParentContainer::ParentContainer(
     WindowController& node_interface,
     geom::Rectangle area,
     std::shared_ptr<Config> const& config,
-    TilingWindowTree* tree,
+    Workspace* workspace,
     std::shared_ptr<ParentContainer> const& parent,
     CompositorState const& state,
     OutputManager* output_manager) :
     node_interface { node_interface },
     logical_area { std::move(area) },
-    tree_ { tree },
+    workspace { workspace },
     config { config },
     parent { parent },
     state { state },
@@ -212,15 +211,33 @@ geom::Rectangle ParentContainer::create_space(int pending_index)
     return pending_logical_rect;
 }
 
+miral::WindowSpecification ParentContainer::place_new_window(
+    miral::WindowSpecification const& requested_specification)
+{
+    auto container = create_space_for_window();
+    auto rect = container->get_visible_area();
+
+    miral::WindowSpecification new_spec = requested_specification;
+    new_spec.server_side_decorated() = false;
+    new_spec.min_width() = geom::Width { 0 };
+    new_spec.max_width() = geom::Width { std::numeric_limits<int>::max() };
+    new_spec.min_height() = geom::Height { 0 };
+    new_spec.max_height() = geom::Height { std::numeric_limits<int>::max() };
+    new_spec.size() = rect.size;
+    new_spec.top_left() = rect.top_left;
+
+    return new_spec;
+}
+
 std::shared_ptr<LeafContainer> ParentContainer::create_space_for_window(int pending_index)
 {
     if (pending_index < 0)
         pending_index = num_nodes();
     pending_node = std::make_shared<LeafContainer>(
+        workspace,
         node_interface,
         create_space(pending_index),
         config,
-        tree_,
         as_parent(shared_from_this()),
         state,
         output_manager);
@@ -267,7 +284,7 @@ std::shared_ptr<ParentContainer> ParentContainer::convert_to_parent(std::shared_
         node_interface,
         container->get_logical_area(),
         config,
-        tree_,
+        workspace,
         Container::as_parent(shared_from_this()),
         state,
         output_manager);
@@ -639,16 +656,6 @@ void ParentContainer::toggle_layout(bool cycle_thru_all)
     relayout();
 }
 
-TilingWindowTree* ParentContainer::tree() const
-{
-    return tree_;
-}
-
-void ParentContainer::tree(TilingWindowTree* in)
-{
-    tree_ = in;
-}
-
 void ParentContainer::on_focus_gained()
 {
     if (scheme == LayoutScheme::tabbing || scheme == LayoutScheme::stacking)
@@ -698,12 +705,17 @@ void ParentContainer::on_open()
 
 Workspace* ParentContainer::get_workspace() const
 {
-    return tree_->get_workspace();
+    return workspace;
+}
+
+void ParentContainer::set_workspace(Workspace* next)
+{
+    workspace = next;
 }
 
 Output* ParentContainer::get_output() const
 {
-    return tree_->get_workspace()->get_output();
+    return get_workspace()->get_output();
 }
 
 glm::mat4 ParentContainer::get_transform() const

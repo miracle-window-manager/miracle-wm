@@ -29,7 +29,7 @@ add_executable(miracle-wm-tests
     mock_output.h
     mock_output_factory.h
     test_filesystem_configuration.cpp
-    test_tiling_window_tree.cpp
+        test_workspace.cpp
     test_ipc_command_parser.cpp
     test_animator.cpp
     test_feature_flags.cpp

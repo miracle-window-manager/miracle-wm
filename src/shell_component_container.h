@@ -60,6 +60,7 @@ public:
     mir::geometry::Rectangle
     confirm_placement(MirWindowState state, mir::geometry::Rectangle const& rectangle) override;
     Workspace* get_workspace() const override;
+    void set_workspace(Workspace*) override { }
     Output* get_output() const override;
     glm::mat4 get_transform() const override;
     void set_transform(glm::mat4 transform) override;
@@ -84,8 +85,6 @@ public:
     bool drag_stop() override { return false; }
     bool set_layout(LayoutScheme scheme) override { return false; }
     LayoutScheme get_layout() const override { return LayoutScheme::none; }
-    void tree(TilingWindowTree*) override { }
-    TilingWindowTree* tree() const override { return nullptr; }
     bool is_fullscreen() const override;
     nlohmann::json to_json() const override;
 

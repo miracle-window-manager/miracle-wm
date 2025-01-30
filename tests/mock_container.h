@@ -61,9 +61,8 @@ namespace test
             (MirWindowState, mir::geometry::Rectangle const&),
             (override));
         MOCK_METHOD(Workspace*, get_workspace, (), (const, override));
+        MOCK_METHOD(void, set_workspace, (Workspace*), (override));
         MOCK_METHOD(Output*, get_output, (), (const, override));
-        MOCK_METHOD(TilingWindowTree*, tree, (), (const, override));
-        MOCK_METHOD(void, tree, (TilingWindowTree*), (override));
         MOCK_METHOD(glm::mat4, get_transform, (), (const, override));
         MOCK_METHOD(void, set_transform, (glm::mat4 transform), (override));
         MOCK_METHOD(glm::mat4, get_workspace_transform, (), (const, override));

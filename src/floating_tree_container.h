@@ -23,12 +23,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace miracle
 {
-class TilingWindowTree;
 class Workspace;
 class WindowController;
 class CompositorState;
 class Config;
 class OutputManager;
+class ParentContainer;
 
 class FloatingTreeContainer : public Container
 {
@@ -70,6 +70,7 @@ public:
     mir::geometry::Rectangle
     confirm_placement(MirWindowState state, mir::geometry::Rectangle const& rectangle) override;
     Workspace* get_workspace() const override;
+    void set_workspace(Workspace*) override { }
     Output* get_output() const override;
     glm::mat4 get_transform() const override;
     void set_transform(glm::mat4 transform) override;
@@ -92,13 +93,11 @@ public:
     void drag(int, int) override { }
     bool drag_stop() override { return false; }
     bool set_layout(LayoutScheme) override { return false; }
-    void tree(TilingWindowTree*) override { }
-    TilingWindowTree* tree() const override { return tree_.get(); }
     LayoutScheme get_layout() const override { return LayoutScheme::none; }
     nlohmann::json to_json() const override { return {}; }
 
 private:
-    std::unique_ptr<TilingWindowTree> tree_;
+    std::unique_ptr<ParentContainer> tree_;
     Workspace* workspace_;
 };
 

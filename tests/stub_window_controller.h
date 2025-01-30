@@ -23,7 +23,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "stub_configuration.h"
 #include "stub_session.h"
 #include "stub_surface.h"
-#include "tiling_window_tree.h"
 #include "window_controller.h"
 #include <gtest/gtest.h>
 #include <miral/window.h>
