@@ -118,7 +118,7 @@ MiralWorkspace::MiralWorkspace(
     output_manager { output_manager },
     floating_window_manager { floating_window_manager },
     root(std::make_shared<ParentContainer>(
-        window_controller, output->get_area(), config, this, nullptr, state, output_manager))
+        state, output_manager, window_controller, config, output->get_area(), this, nullptr, true))
 {
     config_handle = config->register_listener([this](auto const&)
     {
@@ -434,13 +434,14 @@ MiralWorkspace::MoveResult MiralWorkspace::handle_move(Container& from, Directio
             return {};
 
         auto after_root_lane = std::make_shared<ParentContainer>(
+            state,
+            output_manager,
             window_controller,
-            root->get_logical_area(),
             config,
+            root->get_logical_area(),
             this,
             nullptr,
-            state,
-            output_manager);
+            true);
         after_root_lane->set_layout(new_layout_direction);
         after_root_lane->graft_existing(root, 0);
         root = after_root_lane;

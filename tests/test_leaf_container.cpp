@@ -36,16 +36,17 @@ public:
         config(std::make_shared<test::StubConfiguration>()),
         workspace(std::make_unique<test::MockWorkspace>()),
         parent(std::make_shared<test::MockParentContainer>(
+            state,
+            output_manager.get(),
             window_controller,
+            config,
             geom::Rectangle {
                 { 0,   0   },
                 { 800, 600 }
     },
-            config,
             workspace.get(),
             nullptr,
-            state,
-            output_manager.get())),
+            true)),
         leaf_container(std::make_shared<LeafContainer>(
             workspace.get(),
             window_controller,
