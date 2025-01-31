@@ -589,8 +589,8 @@ std::shared_ptr<Container> CommandController::toggle_floating_internal(std::shar
         {
             geom::Rectangle new_area = {
                 geom::Point{
-                    container->get_logical_area().top_left.x.as_int() + 10,
-                    container->get_logical_area().top_left.y.as_int() + 10
+                    container->get_logical_area().top_left.x.as_int() + 100,
+                    container->get_logical_area().top_left.y.as_int() + 100
                 },
                 geom::Size{
                     container->get_logical_area().size.width,
