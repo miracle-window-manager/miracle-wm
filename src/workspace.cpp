@@ -195,18 +195,6 @@ std::shared_ptr<Container> MiralWorkspace::create_container(
     return container;
 }
 
-void MiralWorkspace::handle_ready_hack(LeafContainer& container)
-{
-    // TODO: Hack
-    //  By default, new windows are raised. To properly maintain the ordering, we must
-    //  raise floating windows and then raise fullscreen windows.
-    for (auto const& tree : floating_trees)
-        tree->handle_raise();
-
-    if (state.focused_container() && state.focused_container()->is_fullscreen())
-        window_controller.raise(state.focused_container()->window().value());
-}
-
 void MiralWorkspace::delete_container(std::shared_ptr<Container> const& container)
 {
     switch (container->get_type())

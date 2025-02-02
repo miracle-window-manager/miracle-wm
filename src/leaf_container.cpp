@@ -124,6 +124,10 @@ std::weak_ptr<ParentContainer> LeafContainer::get_parent() const
 void LeafContainer::set_parent(std::shared_ptr<ParentContainer> const& in_parent)
 {
     parent = in_parent;
+
+    miral::WindowSpecification spec;
+    spec.depth_layer() = !in_parent->anchored() ? mir_depth_layer_above : mir_depth_layer_application;
+    window_controller.modify(window_, spec);
 }
 
 void LeafContainer::set_state(MirWindowState state)
@@ -200,7 +204,6 @@ void LeafContainer::handle_ready()
             window_controller.select_active_window(window_);
     }
 
-    get_workspace()->handle_ready_hack(*this);
     if (window_controller.is_fullscreen(window_))
         toggle_fullscreen();
 }
@@ -388,10 +391,14 @@ void LeafContainer::hide()
 bool LeafContainer::toggle_fullscreen()
 {
     if (window_controller.is_fullscreen(window_))
+    {
         next_state = mir_window_state_restored;
+        next_depth_layer = !parent.lock()->anchored() ? mir_depth_layer_above : mir_depth_layer_application;
+    }
     else
     {
         next_state = mir_window_state_fullscreen;
+        next_depth_layer = mir_depth_layer_always_on_top;
         window_controller.select_active_window(window_);
         window_controller.raise(window_);
     }
@@ -413,7 +420,6 @@ void LeafContainer::on_open()
 
 void LeafContainer::on_focus_gained()
 {
-    window_controller.raise(window_);
     if (auto sh_parent = parent.lock())
         sh_parent->on_focus_gained();
     state.render_data_manager()->focus_change(*this);
@@ -440,6 +446,14 @@ void LeafContainer::commit_changes()
         window_controller.change_state(window_, next_state.value());
         constrain();
         next_state.reset();
+    }
+
+    if (next_depth_layer)
+    {
+        miral::WindowSpecification spec;
+        spec.depth_layer() = next_depth_layer.value();
+        window_controller.modify(window_, spec);
+        next_depth_layer.reset();
     }
 
     if (next_logical_area)

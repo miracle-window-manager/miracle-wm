@@ -573,19 +573,19 @@ std::shared_ptr<Container> CommandController::toggle_floating_internal(std::shar
             return nullptr;
 
         // Walk up the parent tree to get the root node.
-        auto parent = container->get_parent();
-        if (parent.expired())
+        auto parent = container->get_parent().lock();
+        if (!parent)
             return nullptr;
 
-        while (!parent.lock()->get_parent().expired())
-            parent = parent.lock()->get_parent();
+        while (!parent->get_parent().expired())
+            parent = parent->get_parent().lock();
 
         // Remove the container from whatever workspace it is on.
         auto workspace = container->get_workspace();
         workspace->delete_container(container);
 
         // If the parent is anchored, we move [container] to a new floating tree.
-        if (parent.lock()->anchored())
+        if (parent->anchored())
         {
             geom::Rectangle new_area = {
                 geom::Point {

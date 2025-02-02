@@ -227,6 +227,7 @@ miral::WindowSpecification ParentContainer::place_new_window(
     new_spec.max_height() = geom::Height { std::numeric_limits<int>::max() };
     new_spec.size() = rect.size;
     new_spec.top_left() = rect.top_left;
+    new_spec.depth_layer() = !anchored() ? mir_depth_layer_above : mir_depth_layer_application;
 
     return new_spec;
 }
@@ -615,6 +616,8 @@ void ParentContainer::handle_request_resize(MirInputEvent const* input_event, Mi
 
 void ParentContainer::handle_raise()
 {
+    for (auto const& node : sub_nodes)
+        node->handle_raise();
 }
 
 bool ParentContainer::resize(Direction direction, int pixels)
@@ -871,6 +874,9 @@ bool ParentContainer::set_anchored(bool anchor)
 
 bool ParentContainer::anchored() const
 {
+    if (auto sh_parent = parent.lock())
+        return sh_parent->anchored();
+
     return is_anchored;
 }
 

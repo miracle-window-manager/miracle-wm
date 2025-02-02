@@ -124,6 +124,7 @@ private:
 
     std::optional<MirWindowState> before_shown_state;
     std::optional<MirWindowState> next_state;
+    std::optional<MirDepthLayer> next_depth_layer;
     glm::mat4 transform = glm::mat4(1.f);
     uint32_t animation_handle_ = 0;
     bool is_dragging_ = false;

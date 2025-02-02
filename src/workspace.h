@@ -62,7 +62,6 @@ public:
         miral::WindowInfo const& window_info, AllocationHint const& type)
         = 0;
 
-    virtual void handle_ready_hack(LeafContainer& container) = 0;
     virtual void delete_container(std::shared_ptr<Container> const& container) = 0;
     virtual bool move_container(Direction direction, Container&) = 0;
     virtual bool move_to_container_position(Container& to_move, Container& target) = 0;
@@ -128,7 +127,6 @@ public:
         AllocationHint const& hint) override;
     std::shared_ptr<Container> create_container(
         miral::WindowInfo const& window_info, AllocationHint const& type) override;
-    void handle_ready_hack(LeafContainer& container) override;
     void delete_container(std::shared_ptr<Container> const& container) override;
     bool move_container(Direction direction, Container&) override;
     bool move_to_container_position(Container& to_move, Container& target) override;
