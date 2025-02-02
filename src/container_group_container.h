@@ -45,7 +45,7 @@ public:
     void hide() override;
     void commit_changes() override;
     mir::geometry::Rectangle get_logical_area() const override;
-    void set_logical_area(mir::geometry::Rectangle const& rectangle) override;
+    void set_logical_area(mir::geometry::Rectangle const& rectangle, bool with_animations = true) override;
     mir::geometry::Rectangle get_visible_area() const override;
     void constrain() override;
     std::weak_ptr<ParentContainer> get_parent() const override;

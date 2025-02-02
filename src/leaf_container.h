@@ -52,7 +52,7 @@ public:
     void associate_to_window(miral::Window const&);
     [[nodiscard]] geom::Rectangle get_logical_area() const override;
     [[nodiscard]] geom::Rectangle get_visible_area() const override;
-    void set_logical_area(geom::Rectangle const& target_rect) override;
+    void set_logical_area(geom::Rectangle const& target_rect, bool with_animations = true) override;
     std::weak_ptr<ParentContainer> get_parent() const override;
     void set_parent(std::shared_ptr<ParentContainer> const&) override;
     void set_state(MirWindowState state);

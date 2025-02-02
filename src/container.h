@@ -74,7 +74,7 @@ public:
     virtual void commit_changes() = 0;
 
     [[nodiscard]] virtual geom::Rectangle get_logical_area() const = 0;
-    virtual void set_logical_area(geom::Rectangle const&) = 0;
+    virtual void set_logical_area(geom::Rectangle const&, bool with_animations = true) = 0;
     [[nodiscard]] virtual geom::Rectangle get_visible_area() const = 0;
     virtual void constrain() = 0;
     virtual std::weak_ptr<ParentContainer> get_parent() const = 0;

@@ -297,7 +297,7 @@ std::shared_ptr<ParentContainer> ParentContainer::convert_to_parent(std::shared_
     return new_parent_node;
 }
 
-void ParentContainer::set_logical_area(const geom::Rectangle& target_rect)
+void ParentContainer::set_logical_area(const geom::Rectangle& target_rect, bool with_animations)
 {
     // We are setting the size of the lane, but each window might have an idea of how
     // its own height relates to the lane (e.g. I take up 300px of 900px lane while my
@@ -305,7 +305,10 @@ void ParentContainer::set_logical_area(const geom::Rectangle& target_rect)
     // We need to look at the target dimension and scale everyone relative to that.
     // However, the "non-main-axis" dimension will be consistent across each node.
     auto current_logical_area = get_logical_area();
-    logical_area = target_rect;
+    if (with_animations)
+        logical_area = target_rect;
+    else
+        logical_area = target_rect;
     auto target_placement_area = get_logical_area();
     std::vector<geom::Rectangle> pending_size_updates;
     pending_size_updates.reserve(sub_nodes.size());
@@ -401,11 +404,23 @@ void ParentContainer::set_logical_area(const geom::Rectangle& target_rect)
     else
     {
         mir::log_error("Cannot set_logical_area with invalid scheme");
+        }
+    }
+    else if (scheme == LayoutScheme::tabbing || scheme == LayoutScheme::stacking)
+    {
+        for (size_t idx = 0; idx < sub_nodes.size(); idx++)
+        {
+            pending_size_updates.push_back(target_placement_area);
+        }
+    }
+    else
+    {
+        mir::log_error("Cannot set_logical_area with invalid scheme");
     }
 
     for (size_t i = 0; i < sub_nodes.size(); i++)
     {
-        sub_nodes[i]->set_logical_area(pending_size_updates[i]);
+        sub_nodes[i]->set_logical_area(pending_size_updates[i], with_animations);
     }
 }
 

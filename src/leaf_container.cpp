@@ -110,9 +110,12 @@ geom::Rectangle LeafContainer::get_logical_area() const
     return next_logical_area ? next_logical_area.value() : logical_area;
 }
 
-void LeafContainer::set_logical_area(geom::Rectangle const& target_rect)
+void LeafContainer::set_logical_area(geom::Rectangle const& target_rect, bool with_animations)
 {
-    next_logical_area = target_rect;
+    if (with_animations)
+        next_logical_area = target_rect;
+    else
+        logical_area = target_rect;
 }
 
 std::weak_ptr<ParentContainer> LeafContainer::get_parent() const

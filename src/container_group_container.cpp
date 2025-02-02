@@ -92,7 +92,7 @@ mir::geometry::Rectangle ContainerGroupContainer::get_logical_area() const
     return {};
 }
 
-void ContainerGroupContainer::set_logical_area(mir::geometry::Rectangle const& rectangle)
+void ContainerGroupContainer::set_logical_area(mir::geometry::Rectangle const& rectangle, bool with_animations)
 {
 }
 
