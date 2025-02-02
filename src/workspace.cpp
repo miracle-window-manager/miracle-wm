@@ -286,25 +286,25 @@ bool MiralWorkspace::for_each_window(std::function<bool(std::shared_ptr<Containe
 void MiralWorkspace::transfer_pinned_windows_to(std::shared_ptr<Workspace> const& other)
 {
     // TODO: reimplement
-//    for (auto it = floating_trees.begin(); it != floating_trees.end();)
-//    {
-//        auto container = window_controller.get_container(it->get()->window().value());
-//        if (!container)
-//        {
-//            mir::log_error("transfer_pinned_windows_to: floating window lacks container");
-//            it++;
-//            continue;
-//        }
-//
-//        auto floating = Container::as_floating(container);
-//        if (floating && floating->pinned())
-//        {
-//            other->graft(floating);
-//            it = floating_trees.erase(it);
-//        }
-//        else
-//            it++;
-//    }
+    //    for (auto it = floating_trees.begin(); it != floating_trees.end();)
+    //    {
+    //        auto container = window_controller.get_container(it->get()->window().value());
+    //        if (!container)
+    //        {
+    //            mir::log_error("transfer_pinned_windows_to: floating window lacks container");
+    //            it++;
+    //            continue;
+    //        }
+    //
+    //        auto floating = Container::as_floating(container);
+    //        if (floating && floating->pinned())
+    //        {
+    //            other->graft(floating);
+    //            it = floating_trees.erase(it);
+    //        }
+    //        else
+    //            it++;
+    //    }
 }
 
 std::shared_ptr<ParentContainer> MiralWorkspace::create_floating_tree(mir::geometry::Rectangle const& area)

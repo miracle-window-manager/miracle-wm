@@ -259,14 +259,14 @@ bool CommandController::try_select_floating()
         return false;
 
     // TODO: reimplement
-//    if (auto to_select = state.get_first_with_type(ContainerType::floating_window))
-//    {
-//        if (auto const& window = to_select->window())
-//        {
-//            window_controller.select_active_window(window.value());
-//            return true;
-//        }
-//    }
+    //    if (auto to_select = state.get_first_with_type(ContainerType::floating_window))
+    //    {
+    //        if (auto const& window = to_select->window())
+    //        {
+    //            window_controller.select_active_window(window.value());
+    //            return true;
+    //        }
+    //    }
 
     return false;
 }
@@ -300,8 +300,8 @@ bool CommandController::try_select_toggle()
         if (active->get_type() == ContainerType::leaf)
             return try_select_floating();
         // TODO: reimplement
-//        else if (active->get_type() == ContainerType::floating_window)
-//            return try_select_tiling();
+        //        else if (active->get_type() == ContainerType::floating_window)
+        //            return try_select_tiling();
     }
 
     return false;
@@ -512,32 +512,32 @@ bool CommandController::move_active_to_back_and_forth()
 bool CommandController::move_to_scratchpad()
 {
     // TODO: reimplement
-//    std::lock_guard lock(mutex);
-//    if (!can_move_container())
-//        return false;
-//
-//    // Only floating or tiled windows can be moved to the scratchpad
-//    auto container = state.focused_container();
-//    if (container->get_type() != ContainerType::leaf)
-//    {
-//        mir::log_error("move_to_scratchpad: cannot move window to scratchpad: %d", static_cast<int>(container->get_type()));
-//        return false;
-//    }
-//
-//    // If the window isn't floating already, we should make it floating
-//    if (container->get_type() != ContainerType::floating_window)
-//    {
-//        if (!output_manager->focused())
-//            return false;
-//
-//        container = toggle_floating_internal(container);
-//    }
-//
-//    // Remove it from its current workspace since it is no longer wanted there
-//    if (auto workspace = container->get_workspace())
-//        workspace->remove_floating_hack(container);
-//
-//    return scratchpad_.move_to(container);
+    //    std::lock_guard lock(mutex);
+    //    if (!can_move_container())
+    //        return false;
+    //
+    //    // Only floating or tiled windows can be moved to the scratchpad
+    //    auto container = state.focused_container();
+    //    if (container->get_type() != ContainerType::leaf)
+    //    {
+    //        mir::log_error("move_to_scratchpad: cannot move window to scratchpad: %d", static_cast<int>(container->get_type()));
+    //        return false;
+    //    }
+    //
+    //    // If the window isn't floating already, we should make it floating
+    //    if (container->get_type() != ContainerType::floating_window)
+    //    {
+    //        if (!output_manager->focused())
+    //            return false;
+    //
+    //        container = toggle_floating_internal(container);
+    //    }
+    //
+    //    // Remove it from its current workspace since it is no longer wanted there
+    //    if (auto workspace = container->get_workspace())
+    //        workspace->remove_floating_hack(container);
+    //
+    //    return scratchpad_.move_to(container);
 }
 
 bool CommandController::show_scratchpad()
@@ -588,14 +588,12 @@ std::shared_ptr<Container> CommandController::toggle_floating_internal(std::shar
         if (parent.lock()->anchored())
         {
             geom::Rectangle new_area = {
-                geom::Point{
-                    container->get_logical_area().top_left.x.as_int() + 50,
-                    container->get_logical_area().top_left.y.as_int() + 50
-                },
-                geom::Size{
-                    container->get_logical_area().size.width,
-                    container->get_logical_area().size.height
-                }
+                geom::Point {
+                             container->get_logical_area().top_left.x.as_int() + 50,
+                             container->get_logical_area().top_left.y.as_int() + 50 },
+                geom::Size {
+                             container->get_logical_area().size.width,
+                             container->get_logical_area().size.height              }
             };
             auto new_parent = workspace->create_floating_tree(new_area);
             new_parent->graft_existing(container, new_parent->num_nodes());

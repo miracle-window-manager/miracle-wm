@@ -112,10 +112,8 @@ geom::Rectangle LeafContainer::get_logical_area() const
 
 void LeafContainer::set_logical_area(geom::Rectangle const& target_rect, bool with_animations)
 {
-    if (with_animations)
-        next_logical_area = target_rect;
-    else
-        logical_area = target_rect;
+    next_logical_area = target_rect;
+    next_with_animations = with_animations;
 }
 
 std::weak_ptr<ParentContainer> LeafContainer::get_parent() const
@@ -455,7 +453,8 @@ void LeafContainer::commit_changes()
             if (is_dragging_ && next_visible_area.top_left != dragged_position)
                 next_visible_area.top_left = dragged_position;
 
-            window_controller.set_rectangle(window_, previous, next_visible_area);
+            window_controller.set_rectangle(window_, previous, next_visible_area, next_with_animations);
+            next_with_animations = true;
         }
     }
 }

@@ -103,7 +103,7 @@ json mode_event_to_json(WindowManagerMode mode)
     case WindowManagerMode::moving:
         return {
             { "change",       "moving" },
-            { "pango_markup", true       }
+            { "pango_markup", true     }
         };
     default:
     {

@@ -144,60 +144,60 @@ geom::Rectangle ParentContainer::create_space(int pending_index)
     if (scheme == LayoutScheme::horizontal)
     {
         auto result = insert_node_internal(
-        placement_area.size.width.as_int(),
-        placement_area.top_left.x.as_int(),
-        pending_index,
-        sub_nodes.size(),
-        [&](int index)
+            placement_area.size.width.as_int(),
+            placement_area.top_left.x.as_int(),
+            pending_index,
+            sub_nodes.size(),
+            [&](int index)
         { return sub_nodes[index]->get_logical_area().size.width.as_int(); },
-        [&](int index, int size, int pos)
+            [&](int index, int size, int pos)
         {
             sub_nodes[index]->set_logical_area({
-                                               geom::Point {
-                                               pos,
-                                               placement_area.top_left.y.as_int()  },
-                                               geom::Size {
-                                               size,
-                                               placement_area.size.height.as_int() }
-                                               }, false);
+                geom::Point {
+                             pos,
+                             placement_area.top_left.y.as_int()  },
+                geom::Size {
+                             size,
+                             placement_area.size.height.as_int() }
+            });
         });
         geom::Rectangle new_node_logical_rect = {
-        geom::Point {
-        result.position,
-        placement_area.top_left.y.as_int()  },
-        geom::Size {
-        result.size,
-        placement_area.size.height.as_int() }
+            geom::Point {
+                         result.position,
+                         placement_area.top_left.y.as_int()  },
+            geom::Size {
+                         result.size,
+                         placement_area.size.height.as_int() }
         };
         pending_logical_rect = new_node_logical_rect;
     }
     else if (scheme == LayoutScheme::vertical)
     {
         auto result = insert_node_internal(
-        placement_area.size.height.as_int(),
-        placement_area.top_left.y.as_int(),
-        pending_index,
-        sub_nodes.size(),
-        [&](int index)
+            placement_area.size.height.as_int(),
+            placement_area.top_left.y.as_int(),
+            pending_index,
+            sub_nodes.size(),
+            [&](int index)
         { return sub_nodes[index]->get_logical_area().size.height.as_int(); },
-        [&](int index, int size, int pos)
+            [&](int index, int size, int pos)
         {
             sub_nodes[index]->set_logical_area({
-                                               geom::Point {
-                                               placement_area.top_left.x.as_int(),
-                                               pos  },
-                                               geom::Size {
-                                               placement_area.size.width.as_int(),
-                                               size }
-                                               }, false);
+                geom::Point {
+                             placement_area.top_left.x.as_int(),
+                             pos  },
+                geom::Size {
+                             placement_area.size.width.as_int(),
+                             size }
+            });
         });
         geom::Rectangle new_node_logical_rect = {
-        geom::Point {
-        placement_area.top_left.x.as_int(),
-        result.position },
-        geom::Size {
-        placement_area.size.width.as_int(),
-        result.size     }
+            geom::Point {
+                         placement_area.top_left.x.as_int(),
+                         result.position },
+            geom::Size {
+                         placement_area.size.width.as_int(),
+                         result.size     }
         };
         pending_logical_rect = new_node_logical_rect;
     }
@@ -267,7 +267,7 @@ void ParentContainer::graft_existing(std::shared_ptr<Container> const& node, int
 {
     auto rectangle = create_space(index);
     node->set_parent(as_parent(shared_from_this()));
-    node->set_logical_area(rectangle, true);
+    node->set_logical_area(rectangle);
     sub_nodes.insert(sub_nodes.begin() + index, node);
     relayout();
     constrain();
@@ -305,10 +305,7 @@ void ParentContainer::set_logical_area(const geom::Rectangle& target_rect, bool 
     // We need to look at the target dimension and scale everyone relative to that.
     // However, the "non-main-axis" dimension will be consistent across each node.
     auto current_logical_area = get_logical_area();
-    if (with_animations)
-        logical_area = target_rect;
-    else
-        logical_area = target_rect;
+    logical_area = target_rect;
     auto target_placement_area = get_logical_area();
     std::vector<geom::Rectangle> pending_size_updates;
     pending_size_updates.reserve(sub_nodes.size());
@@ -618,8 +615,6 @@ void ParentContainer::handle_request_resize(MirInputEvent const* input_event, Mi
 
 void ParentContainer::handle_raise()
 {
-    for (auto const& node : sub_nodes)
-        node->handle_raise();
 }
 
 bool ParentContainer::resize(Direction direction, int pixels)
@@ -792,11 +787,6 @@ bool ParentContainer::move(Direction direction)
     return false;
 }
 
-bool ParentContainer::move_by(Direction direction, int pixels)
-{
-    return false;
-}
-
 bool ParentContainer::move_by(float dx, float dy)
 {
     if (auto sh_parent = parent.lock())
@@ -809,9 +799,14 @@ bool ParentContainer::move_by(float dx, float dy)
     auto area = logical_area;
     area.top_left.x = geom::X { (float)area.top_left.x.as_int() + dx };
     area.top_left.y = geom::Y { (float)area.top_left.y.as_int() + dy };
-    set_logical_area(area);
+    set_logical_area(area, false);
     commit_changes();
     return true;
+}
+
+bool ParentContainer::move_by(Direction direction, int pixels)
+{
+    return false;
 }
 
 bool ParentContainer::move_to(int x, int y)
@@ -863,6 +858,11 @@ bool ParentContainer::set_layout(LayoutScheme new_scheme)
     return true;
 }
 
+LayoutScheme ParentContainer::get_layout() const
+{
+    return scheme;
+}
+
 bool ParentContainer::set_anchored(bool anchor)
 {
     is_anchored = anchor;
@@ -872,11 +872,6 @@ bool ParentContainer::set_anchored(bool anchor)
 bool ParentContainer::anchored() const
 {
     return is_anchored;
-}
-
-LayoutScheme ParentContainer::get_layout() const
-{
-    return scheme;
 }
 
 nlohmann::json ParentContainer::to_json() const

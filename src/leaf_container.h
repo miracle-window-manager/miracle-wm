@@ -115,6 +115,7 @@ private:
     WindowController& window_controller;
     geom::Rectangle logical_area;
     std::optional<geom::Rectangle> next_logical_area;
+    bool next_with_animations = true;
     std::shared_ptr<Config> config;
     miral::Window window_;
     std::weak_ptr<ParentContainer> parent;

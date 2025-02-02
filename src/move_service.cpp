@@ -17,11 +17,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define MIR_LOG_COMPONENT "move_service"
 #include "move_service.h"
-#include "compositor_state.h"
 #include "command_controller.h"
+#include "compositor_state.h"
 #include "config.h"
-#include "output_manager.h"
 #include "output.h"
+#include "output_manager.h"
 #include <mir/log.h>
 
 using namespace miracle;
@@ -29,8 +29,10 @@ using namespace miracle;
 MoveService::MoveService(
     CommandController& command_controller,
     std::shared_ptr<Config> const& config,
-    OutputManager* output_manager)
-    : command_controller(command_controller), config(config), output_manager(output_manager)
+    OutputManager* output_manager) :
+    command_controller(command_controller),
+    config(config),
+    output_manager(output_manager)
 {
 }
 

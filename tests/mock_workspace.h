@@ -47,13 +47,14 @@ namespace test
         MOCK_METHOD(void, handle_ready_hack, (LeafContainer & container), (override));
         MOCK_METHOD(void, delete_container, (std::shared_ptr<Container> const& container), (override));
         MOCK_METHOD(bool, move_container, (Direction direction, Container&), (override));
-        MOCK_METHOD(bool, move_to_container_position, (Container & to_move, Container & target), (override))Container &
-                                                                                                            Container &
+        MOCK_METHOD(bool, move_to_container_position, (Container & to_move, Container& target), (override))
+        Container& Container&
 
-        ;
-        MOCK_METHOD(bool, move_to_container_position, (Container & to_move), (override))Container &
+            ;
+        MOCK_METHOD(bool, move_to_container_position, (Container & to_move), (override))
+        Container&
 
-        ;
+            ;
         MOCK_METHOD(void, show, (), (override));
         MOCK_METHOD(void, hide, (), (override));
 

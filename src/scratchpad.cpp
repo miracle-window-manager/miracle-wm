@@ -36,8 +36,8 @@ bool Scratchpad::move_to(std::shared_ptr<Container> const& container)
 {
     items.push_back({ container, false });
     // TODO: reimplement
-//    container->set_scratchpad_state(ScratchpadState::fresh);
-//    container->hide();
+    //    container->set_scratchpad_state(ScratchpadState::fresh);
+    //    container->hide();
     return true;
 }
 
@@ -55,7 +55,7 @@ void Scratchpad::toggle(ScratchpadItem& other)
 {
     other.is_showing = !other.is_showing;
     // TODO: reimplement
-//    other.container->set_scratchpad_state(ScratchpadState::changed);
+    //    other.container->set_scratchpad_state(ScratchpadState::changed);
     if (other.is_showing)
     {
         auto window = other.container->window().value();

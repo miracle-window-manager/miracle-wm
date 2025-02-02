@@ -45,4 +45,4 @@ private:
 
 } // miracle
 
-#endif //MIRACLE_WM_MOVE_SERVICE_H
+#endif // MIRACLE_WM_MOVE_SERVICE_H

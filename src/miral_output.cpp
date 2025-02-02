@@ -128,7 +128,7 @@ AllocationHint MiralWrapperOutput::allocate_position(
         if (t == mir_window_type_normal || t == mir_window_type_freestyle)
             hint.container_type = ContainerType::leaf;
         else
-            hint.container_type = ContainerType::shell;  // This is probably a tooltip or something
+            hint.container_type = ContainerType::shell; // This is probably a tooltip or something
     }
 
     if (hint.container_type == ContainerType::shell)

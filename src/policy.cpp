@@ -345,14 +345,14 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
             }
 
             // TODO: reimplement
-//            if (state.has_clicked_floating_window || (state.focused_container() && state.focused_container()->get_type() == ContainerType::floating_window))
-//            {
-//                if (action == mir_pointer_action_button_down)
-//                    state.has_clicked_floating_window = true;
-//                else if (action == mir_pointer_action_button_up)
-//                    state.has_clicked_floating_window = false;
-//                return floating_window_manager->handle_pointer_event(event);
-//            }
+            //            if (state.has_clicked_floating_window || (state.focused_container() && state.focused_container()->get_type() == ContainerType::floating_window))
+            //            {
+            //                if (action == mir_pointer_action_button_down)
+            //                    state.has_clicked_floating_window = true;
+            //                else if (action == mir_pointer_action_button_up)
+            //                    state.has_clicked_floating_window = false;
+            //                return floating_window_manager->handle_pointer_event(event);
+            //            }
 
             return false;
         }
