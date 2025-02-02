@@ -252,7 +252,7 @@ std::shared_ptr<LeafContainer> ParentContainer::confirm_window(miral::Window con
     if (pending_node == nullptr)
     {
         mir::log_error("confirm_window: create_space_for_window wasn't called, so we will call it, but this is odd!");
-        pending_node = create_space_for_window(-1);
+        pending_node = create_space_for_window(-1, true);
     }
 
     auto retval = pending_node;
@@ -265,9 +265,9 @@ std::shared_ptr<LeafContainer> ParentContainer::confirm_window(miral::Window con
 
 void ParentContainer::graft_existing(std::shared_ptr<Container> const& node, int index)
 {
-    auto rectangle = create_space(index);
+    auto rectangle = create_space(index, true);
     node->set_parent(as_parent(shared_from_this()));
-    node->set_logical_area(rectangle);
+    node->set_logical_area(rectangle, true);
     sub_nodes.insert(sub_nodes.begin() + index, node);
     relayout();
     constrain();
@@ -417,6 +417,97 @@ void ParentContainer::set_logical_area(const geom::Rectangle& target_rect, bool 
     {
         mir::log_error("Cannot set_logical_area with invalid scheme");
     }
+
+    for (size_t i = 0; i < sub_nodes.size(); i++)
+    {
+        sub_nodes[i]->set_logical_area(pending_size_updates[i], with_animations);
+    }
+}
+
+geom::Rectangle ParentContainer::create_space(int pending_index)
+{
+    // TODO: When making space, we should ask the currently
+    //  selected window if it wants to be a lane. If it does, we
+    //  will grant its request and create a new lane.
+
+    auto placement_area = get_logical_area();
+    geom::Rectangle pending_logical_rect;
+    if (scheme == LayoutScheme::horizontal)
+    {
+        auto result = insert_node_internal(
+            placement_area.size.width.as_int(),
+            placement_area.top_left.x.as_int(),
+            pending_index,
+            sub_nodes.size(),
+            [&](int index)
+        { return sub_nodes[index]->get_logical_area().size.width.as_int(); },
+            [&](int index, int size, int pos)
+        {
+            sub_nodes[index]->set_logical_area({
+                geom::Point {
+                             pos,
+                             placement_area.top_left.y.as_int()  },
+                geom::Size {
+                             size,
+                             placement_area.size.height.as_int() }
+            }, false);
+        });
+        geom::Rectangle new_node_logical_rect = {
+            geom::Point {
+                         result.position,
+                         placement_area.top_left.y.as_int()  },
+            geom::Size {
+                         result.size,
+                         placement_area.size.height.as_int() }
+        };
+        pending_logical_rect = new_node_logical_rect;
+    }
+    else if (scheme == LayoutScheme::vertical)
+    {
+        auto result = insert_node_internal(
+            placement_area.size.height.as_int(),
+            placement_area.top_left.y.as_int(),
+            pending_index,
+            sub_nodes.size(),
+            [&](int index)
+        { return sub_nodes[index]->get_logical_area().size.height.as_int(); },
+            [&](int index, int size, int pos)
+        {
+            sub_nodes[index]->set_logical_area({
+                geom::Point {
+                             placement_area.top_left.x.as_int(),
+                             pos  },
+                geom::Size {
+                             placement_area.size.width.as_int(),
+                             size }
+            }, false);
+        });
+        geom::Rectangle new_node_logical_rect = {
+            geom::Point {
+                         placement_area.top_left.x.as_int(),
+                         result.position },
+            geom::Size {
+                         placement_area.size.width.as_int(),
+                         result.size     }
+        };
+        pending_logical_rect = new_node_logical_rect;
+    }
+    else if (scheme == LayoutScheme::tabbing || scheme == LayoutScheme::stacking)
+    {
+        pending_logical_rect = placement_area;
+    }
+    else
+    {
+        mir::fatal_error("Invalid scheme during create_space");
+    }
+
+    return pending_logical_rect;
+}
+
+miral::WindowSpecification ParentContainer::place_new_window(
+    miral::WindowSpecification const& requested_specification)
+{
+    auto container = create_space_for_window();
 
     for (size_t i = 0; i < sub_nodes.size(); i++)
     {
