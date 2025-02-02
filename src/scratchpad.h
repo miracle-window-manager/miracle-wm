@@ -26,12 +26,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 namespace miracle
 {
 class Container;
-class FloatingWindowContainer;
 class OutputManager;
 
 struct ScratchpadItem
 {
-    std::shared_ptr<FloatingWindowContainer> container;
+    std::shared_ptr<Container> container;
     bool is_showing = false;
 };
 

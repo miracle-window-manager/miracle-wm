@@ -56,7 +56,7 @@ public:
     std::shared_ptr<LeafContainer> confirm_window(miral::Window const&);
     void graft_existing(std::shared_ptr<Container> const& node, int index);
     std::shared_ptr<ParentContainer> convert_to_parent(std::shared_ptr<Container> const& container);
-    void set_logical_area(geom::Rectangle const& target_rect) override;
+    void set_logical_area(geom::Rectangle const& target_rect, bool with_animations = true) override;
     void swap_nodes(std::shared_ptr<Container> const& first, std::shared_ptr<Container> const& second);
     void remove(std::shared_ptr<Container> const& node);
     void commit_changes() override;

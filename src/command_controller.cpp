@@ -589,8 +589,8 @@ std::shared_ptr<Container> CommandController::toggle_floating_internal(std::shar
         {
             geom::Rectangle new_area = {
                 geom::Point{
-                    container->get_logical_area().top_left.x.as_int() + 100,
-                    container->get_logical_area().top_left.y.as_int() + 100
+                    container->get_logical_area().top_left.x.as_int() + 50,
+                    container->get_logical_area().top_left.y.as_int() + 50
                 },
                 geom::Size{
                     container->get_logical_area().size.width,
@@ -600,6 +600,7 @@ std::shared_ptr<Container> CommandController::toggle_floating_internal(std::shar
             auto new_parent = workspace->create_floating_tree(new_area);
             new_parent->graft_existing(container, new_parent->num_nodes());
             container->set_workspace(workspace);
+            new_parent->commit_changes();
         }
         else
         {
@@ -1115,6 +1116,10 @@ nlohmann::json CommandController::mode_to_json() const
     case WindowManagerMode::dragging:
         return {
             { "name", "dragging" }
+        };
+    case WindowManagerMode::moving:
+        return {
+            { "name", "moving" }
         };
     default:
     {

@@ -133,6 +133,7 @@ Policy::Policy(
         workspace_manager, mode_observer_registrar,
         std::make_unique<MirRunnerCommandControllerInterface>(runner), scratchpad_, output_manager.get()),
     drag_and_drop_service(command_controller, config, output_manager.get()),
+    move_service(command_controller, config, output_manager.get()),
     i3_command_executor(command_controller, output_manager.get(), workspace_manager, compositor_state, external_client_launcher, window_controller),
     ipc(std::make_shared<Ipc>(runner, command_controller, i3_command_executor, config))
 {
@@ -298,6 +299,9 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
             break;
         }
     }
+
+    if (move_service.handle_pointer_event(state, x, y, action, modifiers))
+        return true;
 
     if (drag_and_drop_service.handle_pointer_event(state, x, y, action, modifiers))
         return true;

@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "compositor_state.h"
 #include "config.h"
 #include "drag_and_drop_service.h"
+#include "move_service.h"
 #include "ipc.h"
 #include "ipc_command_executor.h"
 #include "minimal_window_manager.h"
@@ -122,6 +123,7 @@ private:
     Scratchpad scratchpad_;
     CommandController command_controller;
     DragAndDropService drag_and_drop_service;
+    MoveService move_service;
     std::shared_ptr<Ipc> ipc;
     std::unique_ptr<AnimatorLoop> animator_loop;
     WindowManagerToolsWindowController window_controller;

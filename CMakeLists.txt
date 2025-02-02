@@ -67,8 +67,7 @@ add_library(miracle-wm-implementation
     src/program_factory.cpp
     src/mode_observer.cpp
     src/debug_helper.h
-    src/floating_window_container.cpp
-    src/shell_component_container.cpp
+        src/shell_component_container.cpp
     src/container_group_container.cpp
     src/container_group_container.h
         src/layout_scheme.cpp
@@ -85,6 +84,7 @@ add_library(miracle-wm-implementation
     src/output_manager.cpp src/output_manager.h
     src/miral_output_factory.cpp src/miral_output_factory.cpp
     src/miral_output.h src/miral_output.cpp
+    src/move_service.h src/move_service.cpp
 )
 
 add_executable(miracle-wm

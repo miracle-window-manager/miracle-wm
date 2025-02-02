@@ -51,7 +51,7 @@ mir::geometry::Rectangle ShellComponentContainer::get_logical_area() const
     };
 }
 
-void ShellComponentContainer::set_logical_area(mir::geometry::Rectangle const& rectangle)
+void ShellComponentContainer::set_logical_area(mir::geometry::Rectangle const& rectangle, bool with_animations)
 {
     window_controller.set_rectangle(window_, get_visible_area(), rectangle);
 }
@@ -238,6 +238,11 @@ bool ShellComponentContainer::move(Direction direction)
 }
 
 bool ShellComponentContainer::move_by(Direction direction, int pixels)
+{
+    return false;
+}
+
+bool ShellComponentContainer::move_by(float dx, float dy)
 {
     return false;
 }

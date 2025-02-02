@@ -41,7 +41,9 @@ enum class WindowManagerMode
     /// keybind/mousebind can be selected or deselected.
     selecting,
 
-    dragging
+    dragging,
+
+    moving
 };
 
 class CompositorState

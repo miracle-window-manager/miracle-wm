@@ -242,6 +242,8 @@ void FilesystemConfiguration::reload()
         read_animation_definitions(config["animations"]);
     if (config["enable_animations"])
         read_enable_animations(config["enable_animations"]);
+    if (config["move_modifier"])
+        read_move_modifier(config["move_modifier"]);
     if (config["drag_and_drop"])
         read_drag_and_drop(config["drag_and_drop"]);
 
@@ -754,6 +756,11 @@ void FilesystemConfiguration::read_enable_animations(YAML::Node const& node)
     try_parse_value(node, options.animations_enabled);
 }
 
+void FilesystemConfiguration::read_move_modifier(YAML::Node const& node)
+{
+    try_parse_modifiers(node, options.move_modifier);
+}
+
 void FilesystemConfiguration::read_drag_and_drop(YAML::Node const& node)
 {
     try_parse_value(node, "enabled", options.drag_and_drop.enabled, true);
@@ -1023,6 +1030,11 @@ LayoutScheme FilesystemConfiguration::get_default_layout_scheme() const
 DragAndDropConfiguration FilesystemConfiguration::drag_and_drop() const
 {
     return options.drag_and_drop;
+}
+
+uint FilesystemConfiguration::move_modifier() const
+{
+    return options.move_modifier;
 }
 
 FilesystemConfiguration::ConfigDetails::ConfigDetails()

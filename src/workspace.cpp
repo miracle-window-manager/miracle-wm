@@ -21,14 +21,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "compositor_state.h"
 #include "config.h"
 #include "container_group_container.h"
-#include "floating_window_container.h"
 #include "leaf_container.h"
 #include "output.h"
 #include "output_manager.h"
 #include "parent_container.h"
-#include "render_data_manager.h"
 #include "shell_component_container.h"
-#include "window_helpers.h"
 
 #include <cassert>
 #include <mir/log.h>
@@ -288,31 +285,32 @@ bool MiralWorkspace::for_each_window(std::function<bool(std::shared_ptr<Containe
 
 void MiralWorkspace::transfer_pinned_windows_to(std::shared_ptr<Workspace> const& other)
 {
-    for (auto it = floating_trees.begin(); it != floating_trees.end();)
-    {
-        auto container = window_controller.get_container(it->get()->window().value());
-        if (!container)
-        {
-            mir::log_error("transfer_pinned_windows_to: floating window lacks container");
-            it++;
-            continue;
-        }
-
-        auto floating = Container::as_floating(container);
-        if (floating && floating->pinned())
-        {
-            other->graft(floating);
-            it = floating_trees.erase(it);
-        }
-        else
-            it++;
-    }
+    // TODO: reimplement
+//    for (auto it = floating_trees.begin(); it != floating_trees.end();)
+//    {
+//        auto container = window_controller.get_container(it->get()->window().value());
+//        if (!container)
+//        {
+//            mir::log_error("transfer_pinned_windows_to: floating window lacks container");
+//            it++;
+//            continue;
+//        }
+//
+//        auto floating = Container::as_floating(container);
+//        if (floating && floating->pinned())
+//        {
+//            other->graft(floating);
+//            it = floating_trees.erase(it);
+//        }
+//        else
+//            it++;
+//    }
 }
 
 std::shared_ptr<ParentContainer> MiralWorkspace::create_floating_tree(mir::geometry::Rectangle const& area)
 {
     auto floating = std::make_shared<ParentContainer>(
-        state, output_manager, window_controller, config, area, this, nullptr, true);
+        state, output_manager, window_controller, config, area, this, nullptr, false);
     floating_trees.push_back(floating);
     return floating;
 }
