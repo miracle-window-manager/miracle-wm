@@ -634,7 +634,14 @@ bool LeafContainer::move_by(Direction, int)
     return false;
 }
 
-bool LeafContainer::move_to(int, int)
+bool LeafContainer::move_by(float dx, float dy)
+{
+    if (auto sh_parent = parent.lock())
+        return sh_parent->move_by(dx, dy);
+    return false;
+}
+
+bool LeafContainer::move_to(int x, int y)
 {
     return false;
 }

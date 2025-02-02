@@ -343,6 +343,17 @@ bool ContainerGroupContainer::move_by(Direction direction, int pixels)
     return result;
 }
 
+bool ContainerGroupContainer::move_by(float x, float y)
+{
+    bool result = true;
+    for (auto const& container : containers)
+    {
+        if (auto c = container.lock())
+            result &= c->move_by(x, y);
+    }
+    return result;
+}
+
 bool ContainerGroupContainer::move_to(int x, int y)
 {
     bool result = true;

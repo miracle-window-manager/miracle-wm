@@ -86,6 +86,7 @@ public:
     bool pinned(bool b) override;
     bool move(Direction direction) override;
     bool move_by(Direction direction, int pixels) override;
+    bool move_by(float x, float y) override;
     bool move_to(int x, int y) override;
     bool toggle_tabbing() override { return false; }
     bool toggle_stacking() override { return false; }

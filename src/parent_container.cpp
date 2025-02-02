@@ -794,12 +794,29 @@ bool ParentContainer::move_by(Direction direction, int pixels)
     return false;
 }
 
+bool ParentContainer::move_by(float dx, float dy)
+{
+    if (auto sh_parent = parent.lock())
+        return sh_parent->move_by(dx, dy);
+
+    // Cannot move an anchored parent
+    if (is_anchored)
+        return false;
+
+    auto area = logical_area;
+    area.top_left.x = geom::X { (float)area.top_left.x.as_int() + dx };
+    area.top_left.y = geom::Y { (float)area.top_left.y.as_int() + dy };
+    set_logical_area(area);
+    commit_changes();
+    return true;
+}
+
 bool ParentContainer::move_to(int x, int y)
 {
     if (is_anchored)
         return false;
 
-    auto area = get_logical_area();
+    auto area = logical_area;
     area.top_left.x = geom::X { x };
     area.top_left.y = geom::Y { y };
     set_logical_area(area);
