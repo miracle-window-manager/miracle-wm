@@ -19,6 +19,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MIRACLE_CONTAINER_H
 
 #include "direction.h"
+#include "scratchpad_state.h"
+
 #include "layout_scheme.h"
 #include <functional>
 #include <glm/glm.hpp>
@@ -124,6 +126,9 @@ public:
     virtual void drag(int x, int y) = 0;
     virtual bool drag_stop() = 0;
     virtual bool set_layout(LayoutScheme scheme) = 0;
+    virtual bool anchored() const = 0;
+    virtual void scratchpad_state(ScratchpadState) = 0;
+    virtual ScratchpadState scratchpad_state() const = 0;
     virtual LayoutScheme get_layout() const = 0;
     virtual nlohmann::json to_json() const = 0;
 

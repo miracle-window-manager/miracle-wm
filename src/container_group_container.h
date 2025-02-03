@@ -94,6 +94,9 @@ public:
     void drag(int, int) override { }
     bool drag_stop() override { return false; }
     bool set_layout(LayoutScheme scheme) override { return false; }
+    bool anchored() const override { return false; }
+    void scratchpad_state(ScratchpadState) override { }
+    ScratchpadState scratchpad_state() const override { return ScratchpadState::none; }
     LayoutScheme get_layout() const override { return LayoutScheme::none; }
     nlohmann::json to_json() const override { return {}; }
 

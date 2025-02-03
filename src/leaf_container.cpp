@@ -74,6 +74,21 @@ std::shared_ptr<LeafContainer> get_closest_window_to_select_from_node(
 
     return nullptr;
 }
+
+const char* scratchpad_state_to_string(ScratchpadState state)
+{
+    switch (state)
+    {
+    case ScratchpadState::none:
+        return "none";
+    case ScratchpadState::fresh:
+        return "fresh";
+    case ScratchpadState::changed:
+        return "changed";
+    default:
+        return "unknown";
+    }
+}
 }
 
 LeafContainer::LeafContainer(
@@ -728,6 +743,25 @@ bool LeafContainer::set_layout(LayoutScheme scheme)
     return true;
 }
 
+bool LeafContainer::anchored() const
+{
+    return !parent.expired() && parent.lock()->anchored();
+}
+
+ScratchpadState LeafContainer::scratchpad_state() const
+{
+    if (!parent.expired())
+        return parent.lock()->scratchpad_state();
+
+    return ScratchpadState::none;
+}
+
+void LeafContainer::scratchpad_state(ScratchpadState next_scratchpad_state)
+{
+    if (!parent.expired())
+        return parent.lock()->scratchpad_state(next_scratchpad_state);
+}
+
 void LeafContainer::handle_layout_scheme(Container* container, LayoutScheme scheme)
 {
     auto parent = container->get_parent().lock();
@@ -834,6 +868,7 @@ nlohmann::json LeafContainer::to_json() const
                                                             { "user", "visible" },
                                                         }                                                                                                                                                                                                                      },
         { "window_properties",    properties                                                                                                                                                                                                                                                               }, // TODO
-        { "nodes",                std::vector<int>()                                                                                                                                                                                                                                                       }
+        { "nodes",                std::vector<int>()                                                                                                                                                                                                                                                       },
+        { "scratchpad_state",     scratchpad_state_to_string(scratchpad_state())                                                                                                                                                                                                                           }
     };
 }

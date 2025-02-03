@@ -258,15 +258,14 @@ bool CommandController::try_select_floating()
     if (state.mode() != WindowManagerMode::normal)
         return false;
 
-    // TODO: reimplement
-    //    if (auto to_select = state.get_first_with_type(ContainerType::floating_window))
-    //    {
-    //        if (auto const& window = to_select->window())
-    //        {
-    //            window_controller.select_active_window(window.value());
-    //            return true;
-    //        }
-    //    }
+    if (auto to_select = state.first_floating())
+    {
+        if (auto const& window = to_select->window())
+        {
+            window_controller.select_active_window(window.value());
+            return true;
+        }
+    }
 
     return false;
 }
@@ -277,7 +276,7 @@ bool CommandController::try_select_tiling()
     if (state.mode() != WindowManagerMode::normal)
         return false;
 
-    if (auto to_select = state.get_first_with_type(ContainerType::leaf))
+    if (auto to_select = state.first_tiling())
     {
         if (auto const& window = to_select->window())
         {

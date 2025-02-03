@@ -20,7 +20,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "container.h"
 #include "layout_scheme.h"
+#include "scratchpad_state.h"
 #include "window_controller.h"
+
 #include <miral/window.h>
 #include <miral/window_manager_tools.h>
 #include <optional>
@@ -103,6 +105,9 @@ public:
     void drag(int x, int y) override;
     bool drag_stop() override;
     bool set_layout(LayoutScheme) override;
+    bool anchored() const override;
+    ScratchpadState scratchpad_state() const override;
+    void scratchpad_state(ScratchpadState) override;
     LayoutScheme get_layout() const override;
     nlohmann::json to_json() const override;
 

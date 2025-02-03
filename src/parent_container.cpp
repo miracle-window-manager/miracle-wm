@@ -880,6 +880,22 @@ bool ParentContainer::anchored() const
     return is_anchored;
 }
 
+ScratchpadState ParentContainer::scratchpad_state() const
+{
+    if (auto sh_parent = parent.lock())
+        return sh_parent->scratchpad_state();
+
+    return scratchpad_state_;
+}
+
+void ParentContainer::scratchpad_state(ScratchpadState next_scratchpad_state)
+{
+    if (auto sh_parent = parent.lock())
+        return sh_parent->scratchpad_state(next_scratchpad_state);
+
+    scratchpad_state_ = next_scratchpad_state;
+}
+
 nlohmann::json ParentContainer::to_json() const
 {
     auto const visible_area = get_visible_area();

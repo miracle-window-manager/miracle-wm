@@ -23,7 +23,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 namespace miracle
 {
 class WorkspaceManager;
-class MinimalWindowManager;
 class CompositorState;
 class Config;
 class WindowController;
@@ -33,7 +32,6 @@ class MiralOutputFactory : public OutputFactory
 {
 public:
     MiralOutputFactory(
-        std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
         CompositorState& state,
         std::shared_ptr<Config> const& options,
         WindowController&,
@@ -45,7 +43,6 @@ public:
         OutputManager* output_manager) override;
 
 private:
-    std::shared_ptr<MinimalWindowManager> floating_window_manager;
     CompositorState& state;
     std::shared_ptr<Config> config;
     WindowController& window_controller;

@@ -42,7 +42,6 @@ MiralWrapperOutput::MiralWrapperOutput(
     std::string name,
     int id,
     geom::Rectangle const& area,
-    std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
     CompositorState& state,
     OutputManager* output_manager,
     std::shared_ptr<Config> const& config,
@@ -51,7 +50,6 @@ MiralWrapperOutput::MiralWrapperOutput(
     name_ { std::move(name) },
     id_ { id },
     area { area },
-    floating_window_manager { floating_window_manager },
     state { state },
     config { config },
     output_manager { output_manager },
@@ -171,7 +169,7 @@ void MiralWrapperOutput::advise_new_workspace(WorkspaceCreationData const&& data
 {
     // Workspaces are always kept in sorted order with numbered workspaces in front followed by all other workspaces
     std::shared_ptr<Workspace> new_workspace = std::make_shared<MiralWorkspace>(
-        this, data.id, data.num, data.name, config, window_controller, state, floating_window_manager, output_manager);
+        this, data.id, data.num, data.name, config, window_controller, state, output_manager);
     insert_workspace_sorted(new_workspace);
 }
 

@@ -62,7 +62,8 @@ public:
     void unfocus_container(std::shared_ptr<Container> const& container);
     void add(std::shared_ptr<Container> const& container);
     void remove(std::shared_ptr<Container> const& container);
-    [[nodiscard]] std::shared_ptr<Container> get_first_with_type(ContainerType type) const;
+    [[nodiscard]] std::shared_ptr<Container> first_floating() const;
+    [[nodiscard]] std::shared_ptr<Container> first_tiling() const;
     [[nodiscard]] std::vector<std::weak_ptr<Container>> const& containers() const { return focus_order; }
     WindowManagerMode mode() const;
     void mode(WindowManagerMode);

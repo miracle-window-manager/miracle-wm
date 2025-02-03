@@ -22,7 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "container.h"
 #include "direction.h"
 
-#include "minimal_window_manager.h"
 #include <glm/glm.hpp>
 #include <memory>
 #include <miral/window_manager_tools.h>
@@ -114,7 +113,6 @@ public:
         std::shared_ptr<Config> const& config,
         WindowController& window_controller,
         CompositorState const& state,
-        std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
         OutputManager* output_manager);
     ~MiralWorkspace();
 
@@ -174,7 +172,6 @@ private:
     CompositorState const& state;
     std::shared_ptr<Config> config;
     OutputManager* output_manager;
-    std::shared_ptr<MinimalWindowManager> floating_window_manager;
     std::weak_ptr<Container> last_selected_container;
     int config_handle = 0;
 

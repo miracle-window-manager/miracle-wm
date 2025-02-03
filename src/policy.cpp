@@ -115,11 +115,9 @@ Policy::Policy(
     config { config },
     animator { animator },
     state { compositor_state },
-    floating_window_manager(std::make_unique<MinimalWindowManager>(tools, config)),
     animator_loop(std::make_unique<ThreadedAnimatorLoop>(animator)),
     output_manager(std::make_unique<OutputManager>(
         std::make_unique<MiralOutputFactory>(
-            floating_window_manager,
             state,
             config,
             window_controller,
@@ -343,16 +341,6 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
                         window_controller.select_active_window(window);
                 }
             }
-
-            // TODO: reimplement
-            //            if (state.has_clicked_floating_window || (state.focused_container() && state.focused_container()->get_type() == ContainerType::floating_window))
-            //            {
-            //                if (action == mir_pointer_action_button_down)
-            //                    state.has_clicked_floating_window = true;
-            //                else if (action == mir_pointer_action_button_up)
-            //                    state.has_clicked_floating_window = false;
-            //                return floating_window_manager->handle_pointer_event(event);
-            //            }
 
             return false;
         }

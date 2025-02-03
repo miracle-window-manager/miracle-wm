@@ -29,7 +29,6 @@ public:
         std::string name,
         int id,
         geom::Rectangle const& area,
-        std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
         CompositorState& state,
         OutputManager* output_manager,
         std::shared_ptr<Config> const& options,
@@ -112,7 +111,6 @@ private:
 
     std::string name_;
     int id_;
-    std::shared_ptr<MinimalWindowManager> floating_window_manager;
     CompositorState& state;
     geom::Rectangle area;
     std::shared_ptr<Config> config;

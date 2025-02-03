@@ -102,7 +102,6 @@ MiralWorkspace::MiralWorkspace(
     std::shared_ptr<Config> const& config,
     WindowController& window_controller,
     CompositorState const& state,
-    std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
     OutputManager* output_manager) :
     output { output },
     id_ { id },
@@ -112,7 +111,6 @@ MiralWorkspace::MiralWorkspace(
     state { state },
     config { config },
     output_manager { output_manager },
-    floating_window_manager { floating_window_manager },
     root(std::make_shared<ParentContainer>(
         state, output_manager, window_controller, config, output->get_area(), this, nullptr, true))
 {

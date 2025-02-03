@@ -85,6 +85,9 @@ public:
     void drag(int, int) override { }
     bool drag_stop() override { return false; }
     bool set_layout(LayoutScheme scheme) override { return false; }
+    bool anchored() const override { return true; }
+    ScratchpadState scratchpad_state() const override { return ScratchpadState::none; };
+    void scratchpad_state(ScratchpadState) override { }
     LayoutScheme get_layout() const override { return LayoutScheme::none; }
     bool is_fullscreen() const override;
     nlohmann::json to_json() const override;

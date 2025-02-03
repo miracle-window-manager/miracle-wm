@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "container.h"
 #include "output.h"
 #include "output_manager.h"
+#include "scratchpad_state.h"
 
 #include <mir/log.h>
 
@@ -35,9 +36,8 @@ Scratchpad::Scratchpad(WindowController& window_controller, OutputManager* outpu
 bool Scratchpad::move_to(std::shared_ptr<Container> const& container)
 {
     items.push_back({ container, false });
-    // TODO: reimplement
-    //    container->set_scratchpad_state(ScratchpadState::fresh);
-    //    container->hide();
+    container->scratchpad_state(ScratchpadState::fresh);
+    container->hide();
     return true;
 }
 
@@ -54,8 +54,7 @@ bool Scratchpad::remove(std::shared_ptr<Container> const& container)
 void Scratchpad::toggle(ScratchpadItem& other)
 {
     other.is_showing = !other.is_showing;
-    // TODO: reimplement
-    //    other.container->set_scratchpad_state(ScratchpadState::changed);
+    other.container->scratchpad_state(ScratchpadState::changed);
     if (other.is_showing)
     {
         auto window = other.container->window().value();

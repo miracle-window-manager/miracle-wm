@@ -21,12 +21,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using namespace miracle;
 
 MiralOutputFactory::MiralOutputFactory(
-    std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
     CompositorState& state,
     std::shared_ptr<Config> const& config,
     WindowController& node_interface,
     Animator& animator) :
-    floating_window_manager { floating_window_manager },
     state { state },
     config { config },
     window_controller { node_interface },
@@ -41,7 +39,6 @@ std::unique_ptr<Output> MiralOutputFactory::create(
         std::move(name),
         id,
         area,
-        floating_window_manager,
         state,
         output_manager,
         config,

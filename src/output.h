@@ -22,7 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "direction.h"
 #include "miral/window.h"
 
-#include "minimal_window_manager.h"
 #include "workspace.h"
 #include <memory>
 #include <miral/output.h>
