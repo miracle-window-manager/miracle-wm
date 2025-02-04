@@ -72,7 +72,6 @@ public:
             std::make_shared<test::StubConfiguration>(),
             window_controller,
             state,
-            nullptr,
             new OutputManager(std::make_unique<test::MockOutputFactory>()))
     {
     }
@@ -225,7 +224,6 @@ TEST_F(WorkspaceTest, can_move_container_to_container_in_other_tree)
         std::make_shared<test::StubConfiguration>(),
         window_controller,
         state,
-        nullptr,
         new OutputManager(std::make_unique<test::MockOutputFactory>()));
     auto leaf1 = create_leaf();
     auto leaf2 = create_leaf(std::nullopt, &other);
@@ -249,7 +247,6 @@ TEST_F(WorkspaceTest, can_move_container_to_tree)
         std::make_shared<test::StubConfiguration>(),
         window_controller,
         state,
-        nullptr,
         new OutputManager(std::make_unique<test::MockOutputFactory>()));
     auto leaf1 = create_leaf();
 

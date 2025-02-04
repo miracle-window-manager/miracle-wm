@@ -26,6 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 namespace miracle
 {
 class Container;
+class ParentContainer;
 class OutputManager;
 
 struct ScratchpadItem

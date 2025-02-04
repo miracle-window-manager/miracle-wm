@@ -508,5 +508,5 @@ TEST_F(FilesystemConfigurationTest, DragAndDropMissingModifiers)
 
     FilesystemConfiguration config(runner, path, true);
     EXPECT_EQ(config.drag_and_drop().enabled, true);
-    EXPECT_EQ(config.drag_and_drop().modifiers, miracle_input_event_modifier_default);
+    EXPECT_EQ(config.drag_and_drop().modifiers, miracle_input_event_modifier_default | mir_input_event_modifier_shift);
 }

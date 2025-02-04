@@ -52,7 +52,7 @@ public:
         return false;
     }
 
-    void set_rectangle(miral::Window const& window, geom::Rectangle const& from, geom::Rectangle const& to) override
+    void set_rectangle(miral::Window const& window, geom::Rectangle const& from, geom::Rectangle const& to, bool with_animations) override
     {
         get_window_data(window).rectangle = to;
     }

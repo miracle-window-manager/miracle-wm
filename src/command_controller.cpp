@@ -554,7 +554,7 @@ bool CommandController::can_move_container() const
     return true;
 }
 
-std::shared_ptr<Container> CommandController::toggle_floating_internal(std::shared_ptr<Container> const& container)
+std::shared_ptr<ParentContainer> CommandController::toggle_floating_internal(std::shared_ptr<Container> const& container)
 {
     switch (container->get_type())
     {
@@ -591,13 +591,14 @@ std::shared_ptr<Container> CommandController::toggle_floating_internal(std::shar
             new_parent->graft_existing(container, new_parent->num_nodes());
             container->set_workspace(workspace);
             new_parent->commit_changes();
+            return new_parent;
         }
         else
         {
             // Otherwise, we move the container to the root
             workspace->graft(container);
+            return container->get_parent().lock();
         }
-        return container;
     }
     default:
         mir::log_warning("toggle_floating: has no effect on window of type: %d", (int)container->get_type());
