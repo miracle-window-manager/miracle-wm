@@ -25,7 +25,7 @@ namespace miracle
 
 ShellComponentContainer::ShellComponentContainer(
     miral::Window const& window_,
-    miracle::WindowController& window_controller) :
+    std::shared_ptr<WindowController> const& window_controller) :
     window_ { window_ },
     window_controller { window_controller }
 {
@@ -53,7 +53,7 @@ mir::geometry::Rectangle ShellComponentContainer::get_logical_area() const
 
 void ShellComponentContainer::set_logical_area(mir::geometry::Rectangle const& rectangle, bool with_animations)
 {
-    window_controller.set_rectangle(window_, get_visible_area(), rectangle);
+    window_controller->set_rectangle(window_, get_visible_area(), rectangle);
 }
 
 mir::geometry::Rectangle ShellComponentContainer::get_visible_area() const
@@ -86,12 +86,12 @@ size_t ShellComponentContainer::get_min_width() const
 
 void ShellComponentContainer::handle_ready()
 {
-    window_controller.select_active_window(window_);
+    window_controller->select_active_window(window_);
 }
 
 void ShellComponentContainer::handle_modify(miral::WindowSpecification const& specification)
 {
-    window_controller.modify(window_, specification);
+    window_controller->modify(window_, specification);
 }
 
 void ShellComponentContainer::handle_request_move(MirInputEvent const* input_event)
@@ -104,7 +104,7 @@ void ShellComponentContainer::handle_request_resize(MirInputEvent const* input_e
 
 void ShellComponentContainer::handle_raise()
 {
-    window_controller.select_active_window(window_);
+    window_controller->select_active_window(window_);
 }
 
 bool ShellComponentContainer::resize(Direction direction, int pixels)
@@ -136,7 +136,7 @@ void ShellComponentContainer::toggle_layout(bool)
 
 void ShellComponentContainer::on_focus_gained()
 {
-    window_controller.raise(window_);
+    window_controller->raise(window_);
 }
 
 void ShellComponentContainer::on_focus_lost()
@@ -153,12 +153,12 @@ ShellComponentContainer::confirm_placement(MirWindowState state, mir::geometry::
     return rectangle;
 }
 
-Workspace* ShellComponentContainer::get_workspace() const
+WorkspaceInterface* ShellComponentContainer::get_workspace() const
 {
     return nullptr;
 }
 
-Output* ShellComponentContainer::get_output() const
+OutputInterface* ShellComponentContainer::get_output() const
 {
     return nullptr;
 }
@@ -209,7 +209,7 @@ ContainerType ShellComponentContainer::get_type() const
 
 void ShellComponentContainer::on_open()
 {
-    window_controller.open(window_);
+    window_controller->open(window_);
 }
 
 std::optional<miral::Window> ShellComponentContainer::window() const
@@ -251,7 +251,7 @@ bool ShellComponentContainer::move_to(int x, int y)
 {
     miral::WindowSpecification spec;
     spec.top_left() = { x, y };
-    window_controller.modify(window_, spec);
+    window_controller->modify(window_, spec);
     return true;
 }
 
@@ -260,10 +260,10 @@ bool ShellComponentContainer::is_fullscreen() const
     return false;
 }
 
-nlohmann::json ShellComponentContainer::to_json() const
+nlohmann::json ShellComponentContainer::to_json(bool is_workspace_visible) const
 {
     auto const app = window_.application();
-    auto const& win_info = window_controller.info_for(window_);
+    auto const& win_info = window_controller->info_for(window_);
     auto const visible_area = get_visible_area();
     auto const logical_area = get_logical_area();
     return {

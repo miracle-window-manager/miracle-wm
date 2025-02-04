@@ -34,7 +34,7 @@ class CompositorState;
 class ContainerGroupContainer : public Container
 {
 public:
-    explicit ContainerGroupContainer(CompositorState&);
+    explicit ContainerGroupContainer(std::shared_ptr<CompositorState> const&);
     void add(std::shared_ptr<Container> const&);
     void remove(std::shared_ptr<Container> const&);
     bool contains(std::shared_ptr<Container const> const&) const;
@@ -69,9 +69,9 @@ public:
     void on_move_to(mir::geometry::Point const& top_left) override;
     mir::geometry::Rectangle
     confirm_placement(MirWindowState state, mir::geometry::Rectangle const& rectangle) override;
-    Workspace* get_workspace() const override;
-    void set_workspace(Workspace*) override { }
-    Output* get_output() const override;
+    WorkspaceInterface* get_workspace() const override;
+    void set_workspace(WorkspaceInterface*) override { }
+    OutputInterface* get_output() const override;
     glm::mat4 get_transform() const override;
     void set_transform(glm::mat4 transform) override;
     glm::mat4 get_workspace_transform() const override;
@@ -99,11 +99,11 @@ public:
     void scratchpad_state(ScratchpadState) override { }
     ScratchpadState scratchpad_state() const override { return ScratchpadState::none; }
     LayoutScheme get_layout() const override { return LayoutScheme::none; }
-    nlohmann::json to_json() const override { return {}; }
+    nlohmann::json to_json(bool is_workspace_active) const override { return {}; }
 
 private:
     std::vector<std::weak_ptr<Container>> containers;
-    CompositorState& state;
+    std::shared_ptr<CompositorState> state;
 };
 
 } // miracle

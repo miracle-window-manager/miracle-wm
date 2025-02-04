@@ -38,7 +38,7 @@ struct ScratchpadItem
 class Scratchpad
 {
 public:
-    Scratchpad(WindowController&, OutputManager* output_manager);
+    Scratchpad(std::shared_ptr<WindowController> const&, std::shared_ptr<OutputManager> const& output_manager);
     ~Scratchpad() = default;
     Scratchpad(Scratchpad&&) = delete;
     Scratchpad(Scratchpad const&) = delete;
@@ -53,8 +53,8 @@ public:
 private:
     void toggle(ScratchpadItem& item);
 
-    WindowController& window_controller;
-    OutputManager* output_manager;
+    std::shared_ptr<WindowController> window_controller;
+    std::shared_ptr<OutputManager> output_manager;
     std::vector<ScratchpadItem> items;
 };
 }

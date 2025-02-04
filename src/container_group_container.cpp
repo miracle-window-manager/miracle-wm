@@ -17,12 +17,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "container_group_container.h"
 #include "compositor_state.h"
-#include "output.h"
-#include "workspace.h"
+#include "output_interface.h"
+#include "workspace_interface.h"
 
 namespace miracle
 {
-ContainerGroupContainer::ContainerGroupContainer(CompositorState& state) :
+ContainerGroupContainer::ContainerGroupContainer(std::shared_ptr<CompositorState> const& state) :
     state { state }
 {
 }
@@ -253,12 +253,12 @@ ContainerGroupContainer::confirm_placement(MirWindowState state, mir::geometry::
     return {};
 }
 
-Workspace* ContainerGroupContainer::get_workspace() const
+WorkspaceInterface* ContainerGroupContainer::get_workspace() const
 {
     return nullptr;
 }
 
-Output* ContainerGroupContainer::get_output() const
+OutputInterface* ContainerGroupContainer::get_output() const
 {
     return nullptr;
 }
@@ -293,7 +293,7 @@ void ContainerGroupContainer::animation_handle(uint32_t uint_32)
 
 bool ContainerGroupContainer::is_focused() const
 {
-    return state.focused_container().get() == this;
+    return state->focused_container().get() == this;
 }
 
 bool ContainerGroupContainer::is_fullscreen() const

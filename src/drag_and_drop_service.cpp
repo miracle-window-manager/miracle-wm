@@ -31,9 +31,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using namespace miracle;
 
 DragAndDropService::DragAndDropService(
-    CommandController& command_controller,
+    std::shared_ptr<CommandController> const& command_controller,
     std::shared_ptr<Config> const& config,
-    OutputManager* output_manager) :
+    std::shared_ptr<OutputManager> const& output_manager) :
     command_controller { command_controller },
     config { config },
     output_manager { output_manager }
@@ -49,7 +49,7 @@ bool DragAndDropService::handle_pointer_event(CompositorState& state, float x, f
     {
         if (action == mir_pointer_action_button_up)
         {
-            command_controller.set_mode(WindowManagerMode::normal);
+            command_controller->set_mode(WindowManagerMode::normal);
             if (state.focused_container())
                 state.focused_container()->drag_stop();
             last_intersected.reset();
@@ -123,8 +123,8 @@ bool DragAndDropService::handle_pointer_event(CompositorState& state, float x, f
             return false;
         }
 
-        command_controller.set_mode(WindowManagerMode::dragging);
-        command_controller.select_container(intersected);
+        command_controller->set_mode(WindowManagerMode::dragging);
+        command_controller->select_container(intersected);
         cursor_start_x = x;
         cursor_start_y = y;
         container_start_x = static_cast<float>(intersected->get_visible_area().top_left.x.as_int());
@@ -153,7 +153,7 @@ void DragAndDropService::drag_to(
 
 void DragAndDropService::drag_to(
     std::shared_ptr<Container> const& dragging,
-    Workspace* workspace)
+    WorkspaceInterface* workspace)
 {
     if (dragging->get_workspace() == workspace)
         return;

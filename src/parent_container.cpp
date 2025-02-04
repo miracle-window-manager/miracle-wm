@@ -21,9 +21,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "container.h"
 #include "leaf_container.h"
-#include "output.h"
+#include "output_interface.h"
 #include "output_manager.h"
-#include "workspace.h"
+#include "workspace_interface.h"
 #include <cmath>
 #include <mir/log.h>
 
@@ -86,16 +86,14 @@ InsertNodeInternalResult insert_node_internal(
 }
 
 ParentContainer::ParentContainer(
-    CompositorState const& state,
-    OutputManager* output_manager,
-    WindowController& window_controller,
+    std::shared_ptr<CompositorState> const& state,
+    std::shared_ptr<WindowController> const& window_controller,
     std::shared_ptr<Config> const& config,
     geom::Rectangle area,
-    Workspace* workspace,
+    WorkspaceInterface* workspace,
     std::shared_ptr<ParentContainer> const& parent,
     bool is_anchored) :
     state { state },
-    output_manager { output_manager },
     window_controller { window_controller },
     config { config },
     logical_area { std::move(area) },
@@ -242,8 +240,7 @@ std::shared_ptr<LeafContainer> ParentContainer::create_space_for_window(int pend
         create_space(pending_index),
         config,
         as_parent(shared_from_this()),
-        state,
-        output_manager);
+        state);
     sub_nodes.insert(sub_nodes.begin() + pending_index, pending_node);
     return pending_node;
 }
@@ -285,7 +282,6 @@ std::shared_ptr<ParentContainer> ParentContainer::convert_to_parent(std::shared_
 
     auto new_parent_node = std::make_shared<ParentContainer>(
         state,
-        output_manager,
         window_controller,
         config,
         container->get_logical_area(),
@@ -676,8 +672,8 @@ void ParentContainer::on_focus_gained()
     {
         for (auto const& container : sub_nodes)
         {
-            if (container != state.focused_container() && container->window())
-                window_controller.send_to_back(container->window().value());
+            if (container != state->focused_container() && container->window())
+                window_controller->send_to_back(container->window().value());
         }
     }
 }
@@ -717,19 +713,19 @@ void ParentContainer::on_open()
 {
 }
 
-Workspace* ParentContainer::get_workspace() const
+WorkspaceInterface* ParentContainer::get_workspace() const
 {
     return workspace;
 }
 
-void ParentContainer::set_workspace(Workspace* next)
+void ParentContainer::set_workspace(WorkspaceInterface* next)
 {
     workspace = next;
     for (auto const& node : sub_nodes)
         node->set_workspace(workspace);
 }
 
-Output* ParentContainer::get_output() const
+OutputInterface* ParentContainer::get_output() const
 {
     return get_workspace()->get_output();
 }
@@ -912,22 +908,20 @@ void ParentContainer::scratchpad_state(ScratchpadState next_scratchpad_state)
     scratchpad_state_ = next_scratchpad_state;
 }
 
-nlohmann::json ParentContainer::to_json() const
+nlohmann::json ParentContainer::to_json(bool is_workspace_visible) const
 {
     auto const visible_area = get_visible_area();
     auto const logical_area = get_logical_area();
     nlohmann::json containers_json;
     for (auto const& container : sub_nodes)
 
-        containers_json.push_back(container->to_json());
+        containers_json.push_back(container->to_json(is_workspace_visible));
     auto workspace = get_workspace();
     auto output = get_output();
     auto locked_parent = parent.lock();
     bool visible = true;
-    if (output_manager->focused() != output)
-        visible = false;
 
-    if (output->active() != workspace)
+    if (!is_workspace_visible)
         visible = false;
 
     if (locked_parent == nullptr)

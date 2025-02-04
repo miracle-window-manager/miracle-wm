@@ -23,12 +23,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "constants.h"
 #include "container_group_container.h"
 #include "feature_flags.h"
-#include "miral_output_factory.h"
+#include "output_factory.h"
 #include "output_manager.h"
 #include "parent_container.h"
 #include "shell_component_container.h"
-#include "window_helpers.h"
-#include "window_tools_accessor.h"
 #include "workspace_manager.h"
 
 #include <iostream>
@@ -79,14 +77,14 @@ public:
     {
         if (old)
         {
-            auto const& last_workspace = policy.workspace_manager.workspace(old.value());
+            auto const& last_workspace = policy.workspace_manager->workspace(old.value());
             if (!last_workspace)
             {
                 mir::log_error("Policy::Self::on_focused missing last workspace");
                 return;
             }
 
-            auto const& next_workspace = policy.workspace_manager.workspace(next);
+            auto const& next_workspace = policy.workspace_manager->workspace(next);
             if (!next_workspace)
             {
                 mir::log_error("Policy::Self::on_focused missing next workspace");
@@ -94,7 +92,7 @@ public:
             }
 
             if (last_workspace->get_output() != next_workspace->get_output())
-                policy.command_controller.move_cursor_to_output(*next_workspace->get_output());
+                policy.command_controller->move_cursor_to_output(*next_workspace->get_output());
         }
     }
 
@@ -104,41 +102,44 @@ public:
 
 Policy::Policy(
     miral::WindowManagerTools const& tools,
-    AutoRestartingLauncher& external_client_launcher,
-    miral::MirRunner& runner,
-    std::shared_ptr<Config> const& config,
-    std::shared_ptr<Animator> const& animator,
     mir::Server const& server,
-    CompositorState& compositor_state,
-    std::shared_ptr<WindowToolsAccessor> const& window_tools_accessor) :
-    external_client_launcher { external_client_launcher },
+    miral::MirRunner& runner,
+    miral::ExternalClientLauncher& external_client_launcher,
+    std::shared_ptr<Config> const& config,
+    std::shared_ptr<CompositorState> const& state) :
     config { config },
-    animator { animator },
-    state { compositor_state },
+    state { state },
+    launcher { std::make_unique<AutoRestartingLauncher>(runner, external_client_launcher) },
+    animator(std::make_shared<Animator>()),
+    window_controller(std::make_shared<WindowManagerToolsWindowController>(
+        tools, animator, state, config, server.the_main_loop(), this)),
     animator_loop(std::make_unique<ThreadedAnimatorLoop>(animator)),
-    output_manager(std::make_unique<OutputManager>(
+    output_manager(std::make_shared<OutputManager>(
         std::make_unique<MiralOutputFactory>(
             state,
             config,
             window_controller,
-            *animator))),
-    workspace_manager(workspace_observer_registrar, config, output_manager.get()),
-    window_controller(tools, *animator, state, config, server.the_main_loop(), this),
-    scratchpad_(window_controller, output_manager.get()),
+            animator))),
+    workspace_observer_registrar(std::make_shared<WorkspaceObserverRegistrar>()),
+    workspace_manager(std::make_shared<WorkspaceManager>(workspace_observer_registrar, config, output_manager)),
+    scratchpad_(std::make_shared<Scratchpad>(window_controller, output_manager)),
     self(std::make_shared<Self>(*this)),
-    command_controller(
+    mode_observer_registrar(std::make_shared<ModeObserverRegistrar>()),
+    command_controller(std::make_shared<CommandController>(
         config, self->mutex, state, window_controller,
         workspace_manager, mode_observer_registrar,
-        std::make_unique<MirRunnerCommandControllerInterface>(runner), scratchpad_, output_manager.get()),
-    drag_and_drop_service(command_controller, config, output_manager.get()),
-    move_service(command_controller, config, output_manager.get()),
-    i3_command_executor(command_controller, output_manager.get(), workspace_manager, compositor_state, external_client_launcher, window_controller),
-    ipc(std::make_shared<Ipc>(runner, command_controller, i3_command_executor, config))
+        std::make_unique<MirRunnerCommandControllerInterface>(runner), scratchpad_, output_manager)),
+    drag_and_drop_service(std::make_unique<DragAndDropService>(command_controller, config, output_manager)),
+    move_service(std::make_unique<MoveService>(command_controller, config, output_manager)),
+    ipc(std::make_shared<Ipc>(
+        runner,
+        command_controller,
+        std::make_unique<IpcCommandExecutor>(command_controller, output_manager, workspace_manager, state, *launcher, window_controller),
+        config))
 {
-    workspace_observer_registrar.register_interest(ipc);
-    workspace_observer_registrar.register_interest(self);
-    mode_observer_registrar.register_interest(ipc);
-    window_tools_accessor->set_tools(tools);
+    workspace_observer_registrar->register_interest(ipc);
+    workspace_observer_registrar->register_interest(self);
+    mode_observer_registrar->register_interest(ipc);
     animator_loop->start();
 }
 
@@ -146,9 +147,9 @@ Policy::~Policy()
 {
     ipc->on_shutdown();
     animator_loop->stop();
-    workspace_observer_registrar.unregister_interest(ipc.get());
-    workspace_observer_registrar.unregister_interest(self.get());
-    mode_observer_registrar.unregister_interest(ipc.get());
+    workspace_observer_registrar->unregister_interest(ipc.get());
+    workspace_observer_registrar->unregister_interest(self.get());
+    mode_observer_registrar->unregister_interest(ipc.get());
 }
 
 bool Policy::handle_keyboard_event(MirKeyboardEvent const* event)
@@ -156,12 +157,12 @@ bool Policy::handle_keyboard_event(MirKeyboardEvent const* event)
     auto const action = miral::toolkit::mir_keyboard_event_action(event);
     auto const scan_code = miral::toolkit::mir_keyboard_event_scan_code(event);
     auto const modifiers = miral::toolkit::mir_keyboard_event_modifiers(event) & MODIFIER_MASK;
-    state.modifiers = modifiers;
+    state->modifiers = modifiers;
 
     auto custom_key_command = config->matches_custom_key_command(action, scan_code, modifiers);
     if (custom_key_command != nullptr)
     {
-        external_client_launcher.launch({ custom_key_command->command });
+        launcher->launch({ custom_key_command->command });
         return true;
     }
 
@@ -176,94 +177,94 @@ bool Policy::handle_keyboard_event(MirKeyboardEvent const* event)
         {
             auto terminal_command = config->get_terminal_command();
             if (terminal_command)
-                external_client_launcher.launch({ terminal_command.value() });
+                launcher->launch({ terminal_command.value() });
             return true;
         }
         case DefaultKeyCommand::RequestVertical:
-            return command_controller.try_request_vertical();
+            return command_controller->try_request_vertical();
         case DefaultKeyCommand::RequestHorizontal:
-            return command_controller.try_request_horizontal();
+            return command_controller->try_request_horizontal();
         case DefaultKeyCommand::ToggleResize:
-            command_controller.try_toggle_resize_mode();
+            command_controller->try_toggle_resize_mode();
             return true;
         case DefaultKeyCommand::ResizeUp:
-            return state.mode() != WindowManagerMode::normal && command_controller.try_resize(Direction::up, config->get_resize_jump());
+            return state->mode() != WindowManagerMode::normal && command_controller->try_resize(Direction::up, config->get_resize_jump());
         case DefaultKeyCommand::ResizeDown:
-            return state.mode() != WindowManagerMode::normal && command_controller.try_resize(Direction::down, config->get_resize_jump());
+            return state->mode() != WindowManagerMode::normal && command_controller->try_resize(Direction::down, config->get_resize_jump());
         case DefaultKeyCommand::ResizeLeft:
-            return state.mode() != WindowManagerMode::normal && command_controller.try_resize(Direction::left, config->get_resize_jump());
+            return state->mode() != WindowManagerMode::normal && command_controller->try_resize(Direction::left, config->get_resize_jump());
         case DefaultKeyCommand::ResizeRight:
-            return state.mode() != WindowManagerMode::normal && command_controller.try_resize(Direction::right, config->get_resize_jump());
+            return state->mode() != WindowManagerMode::normal && command_controller->try_resize(Direction::right, config->get_resize_jump());
         case DefaultKeyCommand::MoveUp:
-            return command_controller.try_move(Direction::up);
+            return command_controller->try_move(Direction::up);
         case DefaultKeyCommand::MoveDown:
-            return command_controller.try_move(Direction::down);
+            return command_controller->try_move(Direction::down);
         case DefaultKeyCommand::MoveLeft:
-            return command_controller.try_move(Direction::left);
+            return command_controller->try_move(Direction::left);
         case DefaultKeyCommand::MoveRight:
-            return command_controller.try_move(Direction::right);
+            return command_controller->try_move(Direction::right);
         case DefaultKeyCommand::SelectUp:
-            return command_controller.try_select(Direction::up);
+            return command_controller->try_select(Direction::up);
         case DefaultKeyCommand::SelectDown:
-            return command_controller.try_select(Direction::down);
+            return command_controller->try_select(Direction::down);
         case DefaultKeyCommand::SelectLeft:
-            return command_controller.try_select(Direction::left);
+            return command_controller->try_select(Direction::left);
         case DefaultKeyCommand::SelectRight:
-            return command_controller.try_select(Direction::right);
+            return command_controller->try_select(Direction::right);
         case DefaultKeyCommand::QuitActiveWindow:
-            return command_controller.try_close_window();
+            return command_controller->try_close_window();
         case DefaultKeyCommand::QuitCompositor:
-            return command_controller.quit();
+            return command_controller->quit();
         case DefaultKeyCommand::Fullscreen:
-            return command_controller.try_toggle_fullscreen();
+            return command_controller->try_toggle_fullscreen();
         case DefaultKeyCommand::SelectWorkspace1:
-            return command_controller.select_workspace(1);
+            return command_controller->select_workspace(1);
         case DefaultKeyCommand::SelectWorkspace2:
-            return command_controller.select_workspace(2);
+            return command_controller->select_workspace(2);
         case DefaultKeyCommand::SelectWorkspace3:
-            return command_controller.select_workspace(3);
+            return command_controller->select_workspace(3);
         case DefaultKeyCommand::SelectWorkspace4:
-            return command_controller.select_workspace(4);
+            return command_controller->select_workspace(4);
         case DefaultKeyCommand::SelectWorkspace5:
-            return command_controller.select_workspace(5);
+            return command_controller->select_workspace(5);
         case DefaultKeyCommand::SelectWorkspace6:
-            return command_controller.select_workspace(6);
+            return command_controller->select_workspace(6);
         case DefaultKeyCommand::SelectWorkspace7:
-            return command_controller.select_workspace(7);
+            return command_controller->select_workspace(7);
         case DefaultKeyCommand::SelectWorkspace8:
-            return command_controller.select_workspace(8);
+            return command_controller->select_workspace(8);
         case DefaultKeyCommand::SelectWorkspace9:
-            return command_controller.select_workspace(9);
+            return command_controller->select_workspace(9);
         case DefaultKeyCommand::SelectWorkspace0:
-            return command_controller.select_workspace(0);
+            return command_controller->select_workspace(0);
         case DefaultKeyCommand::MoveToWorkspace1:
-            return command_controller.move_active_to_workspace(1);
+            return command_controller->move_active_to_workspace(1);
         case DefaultKeyCommand::MoveToWorkspace2:
-            return command_controller.move_active_to_workspace(2);
+            return command_controller->move_active_to_workspace(2);
         case DefaultKeyCommand::MoveToWorkspace3:
-            return command_controller.move_active_to_workspace(3);
+            return command_controller->move_active_to_workspace(3);
         case DefaultKeyCommand::MoveToWorkspace4:
-            return command_controller.move_active_to_workspace(4);
+            return command_controller->move_active_to_workspace(4);
         case DefaultKeyCommand::MoveToWorkspace5:
-            return command_controller.move_active_to_workspace(5);
+            return command_controller->move_active_to_workspace(5);
         case DefaultKeyCommand::MoveToWorkspace6:
-            return command_controller.move_active_to_workspace(6);
+            return command_controller->move_active_to_workspace(6);
         case DefaultKeyCommand::MoveToWorkspace7:
-            return command_controller.move_active_to_workspace(7);
+            return command_controller->move_active_to_workspace(7);
         case DefaultKeyCommand::MoveToWorkspace8:
-            return command_controller.move_active_to_workspace(8);
+            return command_controller->move_active_to_workspace(8);
         case DefaultKeyCommand::MoveToWorkspace9:
-            return command_controller.move_active_to_workspace(9);
+            return command_controller->move_active_to_workspace(9);
         case DefaultKeyCommand::MoveToWorkspace0:
-            return command_controller.move_active_to_workspace(0);
+            return command_controller->move_active_to_workspace(0);
         case DefaultKeyCommand::ToggleFloating:
-            return command_controller.toggle_floating();
+            return command_controller->toggle_floating();
         case DefaultKeyCommand::TogglePinnedToWorkspace:
-            return command_controller.toggle_pinned_to_workspace();
+            return command_controller->toggle_pinned_to_workspace();
         case DefaultKeyCommand::ToggleTabbing:
-            return command_controller.toggle_tabbing();
+            return command_controller->toggle_tabbing();
         case DefaultKeyCommand::ToggleStacking:
-            return command_controller.toggle_stacking();
+            return command_controller->toggle_stacking();
         default:
             std::cerr << "Unknown key_command: " << static_cast<int>(key_command) << std::endl;
             break;
@@ -279,7 +280,7 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
     auto y = miral::toolkit::mir_pointer_event_axis_value(event, MirPointerAxis::mir_pointer_axis_y);
     auto action = miral::toolkit::mir_pointer_event_action(event);
     auto const modifiers = miral::toolkit::mir_pointer_event_modifiers(event) & MODIFIER_MASK;
-    state.cursor_position = { x, y };
+    state->cursor_position = { x, y };
 
     // Select the output first
     for (auto const& output : output_manager->outputs())
@@ -292,44 +293,44 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
                     output_manager->unfocus(output_manager->focused()->id());
                 output_manager->focus(output->id());
                 if (auto active = output->active())
-                    workspace_manager.request_focus(active->id());
+                    workspace_manager->request_focus(active->id());
             }
             break;
         }
     }
 
-    if (move_service.handle_pointer_event(state, x, y, action, modifiers))
+    if (move_service->handle_pointer_event(*state, x, y, action, modifiers))
         return true;
 
-    if (drag_and_drop_service.handle_pointer_event(state, x, y, action, modifiers))
+    if (drag_and_drop_service->handle_pointer_event(*state, x, y, action, modifiers))
         return true;
 
-    if (output_manager->focused() && state.mode() != WindowManagerMode::resizing)
+    if (output_manager->focused() && state->mode() != WindowManagerMode::resizing)
     {
         if (MIRACLE_FEATURE_FLAG_MULTI_SELECT && action == mir_pointer_action_button_down)
         {
-            if (state.modifiers == config->get_primary_modifier())
+            if (state->modifiers == config->get_primary_modifier())
             {
                 // We clicked while holding the modifier, so we're probably in the middle of a multi-selection.
-                if (state.mode() != WindowManagerMode::selecting)
+                if (state->mode() != WindowManagerMode::selecting)
                 {
-                    command_controller.set_mode(WindowManagerMode::selecting);
+                    command_controller->set_mode(WindowManagerMode::selecting);
                     group_selection = std::make_shared<ContainerGroupContainer>(state);
-                    state.add(group_selection);
+                    state->add(group_selection);
                 }
             }
-            else if (state.mode() == WindowManagerMode::selecting)
+            else if (state->mode() == WindowManagerMode::selecting)
             {
                 // We clicked while we were in selection mode, so let's stop being in selection mode
                 // TODO: Would it be better to check what we clicked in case it's in the group? Then we wouldn't
                 //  exit selection mode in this case.
-                command_controller.set_mode(WindowManagerMode::normal);
+                command_controller->set_mode(WindowManagerMode::normal);
             }
         }
 
         // Get Container intersection. Depending on the state, do something with that Container
         std::shared_ptr<Container> intersected = output_manager->focused()->intersect(x, y);
-        switch (state.mode())
+        switch (state->mode())
         {
         case WindowManagerMode::normal:
         {
@@ -337,8 +338,8 @@ bool Policy::handle_pointer_event(MirPointerEvent const* event)
             {
                 if (auto window = intersected->window().value())
                 {
-                    if (state.focused_container() != intersected)
-                        window_controller.select_active_window(window);
+                    if (state->focused_container() != intersected)
+                        window_controller->select_active_window(window);
                 }
             }
 
@@ -383,7 +384,7 @@ void Policy::advise_new_window(miral::WindowInfo const& window_info)
     auto container = output_manager->focused()->create_container(window_info, pending_allocation);
     container->animation_handle(animator->register_animateable());
     container->on_open();
-    state.add(container);
+    state->add(container);
 
     pending_allocation.container_type = ContainerType::none;
 }
@@ -391,7 +392,7 @@ void Policy::advise_new_window(miral::WindowInfo const& window_info)
 void Policy::handle_window_ready(miral::WindowInfo& window_info)
 {
     std::lock_guard lock(self->mutex);
-    auto container = window_controller.get_container(window_info.window());
+    auto container = window_controller->get_container(window_info.window());
     if (!container)
     {
         mir::log_error("handle_window_ready: container is not provided");
@@ -408,7 +409,7 @@ Policy::confirm_placement_on_display(
     mir::geometry::Rectangle const& new_placement)
 {
     std::lock_guard lock(self->mutex);
-    auto container = window_controller.get_container(window_info.window());
+    auto container = window_controller->get_container(window_info.window());
     if (!container)
     {
         mir::log_warning("confirm_placement_on_display: window lacks container");
@@ -421,14 +422,14 @@ Policy::confirm_placement_on_display(
 void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
 {
     std::lock_guard lock(self->mutex);
-    auto container = window_controller.get_container(window_info.window());
+    auto container = window_controller->get_container(window_info.window());
     if (!container)
     {
         mir::log_error("advise_focus_gained: container is not provided");
         return;
     }
 
-    switch (state.mode())
+    switch (state->mode())
     {
     case WindowManagerMode::selecting:
         group_selection->add(container);
@@ -437,13 +438,13 @@ void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
     default:
     {
         auto* workspace = container->get_workspace();
-        state.focus_container(container);
+        state->focus_container(container);
         container->on_focus_gained();
 
         // TODO: This logic was put in place to navigate to the focused
         //  workspace.
         // if (workspace && workspace != output_manager->focused()->active())
-        //    workspace_manager.request_focus(workspace->id());
+        //    workspace_manager->request_focus(workspace->id());
 
         if (workspace)
             workspace->advise_focus_gained(container);
@@ -455,28 +456,28 @@ void Policy::advise_focus_gained(const miral::WindowInfo& window_info)
 void Policy::advise_focus_lost(const miral::WindowInfo& window_info)
 {
     std::lock_guard lock(self->mutex);
-    auto container = window_controller.get_container(window_info.window());
+    auto container = window_controller->get_container(window_info.window());
     if (!container)
     {
         mir::log_error("advise_focus_lost: container is not provided");
         return;
     }
 
-    if (state.mode() == WindowManagerMode::dragging)
+    if (state->mode() == WindowManagerMode::dragging)
     {
-        command_controller.set_mode(WindowManagerMode::normal);
-        if (state.focused_container())
-            state.focused_container()->drag_stop();
+        command_controller->set_mode(WindowManagerMode::normal);
+        if (state->focused_container())
+            state->focused_container()->drag_stop();
     }
 
-    state.unfocus_container(container);
+    state->unfocus_container(container);
     container->on_focus_lost();
 }
 
 void Policy::advise_delete_window(const miral::WindowInfo& window_info)
 {
     std::lock_guard lock(self->mutex);
-    auto container = window_controller.get_container(window_info.window());
+    auto container = window_controller->get_container(window_info.window());
     if (!container)
     {
         mir::log_error("delete_container: container is not provided");
@@ -486,19 +487,19 @@ void Policy::advise_delete_window(const miral::WindowInfo& window_info)
     if (auto output = container->get_output())
         output->delete_container(container);
     else
-        scratchpad_.remove(container);
+        scratchpad_->remove(container);
 
     animator->remove_by_animation_handle(container->animation_handle());
-    if (container == state.focused_container())
-        state.unfocus_container(container);
+    if (container == state->focused_container())
+        state->unfocus_container(container);
 
-    state.remove(container);
+    state->remove(container);
 }
 
 void Policy::advise_move_to(miral::WindowInfo const& window_info, geom::Point top_left)
 {
     std::lock_guard lock(self->mutex);
-    auto container = window_controller.get_container(window_info.window());
+    auto container = window_controller->get_container(window_info.window());
     if (!container)
     {
         mir::log_error("advise_move_to: container is not provided: %s", window_info.application_id().c_str());
@@ -511,8 +512,7 @@ void Policy::advise_move_to(miral::WindowInfo const& window_info, geom::Point to
 void Policy::advise_output_create(miral::Output const& output)
 {
     std::lock_guard lock(self->mutex);
-    auto prev_size = output_manager->outputs().size();
-    auto created = output_manager->create(output.name(), output.id(), output.extents(), workspace_manager);
+    output_manager->create(output.name(), output.id(), output.extents(), *workspace_manager);
 }
 
 void Policy::advise_output_update(miral::Output const& updated, miral::Output const& original)
@@ -524,7 +524,7 @@ void Policy::advise_output_update(miral::Output const& updated, miral::Output co
 void Policy::advise_output_delete(miral::Output const& output)
 {
     std::lock_guard lock(self->mutex);
-    output_manager->remove(output.id(), workspace_manager);
+    output_manager->remove(output.id(), *workspace_manager);
 }
 
 void Policy::handle_modify_window(
@@ -532,7 +532,7 @@ void Policy::handle_modify_window(
     const miral::WindowSpecification& modifications)
 {
     std::lock_guard lock(self->mutex);
-    auto container = window_controller.get_container(window_info.window());
+    auto container = window_controller->get_container(window_info.window());
     if (!container)
     {
         mir::log_error("handle_modify_window: container is not provided");
@@ -545,7 +545,7 @@ void Policy::handle_modify_window(
         if (workspace != output_manager->focused()->active())
             return;
     }
-    else if (scratchpad_.contains(container) && !scratchpad_.is_showing(container))
+    else if (scratchpad_->contains(container) && !scratchpad_->is_showing(container))
         return;
 
     container->handle_modify(modifications);
@@ -554,7 +554,7 @@ void Policy::handle_modify_window(
 void Policy::handle_raise_window(miral::WindowInfo& window_info)
 {
     std::lock_guard lock(self->mutex);
-    auto container = window_controller.get_container(window_info.window());
+    auto container = window_controller->get_container(window_info.window());
     if (!container)
     {
         mir::log_error("handle_raise_window: container is not provided");
@@ -572,7 +572,7 @@ bool Policy::handle_touch_event(const MirTouchEvent* event)
 void Policy::handle_request_move(miral::WindowInfo& window_info, const MirInputEvent* input_event)
 {
     std::lock_guard lock(self->mutex);
-    auto container = window_controller.get_container(window_info.window());
+    auto container = window_controller->get_container(window_info.window());
     if (!container)
     {
         mir::log_error("handle_request_move: window lacks container");
@@ -588,7 +588,7 @@ void Policy::handle_request_resize(
     MirResizeEdge edge)
 {
     std::lock_guard lock(self->mutex);
-    auto container = window_controller.get_container(window_info.window());
+    auto container = window_controller->get_container(window_info.window());
     if (!container)
     {
         mir::log_error("handle_request_resize: window lacks container");
@@ -610,7 +610,7 @@ void Policy::handle_animation(
         return;
     }
 
-    window_controller.process_animation(asr, sh_container);
+    window_controller->process_animation(asr, sh_container);
 }
 
 mir::geometry::Rectangle Policy::confirm_inherited_move(
@@ -654,7 +654,7 @@ void Policy::advise_end()
         is_starting_ = false;
         for (auto const& app : config->get_startup_apps())
         {
-            external_client_launcher.launch(app);
+            launcher->launch(app);
         }
     }
 }

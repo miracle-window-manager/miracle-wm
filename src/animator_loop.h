@@ -35,6 +35,7 @@ class Animator;
 class AnimatorLoop
 {
 public:
+    virtual ~AnimatorLoop() = default;
     virtual void start() = 0;
     virtual void stop() = 0;
 };
@@ -43,7 +44,7 @@ class ThreadedAnimatorLoop : public AnimatorLoop
 {
 public:
     explicit ThreadedAnimatorLoop(std::shared_ptr<Animator> const&);
-    ~ThreadedAnimatorLoop();
+    ~ThreadedAnimatorLoop() override;
     void start() override;
     void stop() override;
 

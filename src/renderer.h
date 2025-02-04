@@ -57,9 +57,7 @@ public:
     Renderer(std::shared_ptr<mir::graphics::GLRenderingProvider> gl_interface,
         std::unique_ptr<mir::graphics::gl::OutputSurface> output,
         std::shared_ptr<Config> const& config,
-        CompositorState const& compositor_state,
-        std::shared_ptr<WindowToolsAccessor> const& accessor,
-        std::shared_ptr<Animator> const& animator);
+        std::shared_ptr<CompositorState> const& compositor_state);
     ~Renderer() override = default;
 
     // These are called with a valid GL context:
@@ -119,9 +117,7 @@ private:
     std::vector<mir::gl::Primitive> mutable primitives;
     std::shared_ptr<mir::graphics::GLRenderingProvider> const gl_interface;
     std::shared_ptr<Config> config;
-    CompositorState const& compositor_state;
-    std::shared_ptr<WindowToolsAccessor> const& accessor;
-    std::shared_ptr<Animator> animator;
+    std::shared_ptr<CompositorState> compositor_state;
 };
 
 }

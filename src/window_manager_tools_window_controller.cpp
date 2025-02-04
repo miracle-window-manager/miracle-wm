@@ -32,8 +32,8 @@ using namespace miracle;
 
 WindowManagerToolsWindowController::WindowManagerToolsWindowController(
     miral::WindowManagerTools const& tools,
-    Animator& animator,
-    CompositorState& state,
+    std::shared_ptr<Animator> const& animator,
+    std::shared_ptr<CompositorState> const& state,
     std::shared_ptr<Config> const& config,
     std::shared_ptr<mir::ServerActionQueue> const& server_action_queue,
     Policy* policy) :
@@ -78,7 +78,7 @@ void WindowManagerToolsWindowController::open(miral::Window const& window)
         this,
         container);
 
-    animator.append(animation);
+    animator->append(animation);
 }
 
 bool WindowManagerToolsWindowController::is_fullscreen(miral::Window const& window)
@@ -126,7 +126,7 @@ void WindowManagerToolsWindowController::set_rectangle(
         this,
         container);
 
-    animator.append(animation);
+    animator->append(animation);
 }
 
 MirWindowState WindowManagerToolsWindowController::get_state(miral::Window const& window)
@@ -158,7 +158,7 @@ void WindowManagerToolsWindowController::noclip(miral::Window const& window)
 
 void WindowManagerToolsWindowController::select_active_window(miral::Window const& window)
 {
-    if (state.mode() != WindowManagerMode::normal)
+    if (state->mode() != WindowManagerMode::normal)
         return;
 
     tools.select_active_window(window);
@@ -300,7 +300,7 @@ void WindowManagerToolsWindowController::move_cursor_to(float x, float y)
 
 void WindowManagerToolsWindowController::set_size_hack(AnimationHandle handle, mir::geometry::Size const& size)
 {
-    animator.set_size_hack(handle, size);
+    animator->set_size_hack(handle, size);
 }
 
 miral::Window WindowManagerToolsWindowController::window_at(float x, float y)

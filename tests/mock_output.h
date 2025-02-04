@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef MIRACLE_WM_MOCK_OUTPUT_H
 #define MIRACLE_WM_MOCK_OUTPUT_H
 
-#include "output.h"
+#include "output_interface.h"
 #include <gmock/gmock.h>
 #include <miral/zone.h>
 
@@ -26,7 +26,7 @@ namespace miracle
 {
 namespace test
 {
-    class MockOutput : public Output
+    class MockOutput : public OutputInterface
     {
     public:
         MOCK_METHOD(std::shared_ptr<Container>, intersect, (float x, float y), (override));
@@ -47,27 +47,24 @@ namespace test
         MOCK_METHOD(void, advise_application_zone_update,
             (miral::Zone const& updated, miral::Zone const& original),
             (override));
-        MOCK_METHOD(void, move_workspace_to, (WorkspaceManager&, Workspace*), (override));
+        MOCK_METHOD(void, move_workspace_to, (WorkspaceManager&, WorkspaceInterface*), (override));
         MOCK_METHOD(void, advise_application_zone_delete, (miral::Zone const& application_zone), (override));
         MOCK_METHOD(bool, point_is_in_output, (int x, int y), (override));
         MOCK_METHOD(void, update_area, (geom::Rectangle const& area), (override));
-        MOCK_METHOD(void, add_immediately,
-            (miral::Window & window, AllocationHint hint),
-            (override));
         MOCK_METHOD(void, graft, (std::shared_ptr<Container> const& container), (override));
         MOCK_METHOD(void, set_transform, (glm::mat4 const& in), (override));
         MOCK_METHOD(void, set_position, (glm::vec2 const&), (override));
         MOCK_METHOD(std::vector<miral::Window>, collect_all_windows, (), (const, override));
-        MOCK_METHOD(Workspace*, active, (), (const, override));
-        MOCK_METHOD(std::vector<std::shared_ptr<Workspace>> const&, get_workspaces, (), (const, override));
+        MOCK_METHOD(WorkspaceInterface*, active, (), (const, override));
+        MOCK_METHOD(std::vector<std::shared_ptr<WorkspaceInterface>> const&, get_workspaces, (), (const, override));
         MOCK_METHOD(geom::Rectangle const&, get_area, (), (const, override));
         MOCK_METHOD(std::vector<miral::Zone> const&, get_app_zones, (), (const, override));
         MOCK_METHOD(std::string const&, name, (), (const, override));
         MOCK_METHOD(int, id, (), (const, override));
         MOCK_METHOD(glm::mat4, get_transform, (), (const, override));
         MOCK_METHOD(geom::Rectangle, get_workspace_rectangle, (size_t i), (const, override));
-        MOCK_METHOD(Workspace const*, workspace, (uint32_t id), (const, override));
-        MOCK_METHOD(nlohmann::json, to_json, (), (const, override));
+        MOCK_METHOD(WorkspaceInterface const*, workspace, (uint32_t id), (const, override));
+        MOCK_METHOD(nlohmann::json, to_json, (bool), (const, override));
         MOCK_METHOD(void, set_info, (int id, std::string name), (override));
         MOCK_METHOD(void, set_defunct, (), (override));
         MOCK_METHOD(void, unset_defunct, (), (override));

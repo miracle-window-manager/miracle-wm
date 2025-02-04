@@ -18,25 +18,36 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef MIRACLE_WM_OUTPUT_FACTORY_H
 #define MIRACLE_WM_OUTPUT_FACTORY_H
 
-#include <memory>
-#include <mir/geometry/rectangle.h>
+#include "output_factory_interface.h"
 
 namespace miracle
 {
-class Output;
-class OutputManager;
+class WorkspaceManager;
+class CompositorState;
+class Config;
+class WindowController;
+class Animator;
 
-class OutputFactory
+class MiralOutputFactory : public OutputFactoryInterface
 {
 public:
-    virtual ~OutputFactory() = default;
-    virtual std::unique_ptr<Output> create(
+    MiralOutputFactory(
+        std::shared_ptr<CompositorState> const& state,
+        std::shared_ptr<Config> const& options,
+        std::shared_ptr<WindowController> const&,
+        std::shared_ptr<Animator> const&);
+    std::unique_ptr<OutputInterface> create(
         std::string name,
         int id,
-        mir::geometry::Rectangle area,
-        OutputManager* output_manager)
-        = 0;
+        mir::geometry::Rectangle area) override;
+
+private:
+    std::shared_ptr<CompositorState> state;
+    std::shared_ptr<Config> config;
+    std::shared_ptr<WindowController> window_controller;
+    std::shared_ptr<Animator> animator;
 };
+
 }
 
 #endif // MIRACLE_WM_OUTPUT_FACTORY_H

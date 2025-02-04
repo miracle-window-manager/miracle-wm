@@ -22,7 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "container_group_container.h"
 #include "layout_scheme.h"
 #include "leaf_container.h"
-#include "output.h"
+#include "output_interface.h"
 #include "parent_container.h"
 #include <glm/gtx/transform.hpp>
 #include <mir/log.h>

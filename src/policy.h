@@ -26,9 +26,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "drag_and_drop_service.h"
 #include "ipc.h"
 #include "ipc_command_executor.h"
-#include "miral_output.h"
 #include "mode_observer.h"
 #include "move_service.h"
+#include "output.h"
 #include "scratchpad.h"
 #include "window_manager_tools_window_controller.h"
 #include "workspace_manager.h"
@@ -41,6 +41,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 namespace miral
 {
 class MirRunner;
+class ExternalClientLauncher;
 }
 
 namespace miracle
@@ -48,7 +49,6 @@ namespace miracle
 
 class Container;
 class ContainerGroupContainer;
-class WindowToolsAccessor;
 class AnimatorLoop;
 class OutputManager;
 
@@ -57,13 +57,11 @@ class Policy : public miral::WindowManagementPolicy
 public:
     Policy(
         miral::WindowManagerTools const&,
-        AutoRestartingLauncher&,
-        miral::MirRunner&,
-        std::shared_ptr<Config> const&,
-        std::shared_ptr<Animator> const&,
         mir::Server const&,
-        CompositorState&,
-        std::shared_ptr<WindowToolsAccessor> const&);
+        miral::MirRunner&,
+        miral::ExternalClientLauncher& external_client_launcher,
+        std::shared_ptr<Config> const&,
+        std::shared_ptr<CompositorState> const& state);
     ~Policy() override;
 
     bool handle_keyboard_event(MirKeyboardEvent const* event) override;
@@ -106,27 +104,26 @@ public:
 private:
     class Self;
 
-    AutoRestartingLauncher& external_client_launcher;
     std::shared_ptr<Config> config;
+    std::shared_ptr<CompositorState> state;
     std::shared_ptr<Animator> animator;
-    CompositorState& state;
+    std::shared_ptr<WindowManagerToolsWindowController> window_controller;
+    std::unique_ptr<AutoRestartingLauncher> launcher;
+    std::shared_ptr<WorkspaceObserverRegistrar> workspace_observer_registrar;
+    std::shared_ptr<ModeObserverRegistrar> mode_observer_registrar;
+    std::shared_ptr<OutputManager> output_manager;
+    std::shared_ptr<WorkspaceManager> workspace_manager;
+    std::shared_ptr<Self> self;
+    std::shared_ptr<Scratchpad> scratchpad_;
+    std::shared_ptr<CommandController> command_controller;
+    std::unique_ptr<DragAndDropService> drag_and_drop_service;
+    std::unique_ptr<MoveService> move_service;
+    std::shared_ptr<Ipc> ipc;
+    std::unique_ptr<AnimatorLoop> animator_loop;
+    std::shared_ptr<ContainerGroupContainer> group_selection;
 
     bool is_starting_ = true;
     AllocationHint pending_allocation;
-    WorkspaceObserverRegistrar workspace_observer_registrar;
-    ModeObserverRegistrar mode_observer_registrar;
-    std::unique_ptr<OutputManager> output_manager;
-    WorkspaceManager workspace_manager;
-    std::shared_ptr<Self> self;
-    Scratchpad scratchpad_;
-    CommandController command_controller;
-    DragAndDropService drag_and_drop_service;
-    MoveService move_service;
-    std::shared_ptr<Ipc> ipc;
-    std::unique_ptr<AnimatorLoop> animator_loop;
-    WindowManagerToolsWindowController window_controller;
-    IpcCommandExecutor i3_command_executor;
-    std::shared_ptr<ContainerGroupContainer> group_selection;
 };
 }
 

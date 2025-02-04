@@ -18,21 +18,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef MIRACLE_WM_MOCK_OUTPUT_FACTORY_H
 #define MIRACLE_WM_MOCK_OUTPUT_FACTORY_H
 
-#include "output.h"
-#include "output_factory.h"
+#include "output_factory_interface.h"
+#include "output_interface.h"
 #include <gmock/gmock.h>
 
 namespace miracle
 {
 namespace test
 {
-    class MockOutputFactory : public OutputFactory
+    class MockOutputFactory : public OutputFactoryInterface
     {
     public:
         MOCK_METHOD(
-            std::unique_ptr<Output>,
+            std::unique_ptr<OutputInterface>,
             create,
-            (std::string name, int id, mir::geometry::Rectangle area, OutputManager* output_manager),
+            (std::string name, int id, mir::geometry::Rectangle area),
             (override));
     };
 }

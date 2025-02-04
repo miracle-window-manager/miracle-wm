@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef MIRACLE_WM_MOCK_WORKSPACE_H
 #define MIRACLE_WM_MOCK_WORKSPACE_H
 
-#include "workspace.h"
+#include "workspace_interface.h"
 #include <functional>
 #include <gmock/gmock.h>
 #include <memory>
@@ -29,7 +29,7 @@ namespace miracle
 {
 namespace test
 {
-    class MockWorkspace : public Workspace
+    class MockWorkspace : public WorkspaceInterface
     {
     public:
         MOCK_METHOD(void, set_area, (mir::geometry::Rectangle const&), (override));
@@ -51,7 +51,7 @@ namespace test
         MOCK_METHOD(bool, add_to_root, (Container&), (override));
         MOCK_METHOD(std::shared_ptr<ParentContainer>, create_floating_tree, (mir::geometry::Rectangle const&), (override));
 
-        MOCK_METHOD(void, transfer_pinned_windows_to, (std::shared_ptr<Workspace> const& other), (override));
+        MOCK_METHOD(void, transfer_pinned_windows_to, (std::shared_ptr<WorkspaceInterface> const& other), (override));
 
         MOCK_METHOD(bool, for_each_window,
             (std::function<bool(std::shared_ptr<Container>)> const&), (const, override));
@@ -60,9 +60,9 @@ namespace test
 
         MOCK_METHOD(void, select_first_window, (), (override));
 
-        MOCK_METHOD(Output*, get_output, (), (const, override));
+        MOCK_METHOD(OutputInterface*, get_output, (), (const, override));
 
-        MOCK_METHOD(void, set_output, (Output*), (override));
+        MOCK_METHOD(void, set_output, (OutputInterface*), (override));
 
         MOCK_METHOD(void, workspace_transform_change_hack, (), (override));
 
@@ -71,7 +71,7 @@ namespace test
 
         MOCK_METHOD(uint32_t, id, (), (const, override));
         MOCK_METHOD(std::optional<int>, num, (), (const, override));
-        MOCK_METHOD(nlohmann::json, to_json, (), (const, override));
+        MOCK_METHOD(nlohmann::json, to_json, (bool), (const, override));
         MOCK_METHOD(std::optional<std::string> const&, name, (), (const, override));
         MOCK_METHOD(std::string, display_name, (), (const, override));
         MOCK_METHOD(std::shared_ptr<ParentContainer>, get_root, (), (const, override));

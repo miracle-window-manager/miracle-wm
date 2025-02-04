@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "scratchpad.h"
 #include "container.h"
-#include "output.h"
+#include "output_interface.h"
 #include "output_manager.h"
 #include "scratchpad_state.h"
 
@@ -27,7 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace miracle;
 
-Scratchpad::Scratchpad(WindowController& window_controller, OutputManager* output_manager) :
+Scratchpad::Scratchpad(std::shared_ptr<WindowController> const& window_controller, std::shared_ptr<OutputManager> const& output_manager) :
     window_controller { window_controller },
     output_manager { output_manager }
 {
@@ -65,7 +65,7 @@ void Scratchpad::toggle(ScratchpadItem& other)
             output_extents.top_left.x.as_int() + (output_extents.size.width.as_int() - window.size().width.as_int()) / 2.f,
             output_extents.top_left.y.as_int() + (output_extents.size.height.as_int() - window.size().height.as_int()) / 2.f,
         };
-        window_controller.modify(window, spec);
+        window_controller->modify(window, spec);
     }
     else
         other.container->hide();

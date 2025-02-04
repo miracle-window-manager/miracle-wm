@@ -46,10 +46,11 @@ add_library(miracle-wm-implementation
     src/window_helpers.cpp
     src/config.cpp
     src/config.h
-    src/miral_output.cpp
+        src/output.cpp
     src/workspace_manager.cpp
     src/ipc.cpp
     src/auto_restarting_launcher.cpp
+    src/workspace_interface.h
     src/workspace_observer.cpp
     src/workspace.cpp src/workspace.h
     src/leaf_container.cpp
@@ -61,28 +62,27 @@ add_library(miracle-wm-implementation
     src/ipc_command.cpp
     src/ipc_command_executor.cpp
     src/render_data_manager.cpp
-    src/window_tools_accessor.cpp
-    src/animator.cpp
+        src/animator.cpp
     src/animation_definition.cpp
     src/program_factory.cpp
     src/mode_observer.cpp
     src/debug_helper.h
-        src/shell_component_container.cpp
+    src/shell_component_container.cpp
     src/container_group_container.cpp
     src/container_group_container.h
-        src/layout_scheme.cpp
+    src/layout_scheme.cpp
     src/utility_general.h
-        src/config_error_handler.cpp src/config_error_handler.h
+    src/config_error_handler.cpp src/config_error_handler.h
     src/scratchpad.h src/scratchpad.cpp
     src/compositor_state.h src/compositor_state.cpp
     src/math_helpers.h
     src/command_controller.cpp src/command_controller.h
     src/animator_loop.cpp src/animator_loop.h
     src/drag_and_drop_service.cpp src/drag_and_drop_service.h
-    src/output_factory.h
+        src/output_factory_interface.h
     src/output_manager.cpp src/output_manager.h
-    src/miral_output_factory.cpp src/miral_output_factory.cpp
-    src/miral_output.h src/miral_output.cpp
+        src/output_factory.cpp src/output_factory.cpp
+        src/output.h src/output.cpp
     src/move_service.h src/move_service.cpp
 )
 

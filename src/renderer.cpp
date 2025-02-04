@@ -24,11 +24,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "program_factory.h"
 #include "tessellation_helpers.h"
 
-#include "animator.h"
-#include "container.h"
-#include "window_tools_accessor.h"
-#include "workspace.h"
-
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
 #include <cmath>
@@ -144,9 +139,7 @@ Renderer::Renderer(
     std::shared_ptr<mir::graphics::GLRenderingProvider> gl_interface,
     std::unique_ptr<mir::graphics::gl::OutputSurface> output,
     std::shared_ptr<Config> const& config,
-    CompositorState const& compositor_state,
-    std::shared_ptr<WindowToolsAccessor> const& accessor,
-    std::shared_ptr<Animator> const& animator) :
+    std::shared_ptr<CompositorState> const& compositor_state) :
     output_surface { make_output_current(std::move(output)) },
     clear_color { 0.0f, 0.0f, 0.0f, 1.0f },
     program_factory { std::make_unique<ProgramFactory>() },
@@ -154,9 +147,7 @@ Renderer::Renderer(
     screen_to_gl_coords(1),
     gl_interface { std::move(gl_interface) },
     config { config },
-    compositor_state { compositor_state },
-    accessor { accessor },
-    animator { animator }
+    compositor_state { compositor_state }
 {
     // http://directx.com/2014/06/egl-understanding-eglchooseconfig-then-ignoring-it/
     eglBindAPI(EGL_OPENGL_ES_API);
@@ -258,7 +249,7 @@ auto Renderer::render(mg::RenderableList const& renderables) const -> std::uniqu
 
     ++frameno;
 
-    auto const& render_data = compositor_state.render_data_manager()->get();
+    auto const& render_data = compositor_state->render_data_manager()->get();
     for (auto const& r : renderables)
     {
         auto data = draw(*r, get_draw_data(*r, render_data));
@@ -383,7 +374,7 @@ miracle::Renderer::DrawData Renderer::draw(
     if (prog->alpha_uniform >= 0)
         glUniform1f(prog->alpha_uniform, renderable.alpha());
 
-    switch (compositor_state.mode())
+    switch (compositor_state->mode())
     {
     case WindowManagerMode::selecting:
         glUniform1i(prog->mode_uniform, (int)(data.data.is_focused ? RenderFilter::none : RenderFilter::grayscale));

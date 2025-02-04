@@ -21,12 +21,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "compositor_state.h"
 #include "config.h"
 #include "container_group_container.h"
-#include "output.h"
+#include "output_interface.h"
 #include "output_manager.h"
 #include "parent_container.h"
-#include "render_data_manager.h"
 #include "window_helpers.h"
-#include "workspace.h"
+#include "workspace_interface.h"
 
 #include <cmath>
 #include <mir/log.h>
@@ -127,32 +126,30 @@ std::tuple<std::shared_ptr<ParentContainer>, std::shared_ptr<ParentContainer>> t
 }
 
 LeafContainer::LeafContainer(
-    Workspace* workspace,
-    WindowController& node_interface,
+    WorkspaceInterface* workspace,
+    std::shared_ptr<WindowController> const& window_controller,
     geom::Rectangle area,
     std::shared_ptr<Config> const& config,
     std::shared_ptr<ParentContainer> const& parent,
-    CompositorState const& state,
-    OutputManager* output_manager) :
+    std::shared_ptr<CompositorState> const& state) :
     workspace { workspace },
-    window_controller { node_interface },
+    window_controller { window_controller },
     logical_area { std::move(area) },
     config { config },
     parent { parent },
-    state { state },
-    output_manager { output_manager }
+    state { state }
 {
 }
 
 LeafContainer::~LeafContainer()
 {
-    state.render_data_manager()->remove(*this);
+    state->render_data_manager()->remove(*this);
 }
 
 void LeafContainer::associate_to_window(miral::Window const& in_window)
 {
     window_ = in_window;
-    state.render_data_manager()->add(*this);
+    state->render_data_manager()->add(*this);
 }
 
 geom::Rectangle LeafContainer::get_logical_area() const
@@ -177,7 +174,7 @@ void LeafContainer::set_parent(std::shared_ptr<ParentContainer> const& in_parent
 
     miral::WindowSpecification spec;
     spec.depth_layer() = !in_parent->anchored() ? mir_depth_layer_above : mir_depth_layer_application;
-    window_controller.modify(window_, spec);
+    window_controller->modify(window_, spec);
 }
 
 void LeafContainer::set_state(MirWindowState state)
@@ -228,10 +225,10 @@ geom::Rectangle LeafContainer::get_visible_area() const
 
 void LeafContainer::constrain()
 {
-    if (window_controller.is_fullscreen(window_) || is_dragging_)
-        window_controller.noclip(window_);
+    if (window_controller->is_fullscreen(window_) || is_dragging_)
+        window_controller->noclip(window_);
     else
-        window_controller.clip(window_, get_visible_area());
+        window_controller->clip(window_, get_visible_area());
 }
 
 size_t LeafContainer::get_min_width() const
@@ -247,24 +244,24 @@ size_t LeafContainer::get_min_height() const
 void LeafContainer::handle_ready()
 {
     constrain();
-    if (!state.focused_container() || !state.focused_container()->is_fullscreen())
+    if (!state->focused_container() || !state->focused_container()->is_fullscreen())
     {
-        auto& info = window_controller.info_for(window_);
+        auto& info = window_controller->info_for(window_);
         if (info.can_be_active())
-            window_controller.select_active_window(window_);
+            window_controller->select_active_window(window_);
     }
 
-    if (window_controller.is_fullscreen(window_))
+    if (window_controller->is_fullscreen(window_))
         toggle_fullscreen();
 }
 
 void LeafContainer::handle_modify(miral::WindowSpecification const& modifications)
 {
-    auto const& info = window_controller.info_for(window_);
+    auto const& info = window_controller->info_for(window_);
 
     auto mods = modifications;
     if (mods.size().is_set())
-        window_controller.set_size_hack(animation_handle_, mods.size().value());
+        window_controller->set_size_hack(animation_handle_, mods.size().value());
 
     if (mods.state().is_set() && mods.state().value() != info.state())
     {
@@ -273,12 +270,12 @@ void LeafContainer::handle_modify(miral::WindowSpecification const& modification
 
         if (window_helpers::is_window_fullscreen(mods.state().value()))
         {
-            window_controller.select_active_window(window_);
-            window_controller.raise(window_);
+            window_controller->select_active_window(window_);
+            window_controller->raise(window_);
         }
         else if (mods.state().value() == mir_window_state_restored)
         {
-            auto active = state.focused_container();
+            auto active = state->focused_container();
             if (active && active->window() == window_)
             {
                 set_logical_area(get_logical_area());
@@ -287,12 +284,12 @@ void LeafContainer::handle_modify(miral::WindowSpecification const& modification
         }
     }
 
-    window_controller.modify(window_, mods);
+    window_controller->modify(window_, mods);
 }
 
 void LeafContainer::handle_raise()
 {
-    window_controller.select_active_window(window_);
+    window_controller->select_active_window(window_);
 }
 
 bool LeafContainer::resize(miracle::Direction direction, int pixels)
@@ -427,20 +424,20 @@ void LeafContainer::show()
     next_state = before_shown_state;
     before_shown_state.reset();
     commit_changes();
-    window_controller.raise(window_);
+    window_controller->raise(window_);
 }
 
 void LeafContainer::hide()
 {
-    before_shown_state = window_controller.get_state(window_);
+    before_shown_state = window_controller->get_state(window_);
     next_state = mir_window_state_hidden;
     commit_changes();
-    window_controller.send_to_back(window_);
+    window_controller->send_to_back(window_);
 }
 
 bool LeafContainer::toggle_fullscreen()
 {
-    if (window_controller.is_fullscreen(window_))
+    if (window_controller->is_fullscreen(window_))
     {
         next_state = mir_window_state_restored;
         next_depth_layer = !parent.lock()->anchored() ? mir_depth_layer_above : mir_depth_layer_application;
@@ -449,8 +446,8 @@ bool LeafContainer::toggle_fullscreen()
     {
         next_state = mir_window_state_fullscreen;
         next_depth_layer = mir_depth_layer_always_on_top;
-        window_controller.select_active_window(window_);
-        window_controller.raise(window_);
+        window_controller->select_active_window(window_);
+        window_controller->raise(window_);
     }
 
     commit_changes();
@@ -465,19 +462,19 @@ mir::geometry::Rectangle LeafContainer::confirm_placement(
 
 void LeafContainer::on_open()
 {
-    window_controller.open(window_);
+    window_controller->open(window_);
 }
 
 void LeafContainer::on_focus_gained()
 {
     if (auto sh_parent = parent.lock())
         sh_parent->on_focus_gained();
-    state.render_data_manager()->focus_change(*this);
+    state->render_data_manager()->focus_change(*this);
 }
 
 void LeafContainer::on_focus_lost()
 {
-    state.render_data_manager()->focus_change(*this);
+    state->render_data_manager()->focus_change(*this);
 }
 
 void LeafContainer::on_move_to(geom::Point const&)
@@ -486,14 +483,14 @@ void LeafContainer::on_move_to(geom::Point const&)
 
 bool LeafContainer::is_fullscreen() const
 {
-    return window_controller.is_fullscreen(window_);
+    return window_controller->is_fullscreen(window_);
 }
 
 void LeafContainer::commit_changes()
 {
     if (next_state)
     {
-        window_controller.change_state(window_, next_state.value());
+        window_controller->change_state(window_, next_state.value());
         constrain();
         next_state.reset();
     }
@@ -502,7 +499,7 @@ void LeafContainer::commit_changes()
     {
         miral::WindowSpecification spec;
         spec.depth_layer() = next_depth_layer.value();
-        window_controller.modify(window_, spec);
+        window_controller->modify(window_, spec);
         next_depth_layer.reset();
     }
 
@@ -511,13 +508,13 @@ void LeafContainer::commit_changes()
         auto previous = get_visible_area();
         logical_area = next_logical_area.value();
         next_logical_area.reset();
-        if (!window_controller.is_fullscreen(window_))
+        if (!window_controller->is_fullscreen(window_))
         {
             auto next_visible_area = get_visible_area();
             if (is_dragging_ && next_visible_area.top_left != dragged_position)
                 next_visible_area.top_left = dragged_position;
 
-            window_controller.set_rectangle(window_, previous, next_visible_area, next_with_animations);
+            window_controller->set_rectangle(window_, previous, next_visible_area, next_with_animations);
             next_with_animations = true;
         }
     }
@@ -563,17 +560,17 @@ void LeafContainer::toggle_layout(bool cycle_thru_all)
     }
 }
 
-Workspace* LeafContainer::get_workspace() const
+WorkspaceInterface* LeafContainer::get_workspace() const
 {
     return workspace;
 }
 
-void LeafContainer::set_workspace(miracle::Workspace* in)
+void LeafContainer::set_workspace(miracle::WorkspaceInterface* in)
 {
     workspace = in;
 }
 
-Output* LeafContainer::get_output() const
+OutputInterface* LeafContainer::get_output() const
 {
     return workspace->get_output();
 }
@@ -589,7 +586,7 @@ void LeafContainer::set_transform(glm::mat4 transform_)
     {
         surface->set_transformation(transform_);
         transform = transform_;
-        state.render_data_manager()->transform_change(*this);
+        state->render_data_manager()->transform_change(*this);
     }
 }
 
@@ -605,10 +602,10 @@ void LeafContainer::animation_handle(uint32_t handle)
 
 bool LeafContainer::is_focused() const
 {
-    if ((state.focused_container() && state.focused_container().get() == this) || parent.lock()->is_focused())
+    if ((state->focused_container() && state->focused_container().get() == this) || parent.lock()->is_focused())
         return true;
 
-    auto group = Container::as_group(state.focused_container());
+    auto group = Container::as_group(state->focused_container());
     if (!group)
         return false;
 
@@ -629,7 +626,7 @@ bool LeafContainer::select_next(miracle::Direction direction)
         return false;
     }
 
-    window_controller.select_active_window(next->window().value());
+    window_controller->select_active_window(next->window().value());
     return true;
 }
 
@@ -784,7 +781,7 @@ void LeafContainer::drag(int x, int y)
     miral::WindowSpecification spec;
     spec.top_left() = { x, y };
     dragged_position = { x, y };
-    window_controller.modify(window_, spec);
+    window_controller->modify(window_, spec);
 }
 
 bool LeafContainer::drag_stop()
@@ -797,7 +794,7 @@ bool LeafContainer::drag_stop()
     miral::WindowSpecification spec;
     auto visible_area = get_visible_area();
     geom::Rectangle previous = { dragged_position, visible_area.size };
-    window_controller.set_rectangle(window_, previous, visible_area);
+    window_controller->set_rectangle(window_, previous, visible_area);
     constrain();
     return true;
 }
@@ -859,20 +856,17 @@ LayoutScheme LeafContainer::get_layout() const
     return LayoutScheme::none;
 }
 
-nlohmann::json LeafContainer::to_json() const
+nlohmann::json LeafContainer::to_json(bool is_workspace_visible) const
 {
     auto const app = window_.application();
-    auto const& win_info = window_controller.info_for(window_);
+    auto const& win_info = window_controller->info_for(window_);
     auto visible_area = get_visible_area();
     auto workspace = get_workspace();
     auto output = get_output();
     auto locked_parent = parent.lock();
     bool visible = true;
 
-    if (output_manager->focused() != output)
-        visible = false;
-
-    if (output->active() != workspace)
+    if (!is_workspace_visible)
         visible = false;
 
     if (locked_parent == nullptr)

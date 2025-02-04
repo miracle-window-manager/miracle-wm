@@ -42,13 +42,12 @@ class LeafContainer : public Container
 {
 public:
     LeafContainer(
-        Workspace* workspace,
-        WindowController& node_interface,
+        WorkspaceInterface* workspace,
+        std::shared_ptr<WindowController> const& window_controller,
         geom::Rectangle area,
         std::shared_ptr<Config> const& config,
         std::shared_ptr<ParentContainer> const& parent,
-        CompositorState const& state,
-        OutputManager* output_manager);
+        std::shared_ptr<CompositorState> const& state);
     ~LeafContainer();
 
     void associate_to_window(miral::Window const&);
@@ -83,9 +82,9 @@ public:
     void commit_changes() override;
     void show() override;
     void hide() override;
-    Workspace* get_workspace() const override;
-    void set_workspace(Workspace*) override;
-    Output* get_output() const override;
+    WorkspaceInterface* get_workspace() const override;
+    void set_workspace(WorkspaceInterface*) override;
+    OutputInterface* get_output() const override;
     glm::mat4 get_transform() const override;
     void set_transform(glm::mat4 transform) override;
     uint32_t animation_handle() const override;
@@ -110,23 +109,22 @@ public:
     ScratchpadState scratchpad_state() const override;
     void scratchpad_state(ScratchpadState) override;
     LayoutScheme get_layout() const override;
-    nlohmann::json to_json() const override;
+    nlohmann::json to_json(bool is_workspace_visible) const override;
 
     static std::shared_ptr<LeafContainer> handle_select(
         Container& from,
         Direction direction);
 
 private:
-    Workspace* workspace;
-    WindowController& window_controller;
+    WorkspaceInterface* workspace;
+    std::shared_ptr<WindowController> window_controller;
     geom::Rectangle logical_area;
     std::optional<geom::Rectangle> next_logical_area;
     bool next_with_animations = true;
     std::shared_ptr<Config> config;
     miral::Window window_;
     std::weak_ptr<ParentContainer> parent;
-    CompositorState const& state;
-    OutputManager* output_manager;
+    std::shared_ptr<CompositorState> state;
 
     std::optional<MirWindowState> before_shown_state;
     std::optional<MirWindowState> next_state;
