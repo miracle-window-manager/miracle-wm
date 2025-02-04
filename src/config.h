@@ -157,7 +157,7 @@ enum class RenderFilter : int
 struct DragAndDropConfiguration
 {
     bool enabled = true;
-    uint modifiers = miracle_input_event_modifier_default;
+    uint modifiers = miracle_input_event_modifier_default | mir_input_event_modifier_shift;
 };
 
 class Config
@@ -184,6 +184,7 @@ public:
     [[nodiscard]] virtual WorkspaceConfig get_workspace_config(std::optional<int> const& num, std::optional<std::string> const& name) const = 0;
     [[nodiscard]] virtual LayoutScheme get_default_layout_scheme() const = 0;
     [[nodiscard]] virtual DragAndDropConfiguration drag_and_drop() const = 0;
+    [[nodiscard]] virtual uint move_modifier() const = 0;
 
     virtual int register_listener(std::function<void(miracle::Config&)> const&) = 0;
     /// Register a listener on configuration change. A lower "priority" number signifies that the
@@ -224,6 +225,7 @@ public:
     [[nodiscard]] WorkspaceConfig get_workspace_config(std::optional<int> const& num, std::optional<std::string> const& name) const override;
     [[nodiscard]] LayoutScheme get_default_layout_scheme() const override;
     [[nodiscard]] DragAndDropConfiguration drag_and_drop() const override;
+    [[nodiscard]] uint move_modifier() const override;
     int register_listener(std::function<void(miracle::Config&)> const&) override;
     int register_listener(std::function<void(miracle::Config&)> const&, int priority) override;
     void unregister_listener(int handle) override;
@@ -249,6 +251,7 @@ private:
         bool animations_enabled = true;
         std::array<AnimationDefinition, static_cast<int>(AnimateableEvent::max)> animation_definitions;
         std::vector<WorkspaceConfig> workspace_configs;
+        uint move_modifier = miracle_input_event_modifier_default;
         DragAndDropConfiguration drag_and_drop;
     };
 
@@ -275,6 +278,7 @@ private:
     void read_workspaces(YAML::Node const&);
     void read_animation_definitions(YAML::Node const&);
     void read_enable_animations(YAML::Node const&);
+    void read_move_modifier(YAML::Node const&);
     void read_drag_and_drop(YAML::Node const&);
 
     static std::optional<uint> try_parse_modifier(std::string const& stringified_action_key);

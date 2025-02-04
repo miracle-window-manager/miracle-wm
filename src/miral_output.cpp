@@ -22,7 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "animator.h"
 #include "compositor_state.h"
 #include "config.h"
-#include "floating_window_container.h"
 #include "leaf_container.h"
 #include "output_manager.h"
 #include "vector_helpers.h"
@@ -43,7 +42,6 @@ MiralWrapperOutput::MiralWrapperOutput(
     std::string name,
     int id,
     geom::Rectangle const& area,
-    std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
     CompositorState& state,
     OutputManager* output_manager,
     std::shared_ptr<Config> const& config,
@@ -52,7 +50,6 @@ MiralWrapperOutput::MiralWrapperOutput(
     name_ { std::move(name) },
     id_ { id },
     area { area },
-    floating_window_manager { floating_window_manager },
     state { state },
     config { config },
     output_manager { output_manager },
@@ -119,9 +116,19 @@ AllocationHint MiralWrapperOutput::allocate_position(
     miral::WindowSpecification& requested_specification,
     AllocationHint hint)
 {
-    hint.container_type = hint.container_type == ContainerType::none
-        ? window_helpers::get_ideal_type(requested_specification)
-        : hint.container_type;
+    auto has_exclusive_rect = requested_specification.exclusive_rect().is_set();
+    auto is_attached = requested_specification.attached_edges().is_set();
+    if (has_exclusive_rect || is_attached)
+        hint.container_type = ContainerType::shell;
+    else
+    {
+        auto t = requested_specification.type();
+        if (t == mir_window_type_normal || t == mir_window_type_freestyle)
+            hint.container_type = ContainerType::leaf;
+        else
+            hint.container_type = ContainerType::shell; // This is probably a tooltip or something
+    }
+
     if (hint.container_type == ContainerType::shell)
         return hint;
 
@@ -162,7 +169,7 @@ void MiralWrapperOutput::advise_new_workspace(WorkspaceCreationData const&& data
 {
     // Workspaces are always kept in sorted order with numbered workspaces in front followed by all other workspaces
     std::shared_ptr<Workspace> new_workspace = std::make_shared<MiralWorkspace>(
-        this, data.id, data.num, data.name, config, window_controller, state, floating_window_manager, output_manager);
+        this, data.id, data.num, data.name, config, window_controller, state, output_manager);
     insert_workspace_sorted(new_workspace);
 }
 

@@ -15,22 +15,17 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef MIRACLEWM_WINDOW_HELPERS_H
-#define MIRACLEWM_WINDOW_HELPERS_H
-
-#include "container.h"
-#include <miral/window_info.h>
-#include <miral/window_manager_tools.h>
+#ifndef MIRACLE_WM_SCRATCHPAD_STATE_H
+#define MIRACLE_WM_SCRATCHPAD_STATE_H
 
 namespace miracle
 {
-class LeafContainer;
-
-namespace window_helpers
+enum class ScratchpadState
 {
-    bool is_window_fullscreen(MirWindowState state);
-    miral::WindowSpecification copy_from(miral::WindowInfo const&);
-}
+    none,
+    fresh,
+    changed
+};
 }
 
-#endif // MIRACLEWM_WINDOW_HELPERS_H
+#endif // MIRACLE_WM_SCRATCHPAD_STATE_H

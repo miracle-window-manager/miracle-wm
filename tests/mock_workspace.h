@@ -44,25 +44,20 @@ namespace test
         MOCK_METHOD(std::shared_ptr<Container>, create_container,
             (miral::WindowInfo const& window_info, AllocationHint const& type), (override));
 
-        MOCK_METHOD(void, handle_ready_hack, (LeafContainer & container), (override));
         MOCK_METHOD(void, delete_container, (std::shared_ptr<Container> const& container), (override));
         MOCK_METHOD(bool, move_container, (Direction direction, Container&), (override));
-        MOCK_METHOD(bool, move_to, (Container & to_move, Container& target), (override));
-        MOCK_METHOD(bool, move_to, (Container & to_move), (override));
+        MOCK_METHOD(bool, move_to_container_position, (Container & to_move, Container& target), (override));
         MOCK_METHOD(void, show, (), (override));
         MOCK_METHOD(void, hide, (), (override));
+        MOCK_METHOD(bool, add_to_root, (Container&), (override));
+        MOCK_METHOD(std::shared_ptr<ParentContainer>, create_floating_tree, (mir::geometry::Rectangle const&), (override));
 
         MOCK_METHOD(void, transfer_pinned_windows_to, (std::shared_ptr<Workspace> const& other), (override));
 
-        MOCK_METHOD(void, for_each_window,
+        MOCK_METHOD(bool, for_each_window,
             (std::function<bool(std::shared_ptr<Container>)> const&), (const, override));
 
-        MOCK_METHOD(std::shared_ptr<FloatingWindowContainer>, add_floating_window,
-            (miral::Window const&), (override));
-
         MOCK_METHOD(void, advise_focus_gained, (std::shared_ptr<Container> const& container), (override));
-
-        MOCK_METHOD(void, remove_floating_hack, (std::shared_ptr<Container> const&), (override));
 
         MOCK_METHOD(void, select_first_window, (), (override));
 

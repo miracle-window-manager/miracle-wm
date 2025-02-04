@@ -26,9 +26,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "drag_and_drop_service.h"
 #include "ipc.h"
 #include "ipc_command_executor.h"
-#include "minimal_window_manager.h"
 #include "miral_output.h"
 #include "mode_observer.h"
+#include "move_service.h"
 #include "scratchpad.h"
 #include "window_manager_tools_window_controller.h"
 #include "workspace_manager.h"
@@ -113,7 +113,6 @@ private:
 
     bool is_starting_ = true;
     AllocationHint pending_allocation;
-    std::shared_ptr<MinimalWindowManager> floating_window_manager;
     WorkspaceObserverRegistrar workspace_observer_registrar;
     ModeObserverRegistrar mode_observer_registrar;
     std::unique_ptr<OutputManager> output_manager;
@@ -122,6 +121,7 @@ private:
     Scratchpad scratchpad_;
     CommandController command_controller;
     DragAndDropService drag_and_drop_service;
+    MoveService move_service;
     std::shared_ptr<Ipc> ipc;
     std::unique_ptr<AnimatorLoop> animator_loop;
     WindowManagerToolsWindowController window_controller;

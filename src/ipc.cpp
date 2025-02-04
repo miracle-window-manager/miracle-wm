@@ -100,6 +100,11 @@ json mode_event_to_json(WindowManagerMode mode)
             { "change",       "dragging" },
             { "pango_markup", true       }
         };
+    case WindowManagerMode::moving:
+        return {
+            { "change",       "moving" },
+            { "pango_markup", true     }
+        };
     default:
     {
         mir::fatal_error("handle_command: unknown binding state: %d", (int)mode);

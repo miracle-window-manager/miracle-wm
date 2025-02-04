@@ -20,7 +20,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "container.h"
 #include "layout_scheme.h"
+#include "scratchpad_state.h"
 #include "window_controller.h"
+
 #include <miral/window.h>
 #include <miral/window_manager_tools.h>
 #include <optional>
@@ -52,7 +54,7 @@ public:
     void associate_to_window(miral::Window const&);
     [[nodiscard]] geom::Rectangle get_logical_area() const override;
     [[nodiscard]] geom::Rectangle get_visible_area() const override;
-    void set_logical_area(geom::Rectangle const& target_rect) override;
+    void set_logical_area(geom::Rectangle const& target_rect, bool with_animations = true) override;
     std::weak_ptr<ParentContainer> get_parent() const override;
     void set_parent(std::shared_ptr<ParentContainer> const&) override;
     void set_state(MirWindowState state);
@@ -95,6 +97,7 @@ public:
     bool pinned(bool) override;
     bool move(Direction) override;
     bool move_by(Direction, int) override;
+    bool move_by(float, float) override;
     bool move_to(int, int) override;
     bool toggle_tabbing() override;
     bool toggle_stacking() override;
@@ -102,6 +105,9 @@ public:
     void drag(int x, int y) override;
     bool drag_stop() override;
     bool set_layout(LayoutScheme) override;
+    bool anchored() const override;
+    ScratchpadState scratchpad_state() const override;
+    void scratchpad_state(ScratchpadState) override;
     LayoutScheme get_layout() const override;
     nlohmann::json to_json() const override;
 
@@ -114,6 +120,7 @@ private:
     WindowController& window_controller;
     geom::Rectangle logical_area;
     std::optional<geom::Rectangle> next_logical_area;
+    bool next_with_animations = true;
     std::shared_ptr<Config> config;
     miral::Window window_;
     std::weak_ptr<ParentContainer> parent;
@@ -122,6 +129,7 @@ private:
 
     std::optional<MirWindowState> before_shown_state;
     std::optional<MirWindowState> next_state;
+    std::optional<MirDepthLayer> next_depth_layer;
     glm::mat4 transform = glm::mat4(1.f);
     uint32_t animation_handle_ = 0;
     bool is_dragging_ = false;

@@ -227,6 +227,7 @@ miral::WindowSpecification ParentContainer::place_new_window(
     new_spec.max_height() = geom::Height { std::numeric_limits<int>::max() };
     new_spec.size() = rect.size;
     new_spec.top_left() = rect.top_left;
+    new_spec.depth_layer() = !anchored() ? mir_depth_layer_above : mir_depth_layer_application;
 
     return new_spec;
 }
@@ -297,7 +298,7 @@ std::shared_ptr<ParentContainer> ParentContainer::convert_to_parent(std::shared_
     return new_parent_node;
 }
 
-void ParentContainer::set_logical_area(const geom::Rectangle& target_rect)
+void ParentContainer::set_logical_area(const geom::Rectangle& target_rect, bool with_animations)
 {
     // We are setting the size of the lane, but each window might have an idea of how
     // its own height relates to the lane (e.g. I take up 300px of 900px lane while my
@@ -405,7 +406,7 @@ void ParentContainer::set_logical_area(const geom::Rectangle& target_rect)
 
     for (size_t i = 0; i < sub_nodes.size(); i++)
     {
-        sub_nodes[i]->set_logical_area(pending_size_updates[i]);
+        sub_nodes[i]->set_logical_area(pending_size_updates[i], with_animations);
     }
 }
 
@@ -615,6 +616,8 @@ void ParentContainer::handle_request_resize(MirInputEvent const* input_event, Mi
 
 void ParentContainer::handle_raise()
 {
+    for (auto const& node : sub_nodes)
+        node->handle_raise();
 }
 
 bool ParentContainer::resize(Direction direction, int pixels)
@@ -722,6 +725,8 @@ Workspace* ParentContainer::get_workspace() const
 void ParentContainer::set_workspace(Workspace* next)
 {
     workspace = next;
+    for (auto const& node : sub_nodes)
+        node->set_workspace(workspace);
 }
 
 Output* ParentContainer::get_output() const
@@ -772,19 +777,45 @@ bool ParentContainer::select_next(miracle::Direction)
     return false;
 }
 
-bool ParentContainer::pinned(bool)
+bool ParentContainer::pinned(bool value)
 {
-    return false;
+    if (auto sh_parent = parent.lock())
+        return sh_parent->pinned(value);
+
+    if (is_anchored)
+        return false;
+
+    pinned_ = value;
+    return true;
 }
 
 bool ParentContainer::pinned() const
 {
-    return false;
+    if (auto sh_parent = parent.lock())
+        return sh_parent->pinned();
+    return pinned_;
 }
 
 bool ParentContainer::move(Direction direction)
 {
     return false;
+}
+
+bool ParentContainer::move_by(float dx, float dy)
+{
+    if (auto sh_parent = parent.lock())
+        return sh_parent->move_by(dx, dy);
+
+    // Cannot move an anchored parent
+    if (is_anchored)
+        return false;
+
+    auto area = logical_area;
+    area.top_left.x = geom::X { (float)area.top_left.x.as_int() + dx };
+    area.top_left.y = geom::Y { (float)area.top_left.y.as_int() + dy };
+    set_logical_area(area, false);
+    commit_changes();
+    return true;
 }
 
 bool ParentContainer::move_by(Direction direction, int pixels)
@@ -797,7 +828,7 @@ bool ParentContainer::move_to(int x, int y)
     if (is_anchored)
         return false;
 
-    auto area = get_logical_area();
+    auto area = logical_area;
     area.top_left.x = geom::X { x };
     area.top_left.y = geom::Y { y };
     set_logical_area(area);
@@ -844,6 +875,36 @@ bool ParentContainer::set_layout(LayoutScheme new_scheme)
 LayoutScheme ParentContainer::get_layout() const
 {
     return scheme;
+}
+
+bool ParentContainer::set_anchored(bool anchor)
+{
+    is_anchored = anchor;
+    return true;
+}
+
+bool ParentContainer::anchored() const
+{
+    if (auto sh_parent = parent.lock())
+        return sh_parent->anchored();
+
+    return is_anchored;
+}
+
+ScratchpadState ParentContainer::scratchpad_state() const
+{
+    if (auto sh_parent = parent.lock())
+        return sh_parent->scratchpad_state();
+
+    return scratchpad_state_;
+}
+
+void ParentContainer::scratchpad_state(ScratchpadState next_scratchpad_state)
+{
+    if (auto sh_parent = parent.lock())
+        return sh_parent->scratchpad_state(next_scratchpad_state);
+
+    scratchpad_state_ = next_scratchpad_state;
 }
 
 nlohmann::json ParentContainer::to_json() const

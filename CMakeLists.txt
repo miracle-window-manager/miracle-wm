@@ -51,7 +51,7 @@ add_library(miracle-wm-implementation
     src/ipc.cpp
     src/auto_restarting_launcher.cpp
     src/workspace_observer.cpp
-    src/workspace.cpp
+    src/workspace.cpp src/workspace.h
     src/leaf_container.cpp
     src/parent_container.cpp
     src/window_manager_tools_window_controller.cpp
@@ -67,16 +67,12 @@ add_library(miracle-wm-implementation
     src/program_factory.cpp
     src/mode_observer.cpp
     src/debug_helper.h
-    src/floating_window_container.cpp
-    src/shell_component_container.cpp
+        src/shell_component_container.cpp
     src/container_group_container.cpp
     src/container_group_container.h
-    src/floating_tree_container.cpp
-    src/floating_tree_container.h
-    src/layout_scheme.cpp
+        src/layout_scheme.cpp
     src/utility_general.h
-    src/minimal_window_manager.cpp src/minimal_window_manager.h
-    src/config_error_handler.cpp src/config_error_handler.h
+        src/config_error_handler.cpp src/config_error_handler.h
     src/scratchpad.h src/scratchpad.cpp
     src/compositor_state.h src/compositor_state.cpp
     src/math_helpers.h
@@ -87,6 +83,7 @@ add_library(miracle-wm-implementation
     src/output_manager.cpp src/output_manager.h
     src/miral_output_factory.cpp src/miral_output_factory.cpp
     src/miral_output.h src/miral_output.cpp
+    src/move_service.h src/move_service.cpp
 )
 
 add_executable(miracle-wm

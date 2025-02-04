@@ -49,7 +49,7 @@ namespace test
             return {};
         }
 
-        void set_logical_area(mir::geometry::Rectangle const& rectangle) override
+        void set_logical_area(mir::geometry::Rectangle const& rectangle, bool) override
         {
         }
 

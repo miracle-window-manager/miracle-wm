@@ -88,7 +88,7 @@ bool WindowManagerToolsWindowController::is_fullscreen(miral::Window const& wind
 }
 
 void WindowManagerToolsWindowController::set_rectangle(
-    miral::Window const& window, geom::Rectangle const& from, geom::Rectangle const& to)
+    miral::Window const& window, geom::Rectangle const& from, geom::Rectangle const& to, bool with_animations)
 {
     auto container = get_container(window);
     if (!container)
@@ -104,7 +104,7 @@ void WindowManagerToolsWindowController::set_rectangle(
         return;
     }
 
-    if (!config->are_animations_enabled())
+    if (!config->are_animations_enabled() || !with_animations)
     {
         policy->handle_animation(
             AnimationStepResult { container->animation_handle(),

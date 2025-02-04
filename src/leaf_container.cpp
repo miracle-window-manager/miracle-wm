@@ -74,6 +74,21 @@ std::shared_ptr<LeafContainer> get_closest_window_to_select_from_node(
 
     return nullptr;
 }
+
+const char* scratchpad_state_to_string(ScratchpadState state)
+{
+    switch (state)
+    {
+    case ScratchpadState::none:
+        return "none";
+    case ScratchpadState::fresh:
+        return "fresh";
+    case ScratchpadState::changed:
+        return "changed";
+    default:
+        return "unknown";
+    }
+}
 }
 
 LeafContainer::LeafContainer(
@@ -110,9 +125,10 @@ geom::Rectangle LeafContainer::get_logical_area() const
     return next_logical_area ? next_logical_area.value() : logical_area;
 }
 
-void LeafContainer::set_logical_area(geom::Rectangle const& target_rect)
+void LeafContainer::set_logical_area(geom::Rectangle const& target_rect, bool with_animations)
 {
     next_logical_area = target_rect;
+    next_with_animations = with_animations;
 }
 
 std::weak_ptr<ParentContainer> LeafContainer::get_parent() const
@@ -123,6 +139,10 @@ std::weak_ptr<ParentContainer> LeafContainer::get_parent() const
 void LeafContainer::set_parent(std::shared_ptr<ParentContainer> const& in_parent)
 {
     parent = in_parent;
+
+    miral::WindowSpecification spec;
+    spec.depth_layer() = !in_parent->anchored() ? mir_depth_layer_above : mir_depth_layer_application;
+    window_controller.modify(window_, spec);
 }
 
 void LeafContainer::set_state(MirWindowState state)
@@ -199,7 +219,6 @@ void LeafContainer::handle_ready()
             window_controller.select_active_window(window_);
     }
 
-    get_workspace()->handle_ready_hack(*this);
     if (window_controller.is_fullscreen(window_))
         toggle_fullscreen();
 }
@@ -387,10 +406,14 @@ void LeafContainer::hide()
 bool LeafContainer::toggle_fullscreen()
 {
     if (window_controller.is_fullscreen(window_))
+    {
         next_state = mir_window_state_restored;
+        next_depth_layer = !parent.lock()->anchored() ? mir_depth_layer_above : mir_depth_layer_application;
+    }
     else
     {
         next_state = mir_window_state_fullscreen;
+        next_depth_layer = mir_depth_layer_always_on_top;
         window_controller.select_active_window(window_);
         window_controller.raise(window_);
     }
@@ -412,7 +435,6 @@ void LeafContainer::on_open()
 
 void LeafContainer::on_focus_gained()
 {
-    window_controller.raise(window_);
     if (auto sh_parent = parent.lock())
         sh_parent->on_focus_gained();
     state.render_data_manager()->focus_change(*this);
@@ -441,6 +463,14 @@ void LeafContainer::commit_changes()
         next_state.reset();
     }
 
+    if (next_depth_layer)
+    {
+        miral::WindowSpecification spec;
+        spec.depth_layer() = next_depth_layer.value();
+        window_controller.modify(window_, spec);
+        next_depth_layer.reset();
+    }
+
     if (next_logical_area)
     {
         auto previous = get_visible_area();
@@ -452,7 +482,8 @@ void LeafContainer::commit_changes()
             if (is_dragging_ && next_visible_area.top_left != dragged_position)
                 next_visible_area.top_left = dragged_position;
 
-            window_controller.set_rectangle(window_, previous, next_visible_area);
+            window_controller.set_rectangle(window_, previous, next_visible_area, next_with_animations);
+            next_with_animations = true;
         }
     }
 }
@@ -539,7 +570,7 @@ void LeafContainer::animation_handle(uint32_t handle)
 
 bool LeafContainer::is_focused() const
 {
-    if (state.focused_container().get() == this || parent.lock()->is_focused())
+    if ((state.focused_container() && state.focused_container().get() == this) || parent.lock()->is_focused())
         return true;
 
     auto group = Container::as_group(state.focused_container());
@@ -614,13 +645,17 @@ std::shared_ptr<LeafContainer> LeafContainer::handle_select(
     return nullptr;
 }
 
-bool LeafContainer::pinned(bool)
+bool LeafContainer::pinned(bool value)
 {
+    if (auto sh_parent = parent.lock())
+        return sh_parent->pinned(value);
     return false;
 }
 
 bool LeafContainer::pinned() const
 {
+    if (auto sh_parent = parent.lock())
+        return sh_parent->pinned();
     return false;
 }
 
@@ -634,7 +669,14 @@ bool LeafContainer::move_by(Direction, int)
     return false;
 }
 
-bool LeafContainer::move_to(int, int)
+bool LeafContainer::move_by(float dx, float dy)
+{
+    if (auto sh_parent = parent.lock())
+        return sh_parent->move_by(dx, dy);
+    return false;
+}
+
+bool LeafContainer::move_to(int x, int y)
 {
     return false;
 }
@@ -703,6 +745,25 @@ bool LeafContainer::set_layout(LayoutScheme scheme)
 {
     handle_layout_scheme(this, scheme);
     return true;
+}
+
+bool LeafContainer::anchored() const
+{
+    return !parent.expired() && parent.lock()->anchored();
+}
+
+ScratchpadState LeafContainer::scratchpad_state() const
+{
+    if (!parent.expired())
+        return parent.lock()->scratchpad_state();
+
+    return ScratchpadState::none;
+}
+
+void LeafContainer::scratchpad_state(ScratchpadState next_scratchpad_state)
+{
+    if (!parent.expired())
+        return parent.lock()->scratchpad_state(next_scratchpad_state);
 }
 
 void LeafContainer::handle_layout_scheme(Container* container, LayoutScheme scheme)
@@ -811,6 +872,7 @@ nlohmann::json LeafContainer::to_json() const
                                                             { "user", "visible" },
                                                         }                                                                                                                                                                                                                      },
         { "window_properties",    properties                                                                                                                                                                                                                                                               }, // TODO
-        { "nodes",                std::vector<int>()                                                                                                                                                                                                                                                       }
+        { "nodes",                std::vector<int>()                                                                                                                                                                                                                                                       },
+        { "scratchpad_state",     scratchpad_state_to_string(scratchpad_state())                                                                                                                                                                                                                           }
     };
 }

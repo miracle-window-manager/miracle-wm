@@ -79,11 +79,22 @@ void CompositorState::remove(std::shared_ptr<Container> const& container)
     mir::log_debug("remove: there are now %zu surfaces in the focus order", focus_order.size());
 }
 
-std::shared_ptr<Container> CompositorState::get_first_with_type(ContainerType type) const
+std::shared_ptr<Container> CompositorState::first_floating() const
 {
     for (auto const& container : focus_order)
     {
-        if (!container.expired() && container.lock()->get_type() == type)
+        if (!container.expired() && !container.lock()->anchored())
+            return container.lock();
+    }
+
+    return nullptr;
+}
+
+std::shared_ptr<Container> CompositorState::first_tiling() const
+{
+    for (auto const& container : focus_order)
+    {
+        if (!container.expired() && container.lock()->anchored())
             return container.lock();
     }
 

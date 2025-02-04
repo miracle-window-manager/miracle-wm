@@ -134,6 +134,11 @@ namespace test
             return {};
         }
 
+        [[nodiscard]] uint move_modifier() const override
+        {
+            return 0;
+        }
+
     private:
         miracle::BorderConfig border_config;
         std::array<AnimationDefinition, static_cast<int>(AnimateableEvent::max)> animations;

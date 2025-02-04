@@ -92,7 +92,7 @@ mir::geometry::Rectangle ContainerGroupContainer::get_logical_area() const
     return {};
 }
 
-void ContainerGroupContainer::set_logical_area(mir::geometry::Rectangle const& rectangle)
+void ContainerGroupContainer::set_logical_area(mir::geometry::Rectangle const& rectangle, bool with_animations)
 {
 }
 
@@ -339,6 +339,17 @@ bool ContainerGroupContainer::move_by(Direction direction, int pixels)
     {
         if (auto c = container.lock())
             result &= c->move_by(direction, pixels);
+    }
+    return result;
+}
+
+bool ContainerGroupContainer::move_by(float x, float y)
+{
+    bool result = true;
+    for (auto const& container : containers)
+    {
+        if (auto c = container.lock())
+            result &= c->move_by(x, y);
     }
     return result;
 }

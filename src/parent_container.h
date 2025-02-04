@@ -56,7 +56,7 @@ public:
     std::shared_ptr<LeafContainer> confirm_window(miral::Window const&);
     void graft_existing(std::shared_ptr<Container> const& node, int index);
     std::shared_ptr<ParentContainer> convert_to_parent(std::shared_ptr<Container> const& container);
-    void set_logical_area(geom::Rectangle const& target_rect) override;
+    void set_logical_area(geom::Rectangle const& target_rect, bool with_animations = true) override;
     void swap_nodes(std::shared_ptr<Container> const& first, std::shared_ptr<Container> const& second);
     void remove(std::shared_ptr<Container> const& node);
     void commit_changes() override;
@@ -109,6 +109,7 @@ public:
     bool pinned() const override;
     bool move(Direction direction) override;
     bool move_by(Direction direction, int pixels) override;
+    bool move_by(float dx, float dy) override;
     bool move_to(int x, int y) override;
     bool is_fullscreen() const override;
     bool toggle_tabbing() override;
@@ -117,6 +118,10 @@ public:
     void drag(int, int) override { }
     bool drag_stop() override { return false; }
     bool set_layout(LayoutScheme scheme) override;
+    bool set_anchored(bool anchor);
+    bool anchored() const override;
+    ScratchpadState scratchpad_state() const override;
+    void scratchpad_state(ScratchpadState) override;
     LayoutScheme get_layout() const override;
     nlohmann::json to_json() const override;
     [[nodiscard]] LayoutScheme get_scheme() const { return scheme; }
@@ -130,6 +135,8 @@ private:
     Workspace* workspace;
     std::weak_ptr<ParentContainer> parent;
     bool is_anchored;
+    bool pinned_ = false;
+    ScratchpadState scratchpad_state_ = ScratchpadState::none;
 
     LayoutScheme scheme = LayoutScheme::horizontal;
     std::vector<std::shared_ptr<Container>> sub_nodes;

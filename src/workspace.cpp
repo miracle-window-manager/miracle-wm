@@ -21,15 +21,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "compositor_state.h"
 #include "config.h"
 #include "container_group_container.h"
-#include "floating_tree_container.h"
-#include "floating_window_container.h"
 #include "leaf_container.h"
 #include "output.h"
 #include "output_manager.h"
 #include "parent_container.h"
-#include "render_data_manager.h"
 #include "shell_component_container.h"
-#include "window_helpers.h"
 
 #include <cassert>
 #include <mir/log.h>
@@ -48,7 +44,7 @@ std::shared_ptr<ParentContainer> handle_remove_container(std::shared_ptr<Contain
 
     if (parent->num_nodes() == 1 && parent->get_parent().lock())
     {
-        // Remove the entire lane if this lane is now empty
+        // Remove the entire parent if this parent is now empty
         auto prev_active = parent;
         parent = Container::as_parent(parent->get_parent().lock());
         parent->remove(prev_active);
@@ -106,7 +102,6 @@ MiralWorkspace::MiralWorkspace(
     std::shared_ptr<Config> const& config,
     WindowController& window_controller,
     CompositorState const& state,
-    std::shared_ptr<MinimalWindowManager> const& floating_window_manager,
     OutputManager* output_manager) :
     output { output },
     id_ { id },
@@ -116,7 +111,6 @@ MiralWorkspace::MiralWorkspace(
     state { state },
     config { config },
     output_manager { output_manager },
-    floating_window_manager { floating_window_manager },
     root(std::make_shared<ParentContainer>(
         state, output_manager, window_controller, config, output->get_area(), this, nullptr, true))
 {
@@ -165,12 +159,6 @@ AllocationHint MiralWorkspace::allocate_position(
         requested_specification = parent->place_new_window(requested_specification);
         return { ContainerType::leaf, parent };
     }
-    case ContainerType::floating_window:
-    {
-        requested_specification = floating_window_manager->place_new_window(app_info, requested_specification);
-        requested_specification.server_side_decorated() = false;
-        return { ContainerType::floating_window };
-    }
     default:
         return { layout };
     }
@@ -190,12 +178,6 @@ std::shared_ptr<Container> MiralWorkspace::create_container(
         container = hint.parent.value()->confirm_window(window_info.window());
         break;
     }
-    case ContainerType::floating_window:
-    {
-        floating_window_manager->advise_new_window(window_info);
-        container = add_floating_window(window_info.window());
-        break;
-    }
     case ContainerType::shell:
         container = std::make_shared<ShellComponentContainer>(window_info.window(), window_controller);
         break;
@@ -211,18 +193,6 @@ std::shared_ptr<Container> MiralWorkspace::create_container(
     return container;
 }
 
-void MiralWorkspace::handle_ready_hack(LeafContainer& container)
-{
-    // TODO: Hack
-    //  By default, new windows are raised. To properly maintain the ordering, we must
-    //  raise floating windows and then raise fullscreen windows.
-    for (auto const& window : floating_windows)
-        window_controller.raise(window->window().value());
-
-    if (state.focused_container() && state.focused_container()->is_fullscreen())
-        window_controller.raise(state.focused_container()->window().value());
-}
-
 void MiralWorkspace::delete_container(std::shared_ptr<Container> const& container)
 {
     switch (container->get_type())
@@ -231,14 +201,15 @@ void MiralWorkspace::delete_container(std::shared_ptr<Container> const& containe
     {
         auto parent = handle_remove_container(container);
         parent->commit_changes();
-        break;
-    }
-    case ContainerType::floating_window:
-    {
-        auto floating = Container::as_floating(container);
-        floating_window_manager->advise_delete_window(window_controller.info_for(floating->window().value()));
-        floating_windows.erase(
-            std::remove(floating_windows.begin(), floating_windows.end(), floating), floating_windows.end());
+
+        // If we're deleting a container and it is the final container in a
+        // floating tree, then we need to remove the tree entirely.
+        if (parent->num_nodes() == 0 && parent != root)
+        {
+            floating_trees.erase(
+                std::remove(floating_trees.begin(), floating_trees.end(), parent),
+                floating_trees.end());
+        }
         break;
     }
     default:
@@ -255,36 +226,20 @@ void MiralWorkspace::advise_focus_gained(std::shared_ptr<Container> const& conta
 void MiralWorkspace::show()
 {
     root->show();
-    for (auto const& floating : floating_windows)
+    for (auto const& floating : floating_trees)
         floating->show();
 }
 
 void MiralWorkspace::hide()
 {
     root->hide();
-    for (auto const& floating : floating_windows)
+    for (auto const& floating : floating_trees)
         floating->hide();
 }
 
-void MiralWorkspace::for_each_window(std::function<bool(std::shared_ptr<Container>)> const& f) const
+bool MiralWorkspace::for_each_window(std::function<bool(std::shared_ptr<Container>)> const& f) const
 {
-    for (auto const& window : floating_windows)
-    {
-        if (!window->window())
-        {
-            mir::log_error("MiralWorkspace::for_each_window: floating window has no window");
-            continue;
-        }
-
-        auto container = window_controller.get_container(window->window().value());
-        if (container)
-        {
-            if (f(container))
-                return;
-        }
-    }
-
-    foreach_node_internal([&](std::shared_ptr<Container> const& node)
+    auto _for_each_window = [&](std::shared_ptr<Container> const& node)
     {
         if (auto leaf = Container::as_leaf(node))
         {
@@ -300,46 +255,40 @@ void MiralWorkspace::for_each_window(std::function<bool(std::shared_ptr<Containe
         }
 
         return false;
-    }, root);
+    };
+
+    for (auto const& other_root : floating_trees)
+    {
+        if (foreach_node_internal(_for_each_window, other_root))
+            return true;
+    }
+
+    if (foreach_node_internal(_for_each_window, root))
+        return true;
+
+    return false;
 }
 
 void MiralWorkspace::transfer_pinned_windows_to(std::shared_ptr<Workspace> const& other)
 {
-    for (auto it = floating_windows.begin(); it != floating_windows.end();)
+    for (auto it = floating_trees.begin(); it != floating_trees.end();)
     {
-        auto container = window_controller.get_container(it->get()->window().value());
-        if (!container)
+        if (it->get()->pinned())
         {
-            mir::log_error("transfer_pinned_windows_to: floating window lacks container");
-            it++;
-            continue;
-        }
-
-        auto floating = Container::as_floating(container);
-        if (floating && floating->pinned())
-        {
-            other->graft(floating);
-            it = floating_windows.erase(it);
+            other->graft(*it);
+            it = floating_trees.erase(it);
         }
         else
             it++;
     }
 }
 
-std::shared_ptr<FloatingWindowContainer> MiralWorkspace::add_floating_window(miral::Window const& window)
+std::shared_ptr<ParentContainer> MiralWorkspace::create_floating_tree(mir::geometry::Rectangle const& area)
 {
-    auto floating = std::make_shared<FloatingWindowContainer>(
-        window, floating_window_manager, window_controller, this, state, config, output_manager);
-    floating_windows.push_back(floating);
+    auto floating = std::make_shared<ParentContainer>(
+        state, output_manager, window_controller, config, area, this, nullptr, false);
+    floating_trees.push_back(floating);
     return floating;
-}
-
-void MiralWorkspace::remove_floating_hack(std::shared_ptr<Container> const& container)
-{
-    assert(container->get_type() == ContainerType::floating_window);
-    Container::as_floating(container)->set_workspace(nullptr);
-    floating_windows.erase(
-        std::remove(floating_windows.begin(), floating_windows.end(), container), floating_windows.end());
 }
 
 bool MiralWorkspace::move_container(miracle::Direction direction, Container& container)
@@ -349,7 +298,7 @@ bool MiralWorkspace::move_container(miracle::Direction direction, Container& con
     {
     case MoveResult::traversal_type_insert:
     {
-        move_to(container, *traversal_result.node);
+        move_to_container_position(container, *traversal_result.node);
         break;
     }
     case MoveResult::traversal_type_append:
@@ -380,7 +329,7 @@ bool MiralWorkspace::move_container(miracle::Direction direction, Container& con
     return true;
 }
 
-bool MiralWorkspace::move_to(Container& to_move, Container& target)
+bool MiralWorkspace::move_to_container_position(Container& to_move, Container& target)
 {
     auto target_parent = target.get_parent().lock();
     if (!target_parent)
@@ -404,7 +353,7 @@ bool MiralWorkspace::move_to(Container& to_move, Container& target)
     return true;
 }
 
-bool MiralWorkspace::move_to(Container& to_move)
+bool MiralWorkspace::add_to_root(Container& to_move)
 {
     root->graft_existing(to_move.shared_from_this(), root->num_nodes());
     to_move.set_workspace(this);
@@ -484,59 +433,27 @@ void MiralWorkspace::select_first_window()
     // First, try and select the previously selected container if it is still around
     if (!last_selected_container.expired())
     {
-        auto last_selected = last_selected_container.lock();
-        if (last_selected->get_type() == ContainerType::leaf)
+        for_each_window([&](std::shared_ptr<Container> const& container)
         {
-            auto found = foreach_node_internal([&](std::shared_ptr<Container> const& container)
+            if (container == last_selected_container.lock())
             {
-                if (container == last_selected)
-                {
-                    window_controller.select_active_window(container->window().value());
-                    return true;
-                }
-
-                return false;
-            }, root);
-
-            if (found)
-                return;
-        }
-        else if (last_selected->get_type() == ContainerType::floating_window)
-        {
-            for (auto const& floating : floating_windows)
-            {
-                if (floating == last_selected)
-                {
-                    window_controller.select_active_window(floating->window().value());
-                    return;
-                }
+                window_controller.select_active_window(container->window().value());
+                return true;
             }
-        }
+
+            return false;
+        });
     }
 
-    // Otherwise, select the first available tiling window followed by floating windows
-    auto found = foreach_node_internal([&](std::shared_ptr<Container> const& container)
+    if (!for_each_window([&](std::shared_ptr<Container> const& container)
     {
-        if (Container::as_leaf(container))
-        {
-            window_controller.select_active_window(container->window().value());
-            return true;
-        }
-
-        return false;
-    }, root);
-
-    if (found)
-        return;
-
-    if (!floating_windows.empty())
+        window_controller.select_active_window(container->window().value());
+        return true;
+    }))
     {
-        window_controller.select_active_window(floating_windows[0]->window().value());
-        return;
+        // If all fails, select nothing
+        window_controller.select_active_window(miral::Window {});
     }
-
-    // If all fails, select nothing
-    window_controller.select_active_window(miral::Window {});
 }
 
 Output* MiralWorkspace::get_output() const
@@ -569,20 +486,27 @@ void MiralWorkspace::workspace_transform_change_hack()
 
 bool MiralWorkspace::is_empty() const
 {
-    return root->num_nodes() == 0 && floating_windows.empty();
+    return root->num_nodes() == 0 && floating_trees.empty();
 }
 
 void MiralWorkspace::graft(std::shared_ptr<Container> const& container)
 {
     switch (container->get_type())
     {
-    case ContainerType::floating_window:
-    {
-        auto floating = Container::as_floating(container);
-        floating_windows.push_back(floating);
-        break;
-    }
     case ContainerType::parent:
+    {
+        // When we move a parent to a new workspace, we add it as a floating tree.
+        auto parent = Container::as_parent(container);
+        if (!parent)
+        {
+            mir::log_error("MiralWorkspace::graft: grafting non-parent container");
+            return;
+        }
+
+        parent->set_anchored(false);
+        parent->set_workspace(this);
+        floating_trees.push_back(parent);
+    }
     case ContainerType::leaf:
         root->graft_existing(container, root->num_nodes());
         root->commit_changes();
@@ -636,7 +560,7 @@ nlohmann::json MiralWorkspace::to_json() const
     auto area = root->get_logical_area();
 
     nlohmann::json floating_nodes = nlohmann::json::array();
-    for (auto const& container : floating_windows)
+    for (auto const& container : floating_trees)
         floating_nodes.push_back(container->to_json());
 
     nlohmann::json nodes = nlohmann::json::array();

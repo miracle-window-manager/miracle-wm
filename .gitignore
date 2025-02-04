@@ -41,3 +41,4 @@ temp-build
 *.snap
 .idea
 .aider*
+cmake-build-debug

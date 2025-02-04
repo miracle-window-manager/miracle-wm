@@ -37,7 +37,7 @@ public:
     void hide() override;
     void commit_changes() override;
     mir::geometry::Rectangle get_logical_area() const override;
-    void set_logical_area(mir::geometry::Rectangle const& rectangle) override;
+    void set_logical_area(mir::geometry::Rectangle const& rectangle, bool with_animations = true) override;
     mir::geometry::Rectangle get_visible_area() const override;
     void constrain() override;
     void set_parent(std::shared_ptr<ParentContainer> const& ptr) override;
@@ -77,6 +77,7 @@ public:
     bool pinned() const override;
     bool move(Direction direction) override;
     bool move_by(Direction direction, int pixels) override;
+    bool move_by(float dx, float dy) override;
     bool move_to(int x, int y) override;
     bool toggle_tabbing() override { return false; }
     bool toggle_stacking() override { return false; }
@@ -84,6 +85,9 @@ public:
     void drag(int, int) override { }
     bool drag_stop() override { return false; }
     bool set_layout(LayoutScheme scheme) override { return false; }
+    bool anchored() const override { return true; }
+    ScratchpadState scratchpad_state() const override { return ScratchpadState::none; };
+    void scratchpad_state(ScratchpadState) override { }
     LayoutScheme get_layout() const override { return LayoutScheme::none; }
     bool is_fullscreen() const override;
     nlohmann::json to_json() const override;

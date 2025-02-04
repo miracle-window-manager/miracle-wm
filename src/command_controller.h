@@ -136,7 +136,9 @@ private:
 
     bool can_move_container() const;
     bool can_set_layout() const;
-    std::shared_ptr<Container> toggle_floating_internal(std::shared_ptr<Container> const& container);
+
+    /// Floats the container and returns the new [ParentContainer] of that container.
+    std::shared_ptr<ParentContainer> toggle_floating_internal(std::shared_ptr<Container> const& container);
 
     Output* _next_output_in_list(std::vector<std::string> const& names);
     Output* _next_output_in_direction(Direction direction);

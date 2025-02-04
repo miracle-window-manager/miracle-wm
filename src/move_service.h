@@ -15,40 +15,34 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef MIRACLE_WM_MIRAL_OUTPUT_FACTORY_H
-#define MIRACLE_WM_MIRAL_OUTPUT_FACTORY_H
+#ifndef MIRACLE_WM_MOVE_SERVICE_H
+#define MIRACLE_WM_MOVE_SERVICE_H
 
-#include "output_factory.h"
+#include <memory>
+#include <mir_toolkit/event.h>
 
 namespace miracle
 {
-class WorkspaceManager;
-class CompositorState;
+class CommandController;
 class Config;
-class WindowController;
-class Animator;
+class CompositorState;
+class OutputManager;
 
-class MiralOutputFactory : public OutputFactory
+class MoveService
 {
 public:
-    MiralOutputFactory(
-        CompositorState& state,
-        std::shared_ptr<Config> const& options,
-        WindowController&,
-        Animator&);
-    std::unique_ptr<Output> create(
-        std::string name,
-        int id,
-        mir::geometry::Rectangle area,
-        OutputManager* output_manager) override;
+    MoveService(CommandController&, std::shared_ptr<Config> const&, OutputManager*);
+    bool handle_pointer_event(CompositorState& state, float x, float y, MirPointerAction action, uint modifiers);
 
 private:
-    CompositorState& state;
+    CommandController& command_controller;
     std::shared_ptr<Config> config;
-    WindowController& window_controller;
-    Animator& animator;
+    OutputManager* output_manager;
+
+    float cursor_x = 0;
+    float cursor_y = 0;
 };
 
-}
+} // miracle
 
-#endif // MIRACLE_WM_MIRAL_OUTPUT_FACTORY_H
+#endif // MIRACLE_WM_MOVE_SERVICE_H
