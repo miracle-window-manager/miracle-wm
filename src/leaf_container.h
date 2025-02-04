@@ -98,6 +98,7 @@ public:
     bool move(Direction) override;
     bool move_by(Direction, int) override;
     bool move_by(float, float) override;
+    bool move_to(Container& other) override;
     bool move_to(int, int) override;
     bool toggle_tabbing() override;
     bool toggle_stacking() override;
