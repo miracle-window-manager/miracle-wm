@@ -725,6 +725,8 @@ Workspace* ParentContainer::get_workspace() const
 void ParentContainer::set_workspace(Workspace* next)
 {
     workspace = next;
+    for (auto const& node : sub_nodes)
+        node->set_workspace(workspace);
 }
 
 Output* ParentContainer::get_output() const
@@ -775,14 +777,23 @@ bool ParentContainer::select_next(miracle::Direction)
     return false;
 }
 
-bool ParentContainer::pinned(bool)
+bool ParentContainer::pinned(bool value)
 {
-    return false;
+    if (auto sh_parent = parent.lock())
+        return sh_parent->pinned(value);
+
+    if (is_anchored)
+        return false;
+
+    pinned_ = value;
+    return true;
 }
 
 bool ParentContainer::pinned() const
 {
-    return false;
+    if (auto sh_parent = parent.lock())
+        return sh_parent->pinned();
+    return pinned_;
 }
 
 bool ParentContainer::move(Direction direction)

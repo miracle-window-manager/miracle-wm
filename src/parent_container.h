@@ -135,6 +135,7 @@ private:
     Workspace* workspace;
     std::weak_ptr<ParentContainer> parent;
     bool is_anchored;
+    bool pinned_ = false;
     ScratchpadState scratchpad_state_ = ScratchpadState::none;
 
     LayoutScheme scheme = LayoutScheme::horizontal;

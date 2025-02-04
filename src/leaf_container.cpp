@@ -645,13 +645,17 @@ std::shared_ptr<LeafContainer> LeafContainer::handle_select(
     return nullptr;
 }
 
-bool LeafContainer::pinned(bool)
+bool LeafContainer::pinned(bool value)
 {
+    if (auto sh_parent = parent.lock())
+        return sh_parent->pinned(value);
     return false;
 }
 
 bool LeafContainer::pinned() const
 {
+    if (auto sh_parent = parent.lock())
+        return sh_parent->pinned();
     return false;
 }
 
