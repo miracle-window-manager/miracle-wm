@@ -46,7 +46,7 @@ const geom::Rectangle OTHER_TREE_BOUNDS {
     geom::Size(OUTPUT_WIDTH, OUTPUT_HEIGHT)
 };
 
-std::vector<std::shared_ptr<Workspace>> empty_workspaces;
+std::vector<std::shared_ptr<WorkspaceInterface>> empty_workspaces;
 
 std::unique_ptr<test::MockOutput> create_output(geom::Rectangle const& bounds)
 {
@@ -63,7 +63,9 @@ class WorkspaceTest : public testing::Test
 {
 public:
     WorkspaceTest() :
+        state(std::make_shared<CompositorState>()),
         output(create_output(TREE_BOUNDS)),
+        window_controller(std::make_shared<StubWindowController>(pairs)),
         workspace(
             output.get(),
             0,
@@ -71,14 +73,13 @@ public:
             "0",
             std::make_shared<test::StubConfiguration>(),
             window_controller,
-            state,
-            new OutputManager(std::make_unique<test::MockOutputFactory>()))
+            state)
     {
     }
 
     std::shared_ptr<LeafContainer> create_leaf(
         std::optional<std::shared_ptr<ParentContainer>> parent = std::nullopt,
-        Workspace* target_workspace = nullptr)
+        WorkspaceInterface* target_workspace = nullptr)
     {
         if (target_workspace == nullptr)
             target_workspace = &workspace;
@@ -96,19 +97,19 @@ public:
         auto leaf = target_workspace->create_container(info, hint);
         pairs.push_back({ window, leaf });
 
-        state.add(leaf);
+        state->add(leaf);
         leaf->on_focus_gained();
-        state.focus_container(leaf);
+        state->focus_container(leaf);
         return Container::as_leaf(leaf);
     }
 
-    CompositorState state;
+    std::shared_ptr<CompositorState> state;
     std::vector<std::shared_ptr<test::StubSession>> sessions;
     std::vector<std::shared_ptr<test::StubSurface>> surfaces;
     std::vector<StubWindowData> pairs;
-    StubWindowController window_controller { pairs };
+    std::shared_ptr<StubWindowController> window_controller;
     std::unique_ptr<test::MockOutput> output;
-    MiralWorkspace workspace;
+    Workspace workspace;
 };
 
 TEST_F(WorkspaceTest, can_add_single_window_without_border_and_gaps)
@@ -170,7 +171,7 @@ TEST_F(WorkspaceTest, can_drag_a_leaf_to_a_position)
     auto leaf1 = create_leaf();
     leaf1->drag_start();
     leaf1->drag(50, 50);
-    auto const& data = window_controller.get_window_data(leaf1);
+    auto const& data = window_controller->get_window_data(leaf1);
     ASSERT_EQ(data.rectangle.top_left.x.as_int(), 50);
     ASSERT_EQ(data.rectangle.top_left.y.as_int(), 50);
 }
@@ -181,7 +182,7 @@ TEST_F(WorkspaceTest, can_stop_dragging_a_leaf)
     leaf1->drag_start();
     leaf1->drag(50, 50);
     leaf1->drag_stop();
-    auto const& data = window_controller.get_window_data(leaf1);
+    auto const& data = window_controller->get_window_data(leaf1);
     ASSERT_EQ(data.rectangle.top_left.x.as_int(), 0);
     ASSERT_EQ(data.rectangle.top_left.y.as_int(), 0);
 }
@@ -216,15 +217,14 @@ TEST_F(WorkspaceTest, can_move_container_to_different_parent)
 TEST_F(WorkspaceTest, can_move_container_to_container_in_other_tree)
 {
     auto other_output = create_output(OTHER_TREE_BOUNDS);
-    MiralWorkspace other(
+    Workspace other(
         other_output.get(),
         1,
         1,
         "1",
         std::make_shared<test::StubConfiguration>(),
         window_controller,
-        state,
-        new OutputManager(std::make_unique<test::MockOutputFactory>()));
+        state);
     auto leaf1 = create_leaf();
     auto leaf2 = create_leaf(std::nullopt, &other);
 
@@ -239,15 +239,14 @@ TEST_F(WorkspaceTest, can_move_container_to_container_in_other_tree)
 TEST_F(WorkspaceTest, can_move_container_to_tree)
 {
     auto other_output = create_output(OTHER_TREE_BOUNDS);
-    MiralWorkspace other(
+    Workspace other(
         other_output.get(),
         1,
         1,
         "1",
         std::make_shared<test::StubConfiguration>(),
         window_controller,
-        state,
-        new OutputManager(std::make_unique<test::MockOutputFactory>()));
+        state);
     auto leaf1 = create_leaf();
 
     ASSERT_EQ(leaf1->get_workspace(), &workspace);
@@ -263,16 +262,16 @@ TEST_F(WorkspaceTest, dragged_windows_do_not_change_their_position_when_a_new_wi
     leaf1->drag(100, 100);
 
     auto leaf2 = create_leaf();
-    ASSERT_EQ(window_controller.get_window_data(leaf1).rectangle.top_left, mir::geometry::Point(100, 100));
-    ASSERT_EQ(window_controller.get_window_data(leaf1).rectangle.size, geom::Size(OUTPUT_WIDTH / 2.f, OUTPUT_HEIGHT));
+    ASSERT_EQ(window_controller->get_window_data(leaf1).rectangle.top_left, mir::geometry::Point(100, 100));
+    ASSERT_EQ(window_controller->get_window_data(leaf1).rectangle.size, geom::Size(OUTPUT_WIDTH / 2.f, OUTPUT_HEIGHT));
 }
 
 TEST_F(WorkspaceTest, dragged_windows_are_unconstrained)
 {
     auto leaf1 = create_leaf();
     leaf1->drag_start();
-    ASSERT_EQ(window_controller.get_window_data(leaf1).clip, std::nullopt);
+    ASSERT_EQ(window_controller->get_window_data(leaf1).clip, std::nullopt);
     leaf1->drag(100, 100);
     leaf1->drag_stop();
-    ASSERT_EQ(window_controller.get_window_data(leaf1).clip, leaf1->get_visible_area());
+    ASSERT_EQ(window_controller->get_window_data(leaf1).clip, leaf1->get_visible_area());
 }

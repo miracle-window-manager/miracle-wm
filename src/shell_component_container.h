@@ -29,7 +29,7 @@ class ShellComponentContainer : public Container
 public:
     ShellComponentContainer(
         miral::Window const&,
-        WindowController& window_controller);
+        std::shared_ptr<WindowController> const& window_controller);
 
     std::weak_ptr<ParentContainer> get_parent() const override;
 
@@ -59,9 +59,9 @@ public:
     void on_move_to(mir::geometry::Point const& top_left) override;
     mir::geometry::Rectangle
     confirm_placement(MirWindowState state, mir::geometry::Rectangle const& rectangle) override;
-    Workspace* get_workspace() const override;
-    void set_workspace(Workspace*) override { }
-    Output* get_output() const override;
+    WorkspaceInterface* get_workspace() const override;
+    void set_workspace(WorkspaceInterface*) override { }
+    OutputInterface* get_output() const override;
     glm::mat4 get_transform() const override;
     void set_transform(glm::mat4 transform) override;
     glm::mat4 get_workspace_transform() const override;
@@ -91,11 +91,11 @@ public:
     void scratchpad_state(ScratchpadState) override { }
     LayoutScheme get_layout() const override { return LayoutScheme::none; }
     bool is_fullscreen() const override;
-    nlohmann::json to_json() const override;
+    nlohmann::json to_json(bool is_workspace_visible) const override;
 
 private:
     miral::Window window_;
-    WindowController& window_controller;
+    std::shared_ptr<WindowController> window_controller;
     uint32_t handle_ = 0;
     glm::mat4 transform_;
 };

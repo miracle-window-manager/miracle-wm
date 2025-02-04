@@ -16,19 +16,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
 #include "output_manager.h"
-#include "output.h"
-#include "output_factory.h"
+#include "output_factory_interface.h"
+#include "output_interface.h"
 #include "workspace_manager.h"
 
 using namespace miracle;
 
 OutputManager::OutputManager(
-    std::unique_ptr<OutputFactory> output_factory) :
+    std::unique_ptr<OutputFactoryInterface> output_factory) :
     output_factory(std::move(output_factory))
 {
 }
 
-Output* OutputManager::create(
+OutputInterface* OutputManager::create(
     std::string name, int id, mir::geometry::Rectangle area, WorkspaceManager& workspace_manager)
 {
     if (outputs_.size() == 1 && outputs_[0]->is_defunct())
@@ -39,7 +39,7 @@ Output* OutputManager::create(
     }
     else
     {
-        outputs_.push_back(output_factory->create(name, id, area, this));
+        outputs_.push_back(output_factory->create(name, id, area));
         workspace_manager.request_first_available_workspace(outputs_.back().get());
     }
 
@@ -101,7 +101,7 @@ bool OutputManager::remove(int id, WorkspaceManager& workspace_manager)
     return false;
 }
 
-std::vector<std::unique_ptr<Output>> const& OutputManager::outputs() const
+std::vector<std::unique_ptr<OutputInterface>> const& OutputManager::outputs() const
 {
     return outputs_;
 }
@@ -132,7 +132,7 @@ bool OutputManager::unfocus(int id)
     return true;
 }
 
-Output* OutputManager::focused()
+OutputInterface* OutputManager::focused()
 {
     return focused_;
 }

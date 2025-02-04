@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "workspace_manager.h"
 #include "config.h"
-#include "output.h"
+#include "output_interface.h"
 #include "output_manager.h"
 #include "vector_helpers.h"
 #include <mir/log.h>
@@ -28,16 +28,16 @@ using namespace mir::geometry;
 using namespace miracle;
 
 WorkspaceManager::WorkspaceManager(
-    WorkspaceObserverRegistrar& registry,
+    std::shared_ptr<WorkspaceObserverRegistrar> const& registry,
     std::shared_ptr<Config> const& config,
-    OutputManager* output_manager) :
+    std::shared_ptr<OutputManager> const& output_manager) :
     registry { registry },
     config { config },
     output_manager { output_manager }
 {
 }
 
-bool WorkspaceManager::focus_existing(Workspace const* existing, bool back_and_forth)
+bool WorkspaceManager::focus_existing(WorkspaceInterface const* existing, bool back_and_forth)
 {
     auto const& active_workspace = output_manager->focused()->active();
     if (active_workspace == existing)
@@ -59,7 +59,7 @@ bool WorkspaceManager::focus_existing(Workspace const* existing, bool back_and_f
 }
 
 bool WorkspaceManager::request_workspace(
-    Output* output_hint,
+    OutputInterface* output_hint,
     int num,
     bool back_and_forth)
 {
@@ -71,13 +71,13 @@ bool WorkspaceManager::request_workspace(
     output_hint->advise_new_workspace({ .id = id,
         .num = num,
         .name = workspace_config.name });
-    registry.advise_created(id);
+    registry->advise_created(id);
     request_focus(id);
     return true;
 }
 
 bool WorkspaceManager::request_workspace(
-    Output* output_hint,
+    OutputInterface* output_hint,
     std::string const& name,
     bool back_and_forth)
 {
@@ -88,11 +88,11 @@ bool WorkspaceManager::request_workspace(
     output_hint->advise_new_workspace({ .id = id,
         .name = name });
     request_focus(id);
-    registry.advise_created(id);
+    registry->advise_created(id);
     return true;
 }
 
-int WorkspaceManager::request_first_available_workspace(Output* output)
+int WorkspaceManager::request_first_available_workspace(OutputInterface* output)
 {
     for (int i = 1; i < NUM_DEFAULT_WORKSPACES; i++)
     {
@@ -112,7 +112,7 @@ int WorkspaceManager::request_first_available_workspace(Output* output)
     return -1;
 }
 
-bool WorkspaceManager::request_next(Output* output)
+bool WorkspaceManager::request_next(OutputInterface* output)
 {
     auto const& active = output->active();
     if (!active)
@@ -134,7 +134,7 @@ bool WorkspaceManager::request_next(Output* output)
     return false;
 }
 
-bool WorkspaceManager::request_prev(Output* output)
+bool WorkspaceManager::request_prev(OutputInterface* output)
 {
     auto const& active = output->active();
     if (!active)
@@ -167,7 +167,7 @@ bool WorkspaceManager::request_back_and_forth()
     return false;
 }
 
-bool WorkspaceManager::request_next_on_output(Output const& output)
+bool WorkspaceManager::request_next_on_output(OutputInterface const& output)
 {
     auto const& active = output.active();
     if (!active)
@@ -189,7 +189,7 @@ bool WorkspaceManager::request_next_on_output(Output const& output)
     return false;
 }
 
-bool WorkspaceManager::request_prev_on_output(Output const& output)
+bool WorkspaceManager::request_prev_on_output(OutputInterface const& output)
 {
     auto const& active = output.active();
     if (!active)
@@ -217,7 +217,7 @@ bool WorkspaceManager::delete_workspace(uint32_t id)
     if (!w)
         return false;
 
-    registry.advise_removed(id);
+    registry->advise_removed(id);
     auto* output = w->get_output();
     output->advise_workspace_deleted(*this, id);
     return true;
@@ -244,16 +244,16 @@ bool WorkspaceManager::request_focus(uint32_t id)
     // is activated because 'advise_workspace-active' might remove
     // the workspace if it is empty
     if (active_screen != nullptr && last_selected.value())
-        registry.advise_focused(last_selected.value()->id(), id);
+        registry->advise_focused(last_selected.value()->id(), id);
     else
-        registry.advise_focused(std::nullopt, id);
+        registry->advise_focused(std::nullopt, id);
 
     existing->get_output()->advise_workspace_active(*this, id);
     existing->select_first_window();
     return true;
 }
 
-Workspace* WorkspaceManager::workspace(int num) const
+WorkspaceInterface* WorkspaceManager::workspace(int num) const
 {
     for (auto const& output : output_manager->outputs())
     {
@@ -267,7 +267,7 @@ Workspace* WorkspaceManager::workspace(int num) const
     return nullptr;
 }
 
-Workspace* WorkspaceManager::workspace(uint32_t id) const
+WorkspaceInterface* WorkspaceManager::workspace(uint32_t id) const
 {
     for (auto const& output : output_manager->outputs())
     {
@@ -281,7 +281,7 @@ Workspace* WorkspaceManager::workspace(uint32_t id) const
     return nullptr;
 }
 
-Workspace* WorkspaceManager::workspace(std::string const& name) const
+WorkspaceInterface* WorkspaceManager::workspace(std::string const& name) const
 {
     for (auto const& output : output_manager->outputs())
     {
@@ -295,15 +295,15 @@ Workspace* WorkspaceManager::workspace(std::string const& name) const
     return nullptr;
 }
 
-std::vector<Workspace const*> WorkspaceManager::workspaces() const
+std::vector<WorkspaceInterface const*> WorkspaceManager::workspaces() const
 {
-    std::vector<Workspace const*> result;
+    std::vector<WorkspaceInterface const*> result;
     for (auto const& output : output_manager->outputs())
     {
         for (auto const& w : output->get_workspaces())
         {
             auto const* ptr = w.get();
-            insert_sorted(result, ptr, [](Workspace const* a, Workspace const* b)
+            insert_sorted(result, ptr, [](WorkspaceInterface const* a, WorkspaceInterface const* b)
             {
                 if (a->num() && b->num())
                     return a->num().value() < b->num().value();
@@ -319,7 +319,7 @@ std::vector<Workspace const*> WorkspaceManager::workspaces() const
     return result;
 }
 
-void WorkspaceManager::move_workspace_to_output(uint32_t id, Output* hint)
+void WorkspaceManager::move_workspace_to_output(uint32_t id, OutputInterface* hint)
 {
     auto w = workspace(id);
     if (!w)

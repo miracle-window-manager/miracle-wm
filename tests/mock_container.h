@@ -56,9 +56,9 @@ namespace test
         MOCK_METHOD(void, on_focus_lost, (), (override));
         MOCK_METHOD(void, on_move_to, (geom::Point const&), (override));
         MOCK_METHOD(mir::geometry::Rectangle, confirm_placement, (MirWindowState, mir::geometry::Rectangle const&), (override));
-        MOCK_METHOD(Workspace*, get_workspace, (), (const, override));
-        MOCK_METHOD(void, set_workspace, (Workspace*), (override));
-        MOCK_METHOD(Output*, get_output, (), (const, override));
+        MOCK_METHOD(WorkspaceInterface*, get_workspace, (), (const, override));
+        MOCK_METHOD(void, set_workspace, (WorkspaceInterface*), (override));
+        MOCK_METHOD(OutputInterface*, get_output, (), (const, override));
         MOCK_METHOD(glm::mat4, get_transform, (), (const, override));
         MOCK_METHOD(void, set_transform, (glm::mat4), (override));
         MOCK_METHOD(glm::mat4, get_workspace_transform, (), (const, override));
@@ -86,7 +86,7 @@ namespace test
         MOCK_METHOD(void, scratchpad_state, (ScratchpadState), (override));
         MOCK_METHOD(ScratchpadState, scratchpad_state, (), (const, override));
         MOCK_METHOD(LayoutScheme, get_layout, (), (const, override));
-        MOCK_METHOD(nlohmann::json, to_json, (), (const, override));
+        MOCK_METHOD(nlohmann::json, to_json, (bool), (const, override));
     };
 }
 }

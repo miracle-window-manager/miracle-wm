@@ -16,14 +16,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
 #define MIR_LOG_COMPONENT "output_content"
-#define GLM_ENABLE_EXPERIMENTAL
 
-#include "miral_output.h"
+#include "output.h"
 #include "animator.h"
 #include "compositor_state.h"
 #include "config.h"
 #include "leaf_container.h"
-#include "output_manager.h"
 #include "vector_helpers.h"
 #include "window_helpers.h"
 
@@ -38,33 +36,31 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace miracle;
 
-MiralWrapperOutput::MiralWrapperOutput(
+Output::Output(
     std::string name,
     int id,
     geom::Rectangle const& area,
-    CompositorState& state,
-    OutputManager* output_manager,
+    std::shared_ptr<CompositorState> const& state,
     std::shared_ptr<Config> const& config,
-    WindowController& node_interface,
-    Animator& animator) :
+    std::shared_ptr<WindowController> const& window_controller,
+    std::shared_ptr<Animator> const& animator) :
     name_ { std::move(name) },
     id_ { id },
     area { area },
     state { state },
     config { config },
-    output_manager { output_manager },
-    window_controller { node_interface },
+    window_controller { window_controller },
     animator { animator },
-    handle { animator.register_animateable() }
+    handle { animator->register_animateable() }
 {
 }
 
-MiralWrapperOutput::~MiralWrapperOutput()
+Output::~Output()
 {
-    animator.remove_by_animation_handle(handle);
+    animator->remove_by_animation_handle(handle);
 }
 
-Workspace* MiralWrapperOutput::active() const
+WorkspaceInterface* Output::active() const
 {
     if (active_workspace.expired())
         return nullptr;
@@ -72,15 +68,15 @@ Workspace* MiralWrapperOutput::active() const
     return active_workspace.lock().get();
 }
 
-std::shared_ptr<Container> MiralWrapperOutput::intersect(float x, float y)
+std::shared_ptr<Container> Output::intersect(float x, float y)
 {
-    if (auto const window = window_controller.window_at(x, y))
-        return window_controller.get_container(window);
+    if (auto const window = window_controller->window_at(x, y))
+        return window_controller->get_container(window);
 
     return nullptr;
 }
 
-std::shared_ptr<Container> MiralWrapperOutput::intersect_leaf(float x, float y, bool ignore_selected)
+std::shared_ptr<Container> Output::intersect_leaf(float x, float y, bool ignore_selected)
 {
     if (active_workspace.expired())
     {
@@ -92,13 +88,12 @@ std::shared_ptr<Container> MiralWrapperOutput::intersect_leaf(float x, float y, 
     std::shared_ptr<Container> result = nullptr;
     workspace->for_each_window([&](std::shared_ptr<Container> const& container)
     {
-        if (ignore_selected && container == state.focused_container())
+        if (ignore_selected && container == state->focused_container())
             return false;
 
         if (container->get_type() != ContainerType::leaf)
             return false;
 
-        auto const& info = window_controller.info_for(container->window().value());
         if (container->get_visible_area().contains(geom::Point(x, y)))
         {
             result = container;
@@ -111,7 +106,7 @@ std::shared_ptr<Container> MiralWrapperOutput::intersect_leaf(float x, float y, 
     return result;
 }
 
-AllocationHint MiralWrapperOutput::allocate_position(
+AllocationHint Output::allocate_position(
     miral::ApplicationInfo const& app_info,
     miral::WindowSpecification& requested_specification,
     AllocationHint hint)
@@ -135,13 +130,13 @@ AllocationHint MiralWrapperOutput::allocate_position(
     return active()->allocate_position(app_info, requested_specification, hint);
 }
 
-std::shared_ptr<Container> MiralWrapperOutput::create_container(
+std::shared_ptr<Container> Output::create_container(
     miral::WindowInfo const& window_info, AllocationHint const& hint) const
 {
     return active()->create_container(window_info, hint);
 }
 
-void MiralWrapperOutput::delete_container(std::shared_ptr<miracle::Container> const& container)
+void Output::delete_container(std::shared_ptr<miracle::Container> const& container)
 {
     auto workspace = container->get_workspace();
     if (!workspace)
@@ -150,9 +145,9 @@ void MiralWrapperOutput::delete_container(std::shared_ptr<miracle::Container> co
     workspace->delete_container(container);
 }
 
-void MiralWrapperOutput::insert_workspace_sorted(std::shared_ptr<Workspace> const& new_workspace)
+void Output::insert_workspace_sorted(std::shared_ptr<WorkspaceInterface> const& new_workspace)
 {
-    insert_sorted(workspaces, new_workspace, [](std::shared_ptr<Workspace> const& a, std::shared_ptr<Workspace> const& b)
+    insert_sorted(workspaces, new_workspace, [](std::shared_ptr<WorkspaceInterface> const& a, std::shared_ptr<WorkspaceInterface> const& b)
     {
         if (a->num() && b->num())
             return a->num().value() < b->num().value();
@@ -165,15 +160,15 @@ void MiralWrapperOutput::insert_workspace_sorted(std::shared_ptr<Workspace> cons
     });
 }
 
-void MiralWrapperOutput::advise_new_workspace(WorkspaceCreationData const&& data)
+void Output::advise_new_workspace(WorkspaceCreationData const&& data)
 {
     // Workspaces are always kept in sorted order with numbered workspaces in front followed by all other workspaces
-    std::shared_ptr<Workspace> new_workspace = std::make_shared<MiralWorkspace>(
-        this, data.id, data.num, data.name, config, window_controller, state, output_manager);
+    std::shared_ptr<WorkspaceInterface> new_workspace = std::make_shared<Workspace>(
+        this, data.id, data.num, data.name, config, window_controller, state);
     insert_workspace_sorted(new_workspace);
 }
 
-void MiralWrapperOutput::advise_workspace_deleted(WorkspaceManager& workspace_manager, uint32_t id)
+void Output::advise_workspace_deleted(WorkspaceManager& workspace_manager, uint32_t id)
 {
     for (auto it = workspaces.begin(); it != workspaces.end(); it++)
     {
@@ -185,12 +180,12 @@ void MiralWrapperOutput::advise_workspace_deleted(WorkspaceManager& workspace_ma
     }
 }
 
-void MiralWrapperOutput::move_workspace_to(WorkspaceManager& workspace_manager, Workspace* workspace)
+void Output::move_workspace_to(WorkspaceManager& workspace_manager, WorkspaceInterface* workspace)
 {
     if (workspace->get_output() == this)
         return;
 
-    std::shared_ptr<Workspace> to_add = nullptr;
+    std::shared_ptr<WorkspaceInterface> to_add = nullptr;
     if (auto old = workspace->get_output())
     {
         for (auto const& w : old->get_workspaces())
@@ -219,10 +214,10 @@ void MiralWrapperOutput::move_workspace_to(WorkspaceManager& workspace_manager, 
         workspace_manager.delete_workspace(to_add->id());
 }
 
-bool MiralWrapperOutput::advise_workspace_active(WorkspaceManager& workspace_manager, uint32_t id)
+bool Output::advise_workspace_active(WorkspaceManager& workspace_manager, uint32_t id)
 {
-    std::shared_ptr<Workspace> from = nullptr;
-    std::shared_ptr<Workspace> to = nullptr;
+    std::shared_ptr<WorkspaceInterface> from = nullptr;
+    std::shared_ptr<WorkspaceInterface> to = nullptr;
     int from_index = -1;
     int to_index = -1;
     for (int i = 0; i < workspaces.size(); i++)
@@ -316,19 +311,19 @@ bool MiralWrapperOutput::advise_workspace_active(WorkspaceManager& workspace_man
         from,
         this);
 
-    animator.append(animation);
+    animator->append(animation);
     return true;
 }
 
-MiralWrapperOutput::WorkspaceAnimation::WorkspaceAnimation(
+Output::WorkspaceAnimation::WorkspaceAnimation(
     AnimationHandle handle,
     AnimationDefinition definition,
     mir::geometry::Rectangle const& from,
     mir::geometry::Rectangle const& to,
     mir::geometry::Rectangle const& current,
-    std::shared_ptr<Workspace> const& to_workspace,
-    std::shared_ptr<Workspace> const& from_workspace,
-    MiralWrapperOutput* output) :
+    std::shared_ptr<WorkspaceInterface> const& to_workspace,
+    std::shared_ptr<WorkspaceInterface> const& from_workspace,
+    Output* output) :
     Animation(handle, definition, from, to, current),
     to_workspace { to_workspace },
     from_workspace { from_workspace },
@@ -336,15 +331,15 @@ MiralWrapperOutput::WorkspaceAnimation::WorkspaceAnimation(
 {
 }
 
-void MiralWrapperOutput::WorkspaceAnimation::on_tick(miracle::AnimationStepResult const& asr)
+void Output::WorkspaceAnimation::on_tick(miracle::AnimationStepResult const& asr)
 {
     output->on_workspace_animation(asr, to_workspace, from_workspace);
 }
 
-void MiralWrapperOutput::on_workspace_animation(
+void Output::on_workspace_animation(
     AnimationStepResult const& asr,
-    std::shared_ptr<Workspace> const& to,
-    std::shared_ptr<Workspace> const& from)
+    std::shared_ptr<WorkspaceInterface> const& to,
+    std::shared_ptr<WorkspaceInterface> const&)
 {
     if (asr.is_complete)
     {
@@ -372,7 +367,7 @@ void MiralWrapperOutput::on_workspace_animation(
         workspace->workspace_transform_change_hack();
 }
 
-void MiralWrapperOutput::advise_application_zone_create(miral::Zone const& application_zone)
+void Output::advise_application_zone_create(miral::Zone const& application_zone)
 {
     if (application_zone.extents().contains(area))
     {
@@ -382,7 +377,7 @@ void MiralWrapperOutput::advise_application_zone_create(miral::Zone const& appli
     }
 }
 
-void MiralWrapperOutput::advise_application_zone_update(miral::Zone const& updated, miral::Zone const& original)
+void Output::advise_application_zone_update(miral::Zone const& updated, miral::Zone const& original)
 {
     for (auto& zone : application_zone_list)
         if (zone == original)
@@ -394,7 +389,7 @@ void MiralWrapperOutput::advise_application_zone_update(miral::Zone const& updat
         }
 }
 
-void MiralWrapperOutput::advise_application_zone_delete(miral::Zone const& application_zone)
+void Output::advise_application_zone_delete(miral::Zone const& application_zone)
 {
     auto const original_size = application_zone_list.size();
     application_zone_list.erase(
@@ -408,19 +403,19 @@ void MiralWrapperOutput::advise_application_zone_delete(miral::Zone const& appli
     }
 }
 
-bool MiralWrapperOutput::point_is_in_output(int x, int y)
+bool Output::point_is_in_output(int x, int y)
 {
     return area.contains(geom::Point(x, y));
 }
 
-void MiralWrapperOutput::update_area(geom::Rectangle const& new_area)
+void Output::update_area(geom::Rectangle const& new_area)
 {
     area = new_area;
     for (auto& workspace : workspaces)
         workspace->set_area(area);
 }
 
-std::vector<miral::Window> MiralWrapperOutput::collect_all_windows() const
+std::vector<miral::Window> Output::collect_all_windows() const
 {
     std::vector<miral::Window> windows;
     for (auto& workspace : get_workspaces())
@@ -436,27 +431,12 @@ std::vector<miral::Window> MiralWrapperOutput::collect_all_windows() const
     return windows;
 }
 
-void MiralWrapperOutput::add_immediately(miral::Window& window, AllocationHint hint)
-{
-    auto& prev_info = window_controller.info_for(window);
-    miral::WindowSpecification spec = window_helpers::copy_from(prev_info);
-
-    // If we are adding a window immediately, let's force it back into existence
-    if (spec.state() == mir_window_state_hidden)
-        spec.state() = mir_window_state_restored;
-
-    AllocationHint result = allocate_position(window_controller.info_for(window.application()), spec, hint);
-    window_controller.modify(window, spec);
-    auto container = create_container(window_controller.info_for(window), result);
-    container->handle_ready();
-}
-
-void MiralWrapperOutput::graft(std::shared_ptr<Container> const& container)
+void Output::graft(std::shared_ptr<Container> const& container)
 {
     active()->graft(container);
 }
 
-geom::Rectangle MiralWrapperOutput::get_workspace_rectangle(size_t i) const
+geom::Rectangle Output::get_workspace_rectangle(size_t i) const
 {
     // TODO: Support vertical workspaces one day in the future
     auto const& workspace = workspaces[i];
@@ -482,7 +462,7 @@ geom::Rectangle MiralWrapperOutput::get_workspace_rectangle(size_t i) const
     };
 }
 
-[[nodiscard]] Workspace const* MiralWrapperOutput::workspace(uint32_t id) const
+[[nodiscard]] WorkspaceInterface const* Output::workspace(uint32_t id) const
 {
     for (auto const& workspace : workspaces)
     {
@@ -493,46 +473,46 @@ geom::Rectangle MiralWrapperOutput::get_workspace_rectangle(size_t i) const
     return nullptr;
 }
 
-glm::mat4 MiralWrapperOutput::get_transform() const
+glm::mat4 Output::get_transform() const
 {
     return final_transform;
 }
 
-void MiralWrapperOutput::set_transform(glm::mat4 const& in)
+void Output::set_transform(glm::mat4 const& in)
 {
     transform = in;
     final_transform = glm::translate(transform, glm::vec3(position_offset.x, position_offset.y, 0));
 }
 
-void MiralWrapperOutput::set_position(glm::vec2 const& v)
+void Output::set_position(glm::vec2 const& v)
 {
     position_offset = v;
     final_transform = glm::translate(transform, glm::vec3(position_offset.x, position_offset.y, 0));
 }
 
-void MiralWrapperOutput::set_info(int next_id, std::string next_name)
+void Output::set_info(int next_id, std::string next_name)
 {
     id_ = next_id;
     name_ = std::move(next_name);
 }
 
-void MiralWrapperOutput::set_defunct()
+void Output::set_defunct()
 {
     is_defunct_ = true;
 }
 
-void MiralWrapperOutput::unset_defunct()
+void Output::unset_defunct()
 {
     is_defunct_ = false;
 }
 
-nlohmann::json MiralWrapperOutput::to_json() const
+nlohmann::json Output::to_json(bool is_focused) const
 {
     nlohmann::json nodes = nlohmann::json::array();
     for (auto const& workspace : workspaces)
     {
         if (workspace)
-            nodes.push_back(workspace->to_json());
+            nodes.push_back(workspace->to_json(is_focused));
     }
 
     return {
@@ -542,7 +522,7 @@ nlohmann::json MiralWrapperOutput::to_json() const
         { "layout",               "output"                               },
         { "orientation",          "none"                                 },
         { "visible",              true                                   },
-        { "focused",              output_manager->focused() == this      },
+        { "focused",              is_focused                             },
         { "urgent",               false                                  },
         { "border",               "none"                                 },
         { "current_border_width", 0                                      },

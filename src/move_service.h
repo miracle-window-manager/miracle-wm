@@ -31,13 +31,13 @@ class OutputManager;
 class MoveService
 {
 public:
-    MoveService(CommandController&, std::shared_ptr<Config> const&, OutputManager*);
+    MoveService(std::shared_ptr<CommandController> const&, std::shared_ptr<Config> const&, std::shared_ptr<OutputManager> const& output_manager);
     bool handle_pointer_event(CompositorState& state, float x, float y, MirPointerAction action, uint modifiers);
 
 private:
-    CommandController& command_controller;
+    std::shared_ptr<CommandController> command_controller;
     std::shared_ptr<Config> config;
-    OutputManager* output_manager;
+    std::shared_ptr<OutputManager> output_manager;
 
     float cursor_x = 0;
     float cursor_y = 0;

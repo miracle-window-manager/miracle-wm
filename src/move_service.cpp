@@ -20,16 +20,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "command_controller.h"
 #include "compositor_state.h"
 #include "config.h"
-#include "output.h"
 #include "output_manager.h"
 #include <mir/log.h>
 
 using namespace miracle;
 
 MoveService::MoveService(
-    CommandController& command_controller,
+    std::shared_ptr<CommandController> const& command_controller,
     std::shared_ptr<Config> const& config,
-    OutputManager* output_manager) :
+    std::shared_ptr<OutputManager> const& output_manager) :
     command_controller(command_controller),
     config(config),
     output_manager(output_manager)
@@ -47,7 +46,7 @@ bool MoveService::handle_pointer_event(
     {
         if (action == mir_pointer_action_button_up)
         {
-            command_controller.set_mode(WindowManagerMode::normal);
+            command_controller->set_mode(WindowManagerMode::normal);
             return true;
         }
 
@@ -87,8 +86,8 @@ bool MoveService::handle_pointer_event(
         if (!intersected)
             return false;
 
-        command_controller.set_mode(WindowManagerMode::moving);
-        command_controller.select_container(intersected);
+        command_controller->set_mode(WindowManagerMode::moving);
+        command_controller->select_container(intersected);
         cursor_x = x;
         cursor_y = y;
         return true;

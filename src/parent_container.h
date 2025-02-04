@@ -39,12 +39,11 @@ class ParentContainer : public Container
 {
 public:
     ParentContainer(
-        CompositorState const& state,
-        OutputManager* output_manager,
-        WindowController& window_controller,
+        std::shared_ptr<CompositorState> const& state,
+        std::shared_ptr<WindowController> const& window_controller,
         std::shared_ptr<Config> const& config,
         geom::Rectangle area,
-        Workspace* workspace,
+        WorkspaceInterface* workspace,
         std::shared_ptr<ParentContainer> const& parent,
         bool is_anchored);
     geom::Rectangle get_logical_area() const override;
@@ -93,9 +92,9 @@ public:
     void show() override;
     void hide() override;
     void on_open() override;
-    Workspace* get_workspace() const override;
-    void set_workspace(Workspace* override) override;
-    Output* get_output() const override;
+    WorkspaceInterface* get_workspace() const override;
+    void set_workspace(WorkspaceInterface* override) override;
+    OutputInterface* get_output() const override;
     glm::mat4 get_transform() const override;
     void set_transform(glm::mat4 transform) override;
     glm::mat4 get_workspace_transform() const override;
@@ -124,16 +123,15 @@ public:
     ScratchpadState scratchpad_state() const override;
     void scratchpad_state(ScratchpadState) override;
     LayoutScheme get_layout() const override;
-    nlohmann::json to_json() const override;
+    nlohmann::json to_json(bool is_workspace_visible) const override;
     [[nodiscard]] LayoutScheme get_scheme() const { return scheme; }
 
 private:
-    CompositorState const& state;
-    OutputManager* output_manager;
-    WindowController& window_controller;
+    std::shared_ptr<CompositorState> state;
+    std::shared_ptr<WindowController> window_controller;
     std::shared_ptr<Config> config;
     geom::Rectangle logical_area;
-    Workspace* workspace;
+    WorkspaceInterface* workspace;
     std::weak_ptr<ParentContainer> parent;
     bool is_anchored;
     bool pinned_ = false;

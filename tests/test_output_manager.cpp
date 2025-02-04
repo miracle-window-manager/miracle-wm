@@ -39,29 +39,28 @@ TEST(OutputManagerTest, create_output_success)
     EXPECT_CALL(*mock_factory, create("Output1", 1, mir::geometry::Rectangle {
                                                         { 0,    0    },
                                                         { 1920, 1080 }
-    },
-                                   ::testing::_))
-        .WillOnce(testing::Return(std::unique_ptr<Output>(mock_output))); // Mock return value
+    }))
+        .WillOnce(testing::Return(std::unique_ptr<OutputInterface>(mock_output))); // Mock return value
 
-    static const std::vector<std::shared_ptr<Workspace>> empty_workspaces;
+    static const std::vector<std::shared_ptr<WorkspaceInterface>> empty_workspaces;
     ON_CALL(*mock_output, get_workspaces).WillByDefault(::testing::ReturnRef(empty_workspaces));
 
-    WorkspaceObserverRegistrar workspace_registry;
+    auto workspace_registry = std::make_shared<WorkspaceObserverRegistrar>();
     auto config = std::make_shared<test::StubConfiguration>();
-    OutputManager manager(std::move(mock_factory));
-    auto workspace_manager = std::make_shared<WorkspaceManager>(workspace_registry, config, &manager);
+    auto manager = std::make_shared<OutputManager>(std::move(mock_factory));
+    auto workspace_manager = std::make_shared<WorkspaceManager>(workspace_registry, config, manager);
 
     // Act
-    Output* created_output = manager.create("Output1", 1, {
-                                                              { 0,    0    },
-                                                              { 1920, 1080 }
+    OutputInterface* created_output = manager->create("Output1", 1, {
+                                                                        { 0,    0    },
+                                                                        { 1920, 1080 }
     },
         *workspace_manager);
 
     // Assert
     EXPECT_EQ(created_output, mock_output);
-    ASSERT_EQ(manager.outputs().size(), 1);
-    EXPECT_EQ(manager.outputs()[0].get(), mock_output);
+    ASSERT_EQ(manager->outputs().size(), 1);
+    EXPECT_EQ(manager->outputs()[0].get(), mock_output);
 }
 
 TEST(OutputManagerTest, update_output_area)
@@ -73,9 +72,8 @@ TEST(OutputManagerTest, update_output_area)
     EXPECT_CALL(*mock_factory, create("Output1", 1, mir::geometry::Rectangle {
                                                         { 0,    0    },
                                                         { 1920, 1080 }
-    },
-                                   ::testing::_))
-        .WillOnce(testing::Return(std::unique_ptr<Output>(mock_output)));
+    }))
+        .WillOnce(testing::Return(std::unique_ptr<OutputInterface>(mock_output)));
 
     ON_CALL(*mock_output, id())
         .WillByDefault(testing::Return(1));
@@ -84,25 +82,25 @@ TEST(OutputManagerTest, update_output_area)
                                   { 1280, 720 }
     }));
 
-    static const std::vector<std::shared_ptr<Workspace>> empty_workspaces;
+    static const std::vector<std::shared_ptr<WorkspaceInterface>> empty_workspaces;
     ON_CALL(*mock_output, get_workspaces).WillByDefault(::testing::ReturnRef(empty_workspaces));
 
-    WorkspaceObserverRegistrar workspace_registry;
+    auto workspace_registry = std::make_shared<WorkspaceObserverRegistrar>();
     auto config = std::make_shared<test::StubConfiguration>();
-    OutputManager manager(std::move(mock_factory));
-    auto workspace_manager = std::make_shared<WorkspaceManager>(workspace_registry, config, &manager);
+    auto manager = std::make_shared<OutputManager>(std::move(mock_factory));
+    auto workspace_manager = std::make_shared<WorkspaceManager>(workspace_registry, config, manager);
 
     // Create output
-    manager.create("Output1", 1, {
-                                     { 0,    0    },
-                                     { 1920, 1080 }
+    manager->create("Output1", 1, {
+                                      { 0,    0    },
+                                      { 1920, 1080 }
     },
         *workspace_manager);
 
     // Act
-    manager.update(1, {
-                          { 0,    0   },
-                          { 1280, 720 }
+    manager->update(1, {
+                           { 0,    0   },
+                           { 1280, 720 }
     });
 }
 
@@ -115,11 +113,10 @@ TEST(OutputManagerTest, remove_output)
     EXPECT_CALL(*mock_factory, create("Output1", 1, mir::geometry::Rectangle {
                                                         { 0,    0    },
                                                         { 1920, 1080 }
-    },
-                                   ::testing::_))
-        .WillOnce(testing::Return(std::unique_ptr<Output>(mock_output)));
+    }))
+        .WillOnce(testing::Return(std::unique_ptr<OutputInterface>(mock_output)));
 
-    static const std::vector<std::shared_ptr<Workspace>> empty_workspaces;
+    static const std::vector<std::shared_ptr<WorkspaceInterface>> empty_workspaces;
     ON_CALL(*mock_output, get_workspaces).WillByDefault(::testing::ReturnRef(empty_workspaces));
 
     ON_CALL(*mock_output, id())
@@ -127,25 +124,25 @@ TEST(OutputManagerTest, remove_output)
 
     EXPECT_CALL(*mock_output, set_defunct());
 
-    WorkspaceObserverRegistrar workspace_registry;
+    auto workspace_registry = std::make_shared<WorkspaceObserverRegistrar>();
     auto config = std::make_shared<test::StubConfiguration>();
-    OutputManager manager(std::move(mock_factory));
-    auto workspace_manager = std::make_shared<WorkspaceManager>(workspace_registry, config, &manager);
+    auto manager = std::make_shared<OutputManager>(std::move(mock_factory));
+    auto workspace_manager = std::make_shared<WorkspaceManager>(workspace_registry, config, manager);
 
     // Create output
-    manager.create("Output1", 1, {
-                                     { 0,    0    },
-                                     { 1920, 1080 }
+    manager->create("Output1", 1, {
+                                      { 0,    0    },
+                                      { 1920, 1080 }
     },
         *workspace_manager);
-    ASSERT_EQ(manager.outputs().size(), 1);
+    ASSERT_EQ(manager->outputs().size(), 1);
 
     // Act
-    bool removed = manager.remove(1, *workspace_manager);
+    bool removed = manager->remove(1, *workspace_manager);
 
     // Assert
     EXPECT_TRUE(removed);
-    EXPECT_EQ(manager.outputs().size(), 1);
+    EXPECT_EQ(manager->outputs().size(), 1);
 }
 
 TEST(OutputManagerTest, focus_and_unfocus)
@@ -157,38 +154,37 @@ TEST(OutputManagerTest, focus_and_unfocus)
     EXPECT_CALL(*mock_factory, create("Output1", 1, mir::geometry::Rectangle {
                                                         { 0,    0    },
                                                         { 1920, 1080 }
-    },
-                                   ::testing::_))
-        .WillOnce(testing::Return(std::unique_ptr<Output>(mock_output)));
+    }))
+        .WillOnce(testing::Return(std::unique_ptr<OutputInterface>(mock_output)));
     ON_CALL(*mock_output, id())
         .WillByDefault(testing::Return(1));
 
-    static const std::vector<std::shared_ptr<Workspace>> empty_workspaces;
+    static const std::vector<std::shared_ptr<WorkspaceInterface>> empty_workspaces;
     ON_CALL(*mock_output, get_workspaces).WillByDefault(::testing::ReturnRef(empty_workspaces));
 
-    WorkspaceObserverRegistrar workspace_registry;
+    auto workspace_registry = std::make_shared<WorkspaceObserverRegistrar>();
     auto config = std::make_shared<test::StubConfiguration>();
-    OutputManager manager(std::move(mock_factory));
-    auto workspace_manager = std::make_shared<WorkspaceManager>(workspace_registry, config, &manager);
+    auto manager = std::make_shared<OutputManager>(std::move(mock_factory));
+    auto workspace_manager = std::make_shared<WorkspaceManager>(workspace_registry, config, manager);
 
     // Create output
-    manager.create("Output1", 1, {
-                                     { 0,    0    },
-                                     { 1920, 1080 }
+    manager->create("Output1", 1, {
+                                      { 0,    0    },
+                                      { 1920, 1080 }
     },
         *workspace_manager);
 
     // Act
-    bool focused = manager.focus(1);
-    Output* focused_output = manager.focused();
+    bool focused = manager->focus(1);
+    OutputInterface* focused_output = manager->focused();
 
     // Assert
     EXPECT_TRUE(focused);
     EXPECT_EQ(focused_output, mock_output);
 
     // Act: Unfocus
-    bool unfocused = manager.unfocus(1);
-    Output* after_unfocus = manager.focused();
+    bool unfocused = manager->unfocus(1);
+    OutputInterface* after_unfocus = manager->focused();
 
     // Assert
     EXPECT_TRUE(unfocused);
@@ -204,35 +200,34 @@ TEST(OutputManagerTest, remove_focused_output)
     EXPECT_CALL(*mock_factory, create("Output1", 1, mir::geometry::Rectangle {
                                                         { 0,    0    },
                                                         { 1920, 1080 }
-    },
-                                   ::testing::_))
-        .WillOnce(testing::Return(std::unique_ptr<Output>(mock_output)));
+    }))
+        .WillOnce(testing::Return(std::unique_ptr<OutputInterface>(mock_output)));
     ON_CALL(*mock_output, id())
         .WillByDefault(testing::Return(1));
 
-    static const std::vector<std::shared_ptr<Workspace>> empty_workspaces;
+    static const std::vector<std::shared_ptr<WorkspaceInterface>> empty_workspaces;
     ON_CALL(*mock_output, get_workspaces).WillByDefault(::testing::ReturnRef(empty_workspaces));
 
-    WorkspaceObserverRegistrar workspace_registry;
+    auto workspace_registry = std::make_shared<WorkspaceObserverRegistrar>();
     auto config = std::make_shared<test::StubConfiguration>();
-    OutputManager manager(std::move(mock_factory));
-    auto workspace_manager = std::make_shared<WorkspaceManager>(workspace_registry, config, &manager);
+    auto manager = std::make_shared<OutputManager>(std::move(mock_factory));
+    auto workspace_manager = std::make_shared<WorkspaceManager>(workspace_registry, config, manager);
 
     // Create and focus output
-    manager.create("Output1", 1, {
-                                     { 0,    0    },
-                                     { 1920, 1080 }
+    manager->create("Output1", 1, {
+                                      { 0,    0    },
+                                      { 1920, 1080 }
     },
         *workspace_manager);
-    manager.focus(1);
-    ASSERT_EQ(manager.focused(), mock_output);
+    manager->focus(1);
+    ASSERT_EQ(manager->focused(), mock_output);
 
     // Act: Remove focused output
-    bool removed = manager.remove(1, *workspace_manager);
-    Output* focused_output = manager.focused();
+    bool removed = manager->remove(1, *workspace_manager);
+    OutputInterface* focused_output = manager->focused();
 
     // Assert
     EXPECT_TRUE(removed);
     EXPECT_EQ(focused_output, nullptr);
-    EXPECT_TRUE(manager.outputs().size() == 1);
+    EXPECT_TRUE(manager->outputs().size() == 1);
 }

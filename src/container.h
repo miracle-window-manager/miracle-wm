@@ -40,8 +40,8 @@ class Config;
 class LeafContainer;
 class ParentContainer;
 class ContainerGroupContainer;
-class Workspace;
-class Output;
+class WorkspaceInterface;
+class OutputInterface;
 
 enum class ContainerType
 {
@@ -100,9 +100,9 @@ public:
     virtual mir::geometry::Rectangle confirm_placement(
         MirWindowState, mir::geometry::Rectangle const&)
         = 0;
-    virtual Workspace* get_workspace() const = 0;
-    virtual void set_workspace(Workspace*) = 0;
-    virtual Output* get_output() const = 0;
+    virtual WorkspaceInterface* get_workspace() const = 0;
+    virtual void set_workspace(WorkspaceInterface*) = 0;
+    virtual OutputInterface* get_output() const = 0;
     virtual glm::mat4 get_transform() const = 0;
     virtual void set_transform(glm::mat4 transform) = 0;
     virtual glm::mat4 get_workspace_transform() const;
@@ -130,7 +130,7 @@ public:
     virtual void scratchpad_state(ScratchpadState) = 0;
     virtual ScratchpadState scratchpad_state() const = 0;
     virtual LayoutScheme get_layout() const = 0;
-    virtual nlohmann::json to_json() const = 0;
+    virtual nlohmann::json to_json(bool is_workspace_visible) const = 0;
 
     bool is_leaf();
     bool is_lane();

@@ -33,11 +33,9 @@ class LeafContainerTest : public ::testing::Test
 {
 public:
     LeafContainerTest() :
-        config(std::make_shared<test::StubConfiguration>()),
         workspace(std::make_unique<test::MockWorkspace>()),
         parent(std::make_shared<test::MockParentContainer>(
             state,
-            output_manager.get(),
             window_controller,
             config,
             geom::Rectangle {
@@ -53,18 +51,17 @@ public:
             geom::Rectangle { { 0, 0 }, { 400, 300 } },
             config,
             parent,
-            state,
-            output_manager.get()))
+            state))
     {
-        state.add(leaf_container);
+        state->add(leaf_container);
     }
 
 protected:
-    test::MockWindowController window_controller;
-    std::shared_ptr<Config> config;
-    CompositorState state;
+    std::shared_ptr<CompositorState> state = std::make_shared<CompositorState>();
+    std::shared_ptr<test::MockWindowController> window_controller = std::make_shared<test::MockWindowController>();
+    std::shared_ptr<Config> config = std::make_shared<test::StubConfiguration>();
     std::unique_ptr<OutputManager> output_manager = std::make_unique<OutputManager>(std::make_unique<test::MockOutputFactory>());
-    std::unique_ptr<test::MockWorkspace> workspace;
+    std::unique_ptr<WorkspaceInterface> workspace;
     std::shared_ptr<test::MockParentContainer> parent;
     std::shared_ptr<LeafContainer> leaf_container;
 };
@@ -93,7 +90,7 @@ TEST_F(LeafContainerTest, SetsAndGetsLogicalAreaCorrectly)
 
 TEST_F(LeafContainerTest, SetsAndGetsStateCorrectly)
 {
-    EXPECT_CALL(window_controller, change_state(::testing::_, MirWindowState::mir_window_state_fullscreen))
+    EXPECT_CALL(*window_controller, change_state(::testing::_, MirWindowState::mir_window_state_fullscreen))
         .Times(1);
     leaf_container->set_state(MirWindowState::mir_window_state_fullscreen);
     leaf_container->commit_changes();
@@ -108,12 +105,12 @@ TEST_F(LeafContainerTest, SetsAndGetsTreeCorrectly)
 
 TEST_F(LeafContainerTest, CorrectlyReportsIfFocused)
 {
-    state.focus_container(leaf_container);
+    state->focus_container(leaf_container);
     ASSERT_TRUE(leaf_container->is_focused());
 }
 
 TEST_F(LeafContainerTest, CorrectlyReportsIfNotFocused)
 {
-    state.focus_container(nullptr);
+    state->focus_container(nullptr);
     ASSERT_FALSE(leaf_container->is_focused());
 }

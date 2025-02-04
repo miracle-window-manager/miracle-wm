@@ -21,9 +21,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "command_controller.h"
 #include "config.h"
 #include "ipc_command_executor.h"
-#include "output.h"
 #include "version.h"
-#include "workspace.h"
+#include "workspace_interface.h"
 
 #include <fcntl.h>
 #include <mir/log.h>
@@ -115,11 +114,11 @@ json mode_event_to_json(WindowManagerMode mode)
 }
 
 Ipc::Ipc(miral::MirRunner& runner,
-    CommandController& policy,
-    IpcCommandExecutor& executor,
+    std::shared_ptr<CommandController> const& policy,
+    std::unique_ptr<IpcCommandExecutor> executor,
     std::shared_ptr<Config> const& config) :
     policy { policy },
-    executor { executor },
+    executor { std::move(executor) },
     config { config }
 {
     auto ipc_socket_raw = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -257,16 +256,12 @@ Ipc::Ipc(miral::MirRunner& runner,
     });
 }
 
-Ipc::~Ipc()
-{
-}
-
 void Ipc::on_created(uint32_t id)
 {
     json j = {
-        { "change",  "init"                       },
-        { "old",     nullptr                      },
-        { "current", policy.workspace_to_json(id) }
+        { "change",  "init"                        },
+        { "old",     nullptr                       },
+        { "current", policy->workspace_to_json(id) }
     };
 
     auto serialized_value = to_string(j);
@@ -284,8 +279,8 @@ void Ipc::on_created(uint32_t id)
 void Ipc::on_removed(uint32_t id)
 {
     json j = {
-        { "change",  "empty"                      },
-        { "current", policy.workspace_to_json(id) }
+        { "change",  "empty"                       },
+        { "current", policy->workspace_to_json(id) }
     };
 
     auto serialized_value = to_string(j);
@@ -305,12 +300,12 @@ void Ipc::on_focused(
     uint32_t current_id)
 {
     json j = {
-        { "change",  "focus"                              },
-        { "current", policy.workspace_to_json(current_id) }
+        { "change",  "focus"                               },
+        { "current", policy->workspace_to_json(current_id) }
     };
 
     if (previous_id)
-        j["old"] = policy.workspace_to_json(previous_id.value());
+        j["old"] = policy->workspace_to_json(previous_id.value());
     else
         j["old"] = nullptr;
 
@@ -436,13 +431,13 @@ void Ipc::handle_command(miracle::Ipc::IpcClient& client, uint32_t payload_lengt
     }
     case IPC_GET_WORKSPACES:
     {
-        auto json_string = to_string(policy.workspaces_json());
+        auto json_string = to_string(policy->workspaces_json());
         send_reply(client, payload_type, json_string);
         break;
     }
     case IPC_GET_OUTPUTS:
     {
-        auto json_string = to_string(policy.outputs_json());
+        auto json_string = to_string(policy->outputs_json());
         send_reply(client, payload_type, json_string);
         break;
     }
@@ -498,7 +493,7 @@ void Ipc::handle_command(miracle::Ipc::IpcClient& client, uint32_t payload_lengt
     }
     case IPC_GET_TREE:
     {
-        auto json_string = to_string(policy.to_json());
+        auto json_string = to_string(policy->to_json());
         send_reply(client, payload_type, json_string);
         break;
     }
@@ -525,7 +520,7 @@ void Ipc::handle_command(miracle::Ipc::IpcClient& client, uint32_t payload_lengt
     }
     case IPC_GET_BINDING_STATE:
     {
-        send_reply(client, payload_type, to_string(policy.mode_to_json()));
+        send_reply(client, payload_type, to_string(policy->mode_to_json()));
         break;
     }
     case IPC_SEND_TICK:
@@ -647,5 +642,5 @@ IpcValidationResult Ipc::parse_i3_command(const char* command)
 {
     IpcCommandParser parser(command);
     auto const pending_commands = parser.parse();
-    return executor.process(pending_commands);
+    return executor->process(pending_commands);
 }

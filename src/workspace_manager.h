@@ -30,7 +30,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 namespace miracle
 {
 
-class Output;
+class OutputInterface;
 class Config;
 class OutputManager;
 
@@ -40,9 +40,9 @@ class WorkspaceManager
 {
 public:
     WorkspaceManager(
-        WorkspaceObserverRegistrar& registry,
+        std::shared_ptr<WorkspaceObserverRegistrar> const& registry,
         std::shared_ptr<Config> const& config,
-        OutputManager* output_manager);
+        std::shared_ptr<OutputManager> const& output_manager);
     WorkspaceManager(WorkspaceManager const&) = delete;
     virtual ~WorkspaceManager() = default;
 
@@ -55,30 +55,30 @@ public:
     /// \param back_and_forth
     /// \returns true if we focused a new workspace, otherwise false
     bool request_workspace(
-        Output* output_hint,
+        OutputInterface* output_hint,
         int key,
         bool back_and_forth = true);
 
     /// Request the workspace by name.
     bool request_workspace(
-        Output* output_hint,
+        OutputInterface* output_hint,
         std::string const& name,
         bool back_and_forth = true);
 
     /// Returns any available workspace with the lowest numerical value starting with 1.
-    int request_first_available_workspace(Output* output);
+    int request_first_available_workspace(OutputInterface* output);
 
     /// Selects the next workspace after the current selected one.
-    bool request_next(Output* output);
+    bool request_next(OutputInterface* output);
 
     /// Selects the workspace before the current selected one
-    bool request_prev(Output* output);
+    bool request_prev(OutputInterface* output);
 
     bool request_back_and_forth();
 
-    bool request_next_on_output(Output const&);
+    bool request_next_on_output(OutputInterface const&);
 
-    bool request_prev_on_output(Output const&);
+    bool request_prev_on_output(OutputInterface const&);
 
     bool delete_workspace(uint32_t id);
 
@@ -86,29 +86,29 @@ public:
     bool request_focus(uint32_t id);
 
     /// Returns the workspace with the provided [id], if any.
-    Workspace* workspace(uint32_t id) const;
+    WorkspaceInterface* workspace(uint32_t id) const;
 
     /// Builds and returns a sorted array of all active workspaces.
-    std::vector<Workspace const*> workspaces() const;
+    std::vector<WorkspaceInterface const*> workspaces() const;
 
     /// Moves the workspace associated with [id] to the [hint].
-    void move_workspace_to_output(uint32_t id, Output* hint);
+    void move_workspace_to_output(uint32_t id, OutputInterface* hint);
 
     /// The number of default workspaces
     static constexpr int NUM_DEFAULT_WORKSPACES = 10;
 
 private:
-    bool focus_existing(Workspace const*, bool back_and_forth);
+    bool focus_existing(WorkspaceInterface const*, bool back_and_forth);
 
     uint32_t next_id = 0;
 
-    Workspace* workspace(int num) const;
-    Workspace* workspace(std::string const& name) const;
+    WorkspaceInterface* workspace(int num) const;
+    WorkspaceInterface* workspace(std::string const& name) const;
 
-    WorkspaceObserverRegistrar& registry;
+    std::shared_ptr<WorkspaceObserverRegistrar> registry;
     std::shared_ptr<Config> config;
-    OutputManager* output_manager;
-    std::optional<Workspace*> last_selected;
+    std::shared_ptr<OutputManager> output_manager;
+    std::optional<WorkspaceInterface*> last_selected;
 };
 }
 

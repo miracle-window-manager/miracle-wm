@@ -29,18 +29,21 @@ class Config;
 class CompositorState;
 class CommandController;
 class OutputManager;
-class Workspace;
+class WorkspaceInterface;
 
 class DragAndDropService
 {
 public:
-    DragAndDropService(CommandController& command_controller, std::shared_ptr<Config> const& config, OutputManager* output_manager);
+    DragAndDropService(
+        std::shared_ptr<CommandController> const& command_controller,
+        std::shared_ptr<Config> const& config,
+        std::shared_ptr<OutputManager> const& output_manager);
     bool handle_pointer_event(CompositorState& state, float x, float y, MirPointerAction action, uint modifiers);
 
 private:
-    CommandController& command_controller;
+    std::shared_ptr<CommandController> command_controller;
     std::shared_ptr<Config> config;
-    OutputManager* output_manager;
+    std::shared_ptr<OutputManager> output_manager;
 
     float cursor_start_x = 0;
     float cursor_start_y = 0;
@@ -56,7 +59,7 @@ private:
 
     void drag_to(
         std::shared_ptr<Container> const& dragging,
-        Workspace* workspace);
+        WorkspaceInterface* workspace);
 };
 
 } // miracle

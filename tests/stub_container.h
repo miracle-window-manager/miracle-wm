@@ -149,12 +149,12 @@ namespace test
             return {};
         }
 
-        Workspace* get_workspace() const override
+        WorkspaceInterface* get_workspace() const override
         {
             return nullptr;
         }
 
-        Output* get_output() const override
+        OutputInterface* get_output() const override
         {
             return nullptr;
         }
@@ -266,7 +266,7 @@ namespace test
             return LayoutScheme::horizontal;
         }
 
-        nlohmann::json to_json() const override
+        nlohmann::json to_json(bool) const override
         {
             return {};
         }

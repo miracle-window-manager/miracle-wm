@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "compositor_state.h"
 #include "direction.h"
-#include "output.h"
+#include "output_interface.h"
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
@@ -54,15 +54,15 @@ class CommandController
 {
 public:
     CommandController(
-        std::shared_ptr<Config> config,
+        std::shared_ptr<Config> const& config,
         std::recursive_mutex& mutex,
-        CompositorState& state,
-        WindowController& window_controller,
-        WorkspaceManager& workspace_manager,
-        ModeObserverRegistrar& mode_observer_registrar,
+        std::shared_ptr<CompositorState> const& state,
+        std::shared_ptr<WindowController> const& window_controller,
+        std::shared_ptr<WorkspaceManager> const& workspace_manager,
+        std::shared_ptr<ModeObserverRegistrar> const& mode_observer_registrar,
         std::unique_ptr<CommandControllerInterface> interface,
-        Scratchpad& scratchpad,
-        OutputManager* output_manager);
+        std::shared_ptr<Scratchpad> const& scratchpad,
+        std::shared_ptr<OutputManager> const& output_manager);
 
     bool try_request_horizontal();
     bool try_request_vertical();
@@ -87,8 +87,8 @@ public:
     bool next_workspace();
     bool prev_workspace();
     bool back_and_forth_workspace();
-    bool next_workspace_on_output(Output const&);
-    bool prev_workspace_on_output(Output const&);
+    bool next_workspace_on_output(OutputInterface const&);
+    bool prev_workspace_on_output(OutputInterface const&);
     bool move_active_to_workspace(int number, bool back_and_forth = true);
     bool move_active_to_workspace_named(std::string const&, bool back_and_forth);
     bool move_active_to_next_workspace();
@@ -103,7 +103,7 @@ public:
     bool toggle_stacking();
     bool set_layout(LayoutScheme scheme);
     bool set_layout_default();
-    void move_cursor_to_output(Output const&);
+    void move_cursor_to_output(OutputInterface const&);
     bool try_select_next_output();
     bool try_select_prev_output();
     bool try_select_output(Direction direction);
@@ -126,13 +126,13 @@ public:
 private:
     std::shared_ptr<Config> config;
     std::recursive_mutex& mutex;
-    CompositorState& state;
-    WindowController& window_controller;
-    WorkspaceManager& workspace_manager;
-    ModeObserverRegistrar& mode_observer_registrar;
+    std::shared_ptr<CompositorState> state;
+    std::shared_ptr<WindowController> window_controller;
+    std::shared_ptr<WorkspaceManager> workspace_manager;
+    std::shared_ptr<ModeObserverRegistrar> mode_observer_registrar;
     std::unique_ptr<CommandControllerInterface> interface;
-    Scratchpad& scratchpad_;
-    OutputManager* output_manager;
+    std::shared_ptr<Scratchpad> scratchpad_;
+    std::shared_ptr<OutputManager> output_manager;
 
     bool can_move_container() const;
     bool can_set_layout() const;
@@ -140,8 +140,8 @@ private:
     /// Floats the container and returns the new [ParentContainer] of that container.
     std::shared_ptr<ParentContainer> toggle_floating_internal(std::shared_ptr<Container> const& container);
 
-    Output* _next_output_in_list(std::vector<std::string> const& names);
-    Output* _next_output_in_direction(Direction direction);
+    OutputInterface* _next_output_in_list(std::vector<std::string> const& names);
+    OutputInterface* _next_output_in_direction(Direction direction);
 };
 }
 

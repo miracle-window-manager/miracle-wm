@@ -15,32 +15,31 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#include "miral_output_factory.h"
-#include "miral_output.h"
+#include "output_factory.h"
+#include "output.h"
 
 using namespace miracle;
 
 MiralOutputFactory::MiralOutputFactory(
-    CompositorState& state,
+    std::shared_ptr<CompositorState> const& state,
     std::shared_ptr<Config> const& config,
-    WindowController& node_interface,
-    Animator& animator) :
+    std::shared_ptr<WindowController> const& window_controller,
+    std::shared_ptr<Animator> const& animator) :
     state { state },
     config { config },
-    window_controller { node_interface },
+    window_controller { window_controller },
     animator { animator }
 {
 }
 
-std::unique_ptr<Output> MiralOutputFactory::create(
-    std::string name, int id, mir::geometry::Rectangle area, OutputManager* output_manager)
+std::unique_ptr<OutputInterface> MiralOutputFactory::create(
+    std::string name, int id, mir::geometry::Rectangle area)
 {
-    return std::make_unique<MiralWrapperOutput>(
+    return std::make_unique<Output>(
         std::move(name),
         id,
         area,
         state,
-        output_manager,
         config,
         window_controller,
         animator);

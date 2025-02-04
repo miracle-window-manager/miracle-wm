@@ -22,7 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "container_group_container.h"
 #include "leaf_container.h"
-#include "output.h"
+#include "output_interface.h"
 #include "output_manager.h"
 #include "parent_container.h"
 #include "shell_component_container.h"
@@ -94,15 +94,14 @@ std::shared_ptr<Container> foreach_node_internal(
 }
 }
 
-MiralWorkspace::MiralWorkspace(
-    miracle::Output* output,
+Workspace::Workspace(
+    miracle::OutputInterface* output,
     uint32_t id,
     std::optional<int> num,
     std::optional<std::string> name,
     std::shared_ptr<Config> const& config,
-    WindowController& window_controller,
-    CompositorState const& state,
-    OutputManager* output_manager) :
+    std::shared_ptr<WindowController> const& window_controller,
+    std::shared_ptr<CompositorState> const& state) :
     output { output },
     id_ { id },
     num_ { num },
@@ -110,9 +109,8 @@ MiralWorkspace::MiralWorkspace(
     window_controller { window_controller },
     state { state },
     config { config },
-    output_manager { output_manager },
     root(std::make_shared<ParentContainer>(
-        state, output_manager, window_controller, config, output->get_area(), this, nullptr, true))
+        state, window_controller, config, output->get_area(), this, nullptr, true))
 {
     config_handle = config->register_listener([this](auto const&)
     {
@@ -120,18 +118,18 @@ MiralWorkspace::MiralWorkspace(
     });
 }
 
-MiralWorkspace::~MiralWorkspace()
+Workspace::~Workspace()
 {
     config->unregister_listener(config_handle);
 }
 
-void MiralWorkspace::set_area(mir::geometry::Rectangle const& area)
+void Workspace::set_area(mir::geometry::Rectangle const& area)
 {
     root->set_logical_area(area);
     root->commit_changes();
 }
 
-void MiralWorkspace::recalculate_area()
+void Workspace::recalculate_area()
 {
     for (auto const& zone : output->get_app_zones())
     {
@@ -141,7 +139,7 @@ void MiralWorkspace::recalculate_area()
     }
 }
 
-AllocationHint MiralWorkspace::allocate_position(
+AllocationHint Workspace::allocate_position(
     miral::ApplicationInfo const& app_info,
     miral::WindowSpecification& requested_specification,
     AllocationHint const& hint)
@@ -164,7 +162,7 @@ AllocationHint MiralWorkspace::allocate_position(
     }
 }
 
-std::shared_ptr<Container> MiralWorkspace::create_container(
+std::shared_ptr<Container> Workspace::create_container(
     miral::WindowInfo const& window_info,
     AllocationHint const& hint)
 {
@@ -189,11 +187,11 @@ std::shared_ptr<Container> MiralWorkspace::create_container(
     spec.userdata() = container;
     spec.min_width() = mir::geometry::Width(0);
     spec.min_height() = mir::geometry::Height(0);
-    window_controller.modify(window_info.window(), spec);
+    window_controller->modify(window_info.window(), spec);
     return container;
 }
 
-void MiralWorkspace::delete_container(std::shared_ptr<Container> const& container)
+void Workspace::delete_container(std::shared_ptr<Container> const& container)
 {
     switch (container->get_type())
     {
@@ -218,26 +216,26 @@ void MiralWorkspace::delete_container(std::shared_ptr<Container> const& containe
     }
 }
 
-void MiralWorkspace::advise_focus_gained(std::shared_ptr<Container> const& container)
+void Workspace::advise_focus_gained(std::shared_ptr<Container> const& container)
 {
     last_selected_container = container;
 }
 
-void MiralWorkspace::show()
+void Workspace::show()
 {
     root->show();
     for (auto const& floating : floating_trees)
         floating->show();
 }
 
-void MiralWorkspace::hide()
+void Workspace::hide()
 {
     root->hide();
     for (auto const& floating : floating_trees)
         floating->hide();
 }
 
-bool MiralWorkspace::for_each_window(std::function<bool(std::shared_ptr<Container>)> const& f) const
+bool Workspace::for_each_window(std::function<bool(std::shared_ptr<Container>)> const& f) const
 {
     auto _for_each_window = [&](std::shared_ptr<Container> const& node)
     {
@@ -249,7 +247,7 @@ bool MiralWorkspace::for_each_window(std::function<bool(std::shared_ptr<Containe
                 return false;
             }
 
-            auto container = window_controller.get_container(leaf->window().value());
+            auto container = window_controller->get_container(leaf->window().value());
             if (container && f(container))
                 return true;
         }
@@ -269,7 +267,7 @@ bool MiralWorkspace::for_each_window(std::function<bool(std::shared_ptr<Containe
     return false;
 }
 
-void MiralWorkspace::transfer_pinned_windows_to(std::shared_ptr<Workspace> const& other)
+void Workspace::transfer_pinned_windows_to(std::shared_ptr<WorkspaceInterface> const& other)
 {
     for (auto it = floating_trees.begin(); it != floating_trees.end();)
     {
@@ -283,15 +281,15 @@ void MiralWorkspace::transfer_pinned_windows_to(std::shared_ptr<Workspace> const
     }
 }
 
-std::shared_ptr<ParentContainer> MiralWorkspace::create_floating_tree(mir::geometry::Rectangle const& area)
+std::shared_ptr<ParentContainer> Workspace::create_floating_tree(mir::geometry::Rectangle const& area)
 {
     auto floating = std::make_shared<ParentContainer>(
-        state, output_manager, window_controller, config, area, this, nullptr, false);
+        state, window_controller, config, area, this, nullptr, false);
     floating_trees.push_back(floating);
     return floating;
 }
 
-bool MiralWorkspace::move_container(miracle::Direction direction, Container& container)
+bool Workspace::move_container(miracle::Direction direction, Container& container)
 {
     auto traversal_result = handle_move(container, direction);
     switch (traversal_result.traversal_type)
@@ -329,14 +327,14 @@ bool MiralWorkspace::move_container(miracle::Direction direction, Container& con
     return true;
 }
 
-bool MiralWorkspace::add_to_root(Container& to_move)
+bool Workspace::add_to_root(Container& to_move)
 {
     root->graft_existing(to_move.shared_from_this(), root->num_nodes());
     to_move.set_workspace(this);
     return true;
 }
 
-MiralWorkspace::MoveResult MiralWorkspace::handle_move(Container& from, Direction direction)
+Workspace::MoveResult Workspace::handle_move(Container& from, Direction direction)
 {
     // Algorithm:
     //  1. Perform the _select algorithm. If that passes, then we want to be where the selected node
@@ -360,7 +358,6 @@ MiralWorkspace::MoveResult MiralWorkspace::handle_move(Container& from, Directio
 
         auto after_root_lane = std::make_shared<ParentContainer>(
             state,
-            output_manager,
             window_controller,
             config,
             root->get_logical_area(),
@@ -386,10 +383,10 @@ MiralWorkspace::MoveResult MiralWorkspace::handle_move(Container& from, Directio
         };
 }
 
-void MiralWorkspace::select_first_window()
+void Workspace::select_first_window()
 {
     // Check if the selected container is already on this workspace
-    if (state.focused_container() && state.focused_container()->get_workspace() == this)
+    if (state->focused_container() && state->focused_container()->get_workspace() == this)
         return;
 
     // First, try and select the previously selected container if it is still around
@@ -399,7 +396,7 @@ void MiralWorkspace::select_first_window()
         {
             if (container == last_selected_container.lock())
             {
-                window_controller.select_active_window(container->window().value());
+                window_controller->select_active_window(container->window().value());
                 return true;
             }
 
@@ -409,33 +406,33 @@ void MiralWorkspace::select_first_window()
 
     if (!for_each_window([&](std::shared_ptr<Container> const& container)
     {
-        window_controller.select_active_window(container->window().value());
+        window_controller->select_active_window(container->window().value());
         return true;
     }))
     {
         // If all fails, select nothing
-        window_controller.select_active_window(miral::Window {});
+        window_controller->select_active_window(miral::Window {});
     }
 }
 
-Output* MiralWorkspace::get_output() const
+OutputInterface* Workspace::get_output() const
 {
     return output;
 }
 
-void MiralWorkspace::set_output(Output* new_output)
+void Workspace::set_output(OutputInterface* new_output)
 {
     this->output = new_output;
     set_area(output->get_area());
 }
 
-void MiralWorkspace::workspace_transform_change_hack()
+void Workspace::workspace_transform_change_hack()
 {
     // TODO: Ugh, sad. I am forced to set the surface transform so that the surface is rerendered
     for_each_window([&](std::shared_ptr<Container> const& container)
     {
         auto window = container->window();
-        state.render_data_manager()->workspace_transform_change(*container);
+        state->render_data_manager()->workspace_transform_change(*container);
         if (window)
         {
             auto surface = window->operator std::shared_ptr<mir::scene::Surface>();
@@ -446,12 +443,12 @@ void MiralWorkspace::workspace_transform_change_hack()
     });
 }
 
-bool MiralWorkspace::is_empty() const
+bool Workspace::is_empty() const
 {
     return root->num_nodes() == 0 && floating_trees.empty();
 }
 
-void MiralWorkspace::graft(std::shared_ptr<Container> const& container)
+void Workspace::graft(std::shared_ptr<Container> const& container)
 {
     switch (container->get_type())
     {
@@ -481,12 +478,12 @@ void MiralWorkspace::graft(std::shared_ptr<Container> const& container)
     container->set_workspace(this);
 }
 
-std::shared_ptr<ParentContainer> MiralWorkspace::get_layout_container()
+std::shared_ptr<ParentContainer> Workspace::get_layout_container()
 {
-    if (!state.focused_container())
+    if (!state->focused_container())
         return root;
 
-    auto parent = state.focused_container()->get_parent().lock();
+    auto parent = state->focused_container()->get_parent().lock();
     if (!parent)
         return root;
 
@@ -496,7 +493,7 @@ std::shared_ptr<ParentContainer> MiralWorkspace::get_layout_container()
     return parent;
 }
 
-std::string MiralWorkspace::display_name() const
+std::string Workspace::display_name() const
 {
     std::stringstream ss;
     if (num_ && name_)
@@ -511,10 +508,9 @@ std::string MiralWorkspace::display_name() const
     return ss.str();
 }
 
-nlohmann::json MiralWorkspace::to_json() const
+nlohmann::json Workspace::to_json(bool is_output_focused) const
 {
-    bool is_output_focused = output_manager->focused() == output;
-    bool const is_focused = output->active() == this;
+    bool const is_active_on_output = output->active() == this;
 
     // Note: The reported workspace area appears to be the placement
     // area of the root tree.
@@ -523,11 +519,11 @@ nlohmann::json MiralWorkspace::to_json() const
 
     nlohmann::json floating_nodes = nlohmann::json::array();
     for (auto const& container : floating_trees)
-        floating_nodes.push_back(container->to_json());
+        floating_nodes.push_back(container->to_json(is_active_on_output));
 
     nlohmann::json nodes = nlohmann::json::array();
     for (auto const& container : root->get_sub_nodes())
-        nodes.push_back(container->to_json());
+        nodes.push_back(container->to_json(is_active_on_output));
 
     return {
         {
@@ -537,8 +533,8 @@ nlohmann::json MiralWorkspace::to_json() const
         { "id", reinterpret_cast<std::uintptr_t>(this) },
         { "type", "workspace" },
         { "name", display_name() },
-        { "visible", is_output_focused && is_focused },
-        { "focused", is_output_focused && is_focused },
+        { "visible", is_active_on_output },
+        { "focused", is_output_focused && is_active_on_output },
         { "urgent", false },
         { "output", output->name() },
         { "border", "none" },

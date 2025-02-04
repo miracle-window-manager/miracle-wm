@@ -80,10 +80,9 @@ class Ipc : public virtual WorkspaceObserver, public virtual ModeObserver
 {
 public:
     Ipc(miral::MirRunner& runner,
-        CommandController&,
-        IpcCommandExecutor&,
+        std::shared_ptr<CommandController> const&,
+        std::unique_ptr<IpcCommandExecutor>,
         std::shared_ptr<Config> const&);
-    ~Ipc();
 
     void on_created(uint32_t id) override;
     void on_removed(uint32_t id) override;
@@ -103,12 +102,12 @@ private:
         int subscribed_events = 0;
     };
 
-    CommandController& policy;
+    std::shared_ptr<CommandController> policy;
     mir::Fd ipc_socket;
     std::unique_ptr<miral::FdHandle> socket_handle;
     sockaddr_un* ipc_sockaddr = nullptr;
     std::vector<IpcClient> clients;
-    IpcCommandExecutor& executor;
+    std::unique_ptr<IpcCommandExecutor> executor;
     std::shared_ptr<Config> config;
 
     void disconnect(IpcClient& client);

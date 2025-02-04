@@ -44,21 +44,21 @@ class IpcCommandExecutor
 {
 public:
     IpcCommandExecutor(
-        CommandController&,
-        OutputManager*,
-        WorkspaceManager&,
-        CompositorState const&,
+        std::shared_ptr<CommandController> const&,
+        std::shared_ptr<OutputManager> const&,
+        std::shared_ptr<WorkspaceManager> const&,
+        std::shared_ptr<CompositorState> const&,
         AutoRestartingLauncher&,
-        WindowController&);
+        std::shared_ptr<WindowController> const&);
     IpcValidationResult process(IpcParseResult const&);
 
 private:
-    CommandController& policy;
-    OutputManager* output_manager;
-    WorkspaceManager& workspace_manager;
-    CompositorState const& state;
+    std::shared_ptr<CommandController> policy;
+    std::shared_ptr<OutputManager> output_manager;
+    std::shared_ptr<WorkspaceManager> workspace_manager;
+    std::shared_ptr<CompositorState> state;
     AutoRestartingLauncher& launcher;
-    WindowController& window_controller;
+    std::shared_ptr<WindowController> window_controller;
 
     miral::Window get_window_meeting_criteria(IpcParseResult const&);
     IpcValidationResult process_exec(IpcCommand const&, IpcParseResult const&);

@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef MIRACLE_WM_OUTPUT_MANAGER_H
 #define MIRACLE_WM_OUTPUT_MANAGER_H
 
-#include "output_factory.h"
+#include "output_factory_interface.h"
 
 #include <memory>
 #include <mir/geometry/rectangle.h>
@@ -26,31 +26,31 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace miracle
 {
-class Output;
+class OutputInterface;
 class WorkspaceManager;
 
 class OutputManager
 {
 public:
     explicit OutputManager(
-        std::unique_ptr<OutputFactory> output_factory);
+        std::unique_ptr<OutputFactoryInterface> output_factory);
 
-    Output* create(
+    OutputInterface* create(
         std::string name,
         int id,
         mir::geometry::Rectangle area,
         WorkspaceManager& workspace_manager);
     void update(int id, mir::geometry::Rectangle area);
     bool remove(int id, WorkspaceManager& workspace_manager);
-    [[nodiscard]] std::vector<std::unique_ptr<Output>> const& outputs() const;
+    [[nodiscard]] std::vector<std::unique_ptr<OutputInterface>> const& outputs() const;
     bool focus(int id);
     bool unfocus(int id);
-    Output* focused();
+    OutputInterface* focused();
 
 private:
-    std::unique_ptr<OutputFactory> output_factory;
-    std::vector<std::unique_ptr<Output>> outputs_;
-    Output* focused_ = nullptr;
+    std::unique_ptr<OutputFactoryInterface> output_factory;
+    std::vector<std::unique_ptr<OutputInterface>> outputs_;
+    OutputInterface* focused_ = nullptr;
 };
 
 }
