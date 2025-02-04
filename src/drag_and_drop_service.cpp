@@ -148,8 +148,7 @@ void DragAndDropService::drag_to(
     if (!to->is_leaf() || !dragging->is_leaf())
         return;
 
-    auto workspace = to->get_workspace();
-    workspace->move_to_container_position(*dragging, *to);
+    dragging->move_to(*to);
 }
 
 void DragAndDropService::drag_to(

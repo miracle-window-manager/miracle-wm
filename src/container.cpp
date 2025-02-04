@@ -16,6 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
 #define MIR_LOG_COMPONENT "container"
+#define GLM_ENABLE_EXPERIMENTAL
 
 #include "container.h"
 #include "container_group_container.h"
@@ -23,8 +24,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "leaf_container.h"
 #include "output.h"
 #include "parent_container.h"
-#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
+#include <mir/log.h>
 
 using namespace miracle;
 

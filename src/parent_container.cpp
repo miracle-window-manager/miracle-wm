@@ -836,6 +836,11 @@ bool ParentContainer::move_to(int x, int y)
     return true;
 }
 
+bool ParentContainer::move_to(Container& other)
+{
+    return false;
+}
+
 bool ParentContainer::is_fullscreen() const
 {
     return false;

@@ -46,7 +46,6 @@ namespace test
 
         MOCK_METHOD(void, delete_container, (std::shared_ptr<Container> const& container), (override));
         MOCK_METHOD(bool, move_container, (Direction direction, Container&), (override));
-        MOCK_METHOD(bool, move_to_container_position, (Container & to_move, Container& target), (override));
         MOCK_METHOD(void, show, (), (override));
         MOCK_METHOD(void, hide, (), (override));
         MOCK_METHOD(bool, add_to_root, (Container&), (override));

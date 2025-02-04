@@ -165,7 +165,7 @@ TEST_F(DragAndDropServiceTest, can_drag_to_other_container)
     ON_CALL(*other_container, get_workspace())
         .WillByDefault(::testing::Return(workspace.get()));
 
-    EXPECT_CALL(*workspace, move_to_container_position(::testing::_, ::testing::_));
+    EXPECT_CALL(*container_drag, move_to(::testing::_));
 
     service.handle_pointer_event(
         state,

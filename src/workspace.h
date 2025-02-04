@@ -33,8 +33,6 @@ class Config;
 class WindowController;
 class CompositorState;
 class ParentContainer;
-class FloatingWindowContainer;
-class FloatingTreeContainer;
 class OutputManager;
 
 struct AllocationHint
@@ -63,7 +61,6 @@ public:
 
     virtual void delete_container(std::shared_ptr<Container> const& container) = 0;
     virtual bool move_container(Direction direction, Container&) = 0;
-    virtual bool move_to_container_position(Container& to_move, Container& target) = 0;
     virtual bool add_to_root(Container& to_move) = 0;
     virtual void show() = 0;
     virtual void hide() = 0;
@@ -127,7 +124,6 @@ public:
         miral::WindowInfo const& window_info, AllocationHint const& type) override;
     void delete_container(std::shared_ptr<Container> const& container) override;
     bool move_container(Direction direction, Container&) override;
-    bool move_to_container_position(Container& to_move, Container& target) override;
     bool add_to_root(Container& to_move) override;
     void show() override;
     void hide() override;

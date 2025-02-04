@@ -89,6 +89,41 @@ const char* scratchpad_state_to_string(ScratchpadState state)
         return "unknown";
     }
 }
+
+std::shared_ptr<ParentContainer> handle_remove_container(std::shared_ptr<Container> const& container)
+{
+    auto parent = Container::as_parent(container->get_parent().lock());
+    if (parent == nullptr)
+        return nullptr;
+
+    if (parent->num_nodes() == 1 && parent->get_parent().lock())
+    {
+        // Remove the entire parent if this parent is now empty
+        auto prev_active = parent;
+        parent = Container::as_parent(parent->get_parent().lock());
+        parent->remove(prev_active);
+    }
+    else
+    {
+        parent->remove(container);
+    }
+
+    return parent;
+}
+
+std::tuple<std::shared_ptr<ParentContainer>, std::shared_ptr<ParentContainer>> transfer_node(
+    std::shared_ptr<Container> const& node, std::shared_ptr<Container> const& to)
+{
+    // When we remove [node] from its initial position, there's a chance
+    // that the target_lane was melted into another lane. Hence, we need to return it
+    auto to_update = handle_remove_container(node);
+    auto target_parent = Container::as_parent(to->get_parent().lock());
+    auto index = target_parent->get_index_of_node(to);
+    target_parent->graft_existing(node, index + 1);
+    node->set_workspace(target_parent->get_workspace());
+
+    return { target_parent, to_update };
+}
 }
 
 LeafContainer::LeafContainer(
@@ -674,6 +709,32 @@ bool LeafContainer::move_by(float dx, float dy)
     if (auto sh_parent = parent.lock())
         return sh_parent->move_by(dx, dy);
     return false;
+}
+
+/// Move this container to the position of the [target].
+/// \returns true if the move was successful, otherwise false.
+bool LeafContainer::move_to(Container& target)
+{
+    auto target_parent = target.get_parent().lock();
+    if (!target_parent)
+    {
+        mir::log_warning("Unable to move active window: second_window has no second_parent");
+        return false;
+    }
+
+    auto active_parent = Container::as_parent(get_parent().lock());
+    if (active_parent == target_parent)
+    {
+        active_parent->swap_nodes(shared_from_this(), target.shared_from_this());
+        active_parent->commit_changes();
+        return true;
+    }
+
+    // Transfer the node to the new parent.
+    auto [first, second] = transfer_node(shared_from_this(), target.shared_from_this());
+    first->commit_changes();
+    second->commit_changes();
+    return true;
 }
 
 bool LeafContainer::move_to(int x, int y)
