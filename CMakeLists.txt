@@ -15,6 +15,42 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 option(SNAP_BUILD "Building as a snap?" OFF)
 option(SYSTEMD_INTEGRATION "Specifies that the systemd integration script will run at startup" OFF)
+add_compile_options(-Wimplicit-fallthrough)
+
+add_compile_options(
+    -Wall              # Enable most warnings
+    -Wextra            # Additional warnings
+    -Wpedantic         # Enforce strict compliance with the C++ standard
+    # -Werror            # Treat warnings as errors
+    -Wconversion       # Warn on type conversions that may lose data
+    -Wsign-conversion  # Warn on implicit signed-unsigned conversions
+    -Wimplicit-fallthrough  # Warn if switch-case fallthrough is not explicitly marked
+    -Wunreachable-code # Warn about unreachable code
+    -Wno-volatile      # Avoid warnings about volatile usage (C++23 deprecates some volatile features)
+    -Wno-unused-parameter # Disable unused parameter warning
+    #-fanalyzer         # Enable GCC static analyzer
+    #-fmodules-ts       # Enable experimental modules (GCC/Clang)
+)
+
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    add_compile_options(
+        -g                         # Debug symbols
+        #-fsanitize=address,undefined # Address and Undefined Behavior Sanitizer
+        -fno-omit-frame-pointer     # Improve debugging accuracy
+    )
+    add_link_options(
+        -fsanitize=address,undefined
+    )
+endif()
+
+
+if(CMAKE_BUILD_TYPE MATCHES Release)
+    add_compile_options(
+        -O3           # Maximum optimization
+        -march=native # Optimize for the host architecture
+        -flto         # Link-time optimization
+    )
+endif()
 
 find_package(PkgConfig)
 
@@ -46,7 +82,7 @@ add_library(miracle-wm-implementation
     src/window_helpers.cpp
     src/config.cpp
     src/config.h
-        src/output.cpp
+    src/output.cpp
     src/workspace_manager.cpp
     src/ipc.cpp
     src/auto_restarting_launcher.cpp
@@ -62,7 +98,7 @@ add_library(miracle-wm-implementation
     src/ipc_command.cpp
     src/ipc_command_executor.cpp
     src/render_data_manager.cpp
-        src/animator.cpp
+    src/animator.cpp
     src/animation_definition.cpp
     src/program_factory.cpp
     src/mode_observer.cpp
@@ -79,10 +115,10 @@ add_library(miracle-wm-implementation
     src/command_controller.cpp src/command_controller.h
     src/animator_loop.cpp src/animator_loop.h
     src/drag_and_drop_service.cpp src/drag_and_drop_service.h
-        src/output_factory_interface.h
+    src/output_factory_interface.h
     src/output_manager.cpp src/output_manager.h
-        src/output_factory.cpp src/output_factory.cpp
-        src/output.h src/output.cpp
+    src/output_factory.cpp src/output_factory.cpp
+    src/output.h src/output.cpp
     src/move_service.h src/move_service.cpp
 )
 

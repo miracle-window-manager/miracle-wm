@@ -89,13 +89,13 @@ struct AnimationDefinition
     float duration_seconds = 1.f;
 
     // Easing function values
-    float c1 = 1.2;
-    float c2 = 1.83;
-    float c3 = 2.2;
-    float c4 = 2.0943951023931953;
-    float c5 = 1.3962634015954636;
-    float n1 = 7.5625;
-    float d1 = 2.75;
+    float c1 = 1.2f;
+    float c2 = 1.83f;
+    float c3 = 2.2f;
+    float c4 = 2.0943951023931953f;
+    float c5 = 1.3962634015954636f;
+    float n1 = 7.5625f;
+    float d1 = 2.75f;
 };
 
 std::optional<AnimateableEvent> from_string_animateable_event(std::string const&);
