@@ -265,10 +265,6 @@ bool Output::advise_workspace_active(WorkspaceManager& workspace_manager, uint32
     auto from_src = get_workspace_rectangle(from_index);
     from->transfer_pinned_windows_to(to);
 
-    // Show everyone so that we can animate over all workspaces
-    for (auto const& workspace : workspaces)
-        workspace->show();
-
     geom::Rectangle real {
         { geom::X { position_offset.x }, geom::Y { position_offset.y } },
         area.size
@@ -312,6 +308,17 @@ bool Output::advise_workspace_active(WorkspaceManager& workspace_manager, uint32
         this);
 
     animator->append(animation);
+
+    // Show all workspaces so that we can animate over all workspaces.
+    // Important: Make sure that we show _after_ the "append" has
+    // happened so that we are showing with the correct initial
+    // transform.
+    for (auto const& workspace : workspaces)
+    {
+        if (workspace != from)
+            workspace->show();
+    }
+
     return true;
 }
 

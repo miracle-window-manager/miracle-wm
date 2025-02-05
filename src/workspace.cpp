@@ -428,7 +428,10 @@ void Workspace::set_output(OutputInterface* new_output)
 
 void Workspace::workspace_transform_change_hack()
 {
-    // TODO: Ugh, sad. I am forced to set the surface transform so that the surface is rerendered
+    // TODO: This is extra extra slow, especially for animation purposes.
+    //  We should have the [LeafContainer]s in a row and we should probably
+    //  set all container transforms at the same time to avoid taking
+    //  the lock over and over again.
     for_each_window([&](std::shared_ptr<Container> const& container)
     {
         auto window = container->window();
@@ -437,7 +440,15 @@ void Workspace::workspace_transform_change_hack()
         {
             auto surface = window->operator std::shared_ptr<mir::scene::Surface>();
             if (surface)
-                surface->set_transformation(container->get_transform());
+            {
+                // While we don't use this transform in rendering, we do need it
+                // so that the compositor understands which surfaces overlap
+                // and properly obscures them.
+                auto full_transform = container->get_output_transform()
+                    * container->get_workspace_transform()
+                    * container->get_transform();
+                surface->set_transformation(full_transform);
+            }
         }
         return false;
     });

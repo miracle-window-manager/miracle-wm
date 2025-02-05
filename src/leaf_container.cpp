@@ -861,8 +861,6 @@ nlohmann::json LeafContainer::to_json(bool is_workspace_visible) const
     auto const app = window_.application();
     auto const& win_info = window_controller->info_for(window_);
     auto visible_area = get_visible_area();
-    auto workspace = get_workspace();
-    auto output = get_output();
     auto locked_parent = parent.lock();
     bool visible = true;
 

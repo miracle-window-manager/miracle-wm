@@ -41,6 +41,7 @@ ContainerType miracle::container_type_from_string(std::string const& str)
 
 glm::mat4 Container::get_workspace_transform() const
 {
+    // TODO: Cache this transform, right now this is really inefficient.
     auto output = get_output();
     if (!output)
         return glm::mat4(1.f);
