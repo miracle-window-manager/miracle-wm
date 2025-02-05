@@ -465,6 +465,7 @@ void Workspace::graft(std::shared_ptr<Container> const& container)
         parent->set_anchored(false);
         parent->set_workspace(this);
         floating_trees.push_back(parent);
+        break;
     }
     case ContainerType::leaf:
         root->graft_existing(container, root->num_nodes());
