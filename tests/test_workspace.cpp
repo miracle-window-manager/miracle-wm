@@ -36,17 +36,18 @@ namespace
 const float OUTPUT_WIDTH = 1280;
 const float OUTPUT_HEIGHT = 720;
 
-const geom::Rectangle TREE_BOUNDS {
+const geom::Rectangle OUTPUT_SIZE {
     geom::Point(0, 0),
     geom::Size(OUTPUT_WIDTH, OUTPUT_HEIGHT)
 };
 
-const geom::Rectangle OTHER_TREE_BOUNDS {
+const geom::Rectangle OTHER_OUTPUT_SIZE {
     geom::Point(OUTPUT_WIDTH, OUTPUT_HEIGHT),
     geom::Size(OUTPUT_WIDTH, OUTPUT_HEIGHT)
 };
 
 std::vector<std::shared_ptr<WorkspaceInterface>> empty_workspaces;
+std::vector<miral::Zone> empty_app_zones;
 
 std::unique_ptr<test::MockOutput> create_output(geom::Rectangle const& bounds)
 {
@@ -55,6 +56,8 @@ std::unique_ptr<test::MockOutput> create_output(geom::Rectangle const& bounds)
         .WillByDefault(testing::ReturnRef(bounds));
     ON_CALL(*output, get_workspaces())
         .WillByDefault(testing::ReturnRef(empty_workspaces));
+    ON_CALL(*output, get_app_zones())
+        .WillByDefault(testing::ReturnRef(empty_app_zones));
     return output;
 }
 }
@@ -64,7 +67,7 @@ class WorkspaceTest : public testing::Test
 public:
     WorkspaceTest() :
         state(std::make_shared<CompositorState>()),
-        output(create_output(TREE_BOUNDS)),
+        output(create_output(OUTPUT_SIZE)),
         window_controller(std::make_shared<StubWindowController>(pairs)),
         workspace(
             output.get(),
@@ -216,7 +219,7 @@ TEST_F(WorkspaceTest, can_move_container_to_different_parent)
 
 TEST_F(WorkspaceTest, can_move_container_to_container_in_other_tree)
 {
-    auto other_output = create_output(OTHER_TREE_BOUNDS);
+    auto other_output = create_output(OTHER_OUTPUT_SIZE);
     Workspace other(
         other_output.get(),
         1,
@@ -238,7 +241,7 @@ TEST_F(WorkspaceTest, can_move_container_to_container_in_other_tree)
 
 TEST_F(WorkspaceTest, can_move_container_to_tree)
 {
-    auto other_output = create_output(OTHER_TREE_BOUNDS);
+    auto other_output = create_output(OTHER_OUTPUT_SIZE);
     Workspace other(
         other_output.get(),
         1,
@@ -252,7 +255,7 @@ TEST_F(WorkspaceTest, can_move_container_to_tree)
     ASSERT_EQ(leaf1->get_workspace(), &workspace);
     ASSERT_TRUE(other.add_to_root(*leaf1));
     ASSERT_EQ(leaf1->get_workspace(), &other);
-    ASSERT_EQ(leaf1->get_logical_area(), OTHER_TREE_BOUNDS);
+    ASSERT_EQ(leaf1->get_logical_area(), OTHER_OUTPUT_SIZE);
 }
 
 TEST_F(WorkspaceTest, dragged_windows_do_not_change_their_position_when_a_new_window_is_added)
@@ -274,4 +277,37 @@ TEST_F(WorkspaceTest, dragged_windows_are_unconstrained)
     leaf1->drag(100, 100);
     leaf1->drag_stop();
     ASSERT_EQ(window_controller->get_window_data(leaf1).clip, leaf1->get_visible_area());
+}
+
+TEST_F(WorkspaceTest, workspace_bounds_are_initialized_to_output_size_when_no_app_zones_are_present)
+{
+    // Assert that the first tree (w/o app zones) is equal to the output size.
+    ASSERT_EQ(workspace.get_root()->get_logical_area(), OUTPUT_SIZE);
+}
+
+TEST_F(WorkspaceTest, workspace_bounds_are_initialized_to_first_zone_size_when_app_zones_are_present)
+{
+    auto output = std::make_unique<testing::NiceMock<test::MockOutput>>();
+    ON_CALL(*output, get_area())
+        .WillByDefault(testing::ReturnRef(OTHER_OUTPUT_SIZE));
+    ON_CALL(*output, get_workspaces())
+        .WillByDefault(testing::ReturnRef(empty_workspaces));
+
+    mir::geometry::Rectangle const zone_bounds(
+        mir::geometry::Point(100, 100),
+        mir::geometry::Size(500, 500));
+    std::vector<miral::Zone> zones = { miral::Zone(zone_bounds) };
+    ON_CALL(*output, get_app_zones())
+        .WillByDefault(testing::ReturnRef(zones));
+    Workspace other(
+        output.get(),
+        1,
+        1,
+        "1",
+        std::make_shared<test::StubConfiguration>(),
+        window_controller,
+        state);
+
+    // Assert that the first tree (w/o app zones) is equal to the output size.
+    ASSERT_EQ(other.get_root()->get_logical_area(), zone_bounds);
 }
