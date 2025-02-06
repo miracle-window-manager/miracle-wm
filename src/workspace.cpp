@@ -92,6 +92,15 @@ std::shared_ptr<Container> foreach_node_internal(
 
     return nullptr;
 }
+
+geom::Rectangle get_output_area(OutputInterface const* output)
+{
+    auto const& zones = output->get_app_zones();
+    if (!zones.empty())
+        return zones[0].extents();
+
+    return output->get_area();
+}
 }
 
 Workspace::Workspace(
@@ -110,7 +119,7 @@ Workspace::Workspace(
     state { state },
     config { config },
     root(std::make_shared<ParentContainer>(
-        state, window_controller, config, output->get_area(), this, nullptr, true))
+        state, window_controller, config, get_output_area(output), this, nullptr, true))
 {
     config_handle = config->register_listener([this](auto const&)
     {
@@ -131,12 +140,8 @@ void Workspace::set_area(mir::geometry::Rectangle const& area)
 
 void Workspace::recalculate_area()
 {
-    for (auto const& zone : output->get_app_zones())
-    {
-        root->set_logical_area(zone.extents());
-        root->commit_changes();
-        break;
-    }
+    root->set_logical_area(get_output_area(output));
+    root->commit_changes();
 }
 
 AllocationHint Workspace::allocate_position(
