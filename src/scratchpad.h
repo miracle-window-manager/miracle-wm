@@ -45,7 +45,7 @@ public:
 
     bool move_to(std::shared_ptr<Container> const&);
     bool remove(std::shared_ptr<Container> const&);
-    bool toggle_show(std::shared_ptr<Container>&);
+    bool toggle_show(std::shared_ptr<Container> const&);
     bool toggle_show_all();
     bool contains(std::shared_ptr<Container> const&);
     bool is_showing(std::shared_ptr<Container> const&);

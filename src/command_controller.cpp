@@ -515,20 +515,6 @@ bool CommandController::move_to_scratchpad()
 
     // Only floating or tiled windows can be moved to the scratchpad
     auto container = state->focused_container();
-    if (container->get_type() != ContainerType::leaf)
-    {
-        mir::log_error("move_to_scratchpad: cannot move window to scratchpad: %d", static_cast<int>(container->get_type()));
-        return false;
-    }
-
-    // If the window isn't floating already, we should make it floating
-    if (container->anchored())
-        container = toggle_floating_internal(container);
-
-    // Remove it from its current workspace since it is no longer wanted there
-    if (auto workspace = container->get_workspace())
-        workspace->delete_container(container);
-
     return scratchpad_->move_to(container);
 }
 
