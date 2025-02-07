@@ -38,6 +38,7 @@ add_executable(miracle-wm-tests
     test_output_manager.cpp
     test_leaf_container.cpp
     test_scratchpad.cpp
+    test_command_controller.cpp
     stub_configuration.h
     stub_session.h
     stub_surface.h
