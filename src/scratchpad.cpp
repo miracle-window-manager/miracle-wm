@@ -35,8 +35,19 @@ Scratchpad::Scratchpad(std::shared_ptr<WindowController> const& window_controlle
 
 bool Scratchpad::move_to(std::shared_ptr<Container> const& container)
 {
+    if (container->get_type() != ContainerType::leaf)
+    {
+        mir::log_error("move_to_scratchpad: cannot move window to scratchpad: %d", static_cast<int>(container->get_type()));
+        return false;
+    }
+
+    // Remove it from its current workspace since it is no longer wanted there
+    if (auto workspace = container->get_workspace())
+        workspace->delete_container(container);
+
     items.push_back({ container, false });
     container->scratchpad_state(ScratchpadState::fresh);
+    container->set_workspace(nullptr);
     container->hide();
     return true;
 }
@@ -61,17 +72,19 @@ void Scratchpad::toggle(ScratchpadItem& other)
         auto output_extents = output_manager->focused()->get_area();
         other.container->show();
         miral::WindowSpecification spec;
+        spec.depth_layer() = mir_depth_layer_above;
         spec.top_left() = {
             output_extents.top_left.x.as_int() + (output_extents.size.width.as_int() - window.size().width.as_int()) / 2.f,
             output_extents.top_left.y.as_int() + (output_extents.size.height.as_int() - window.size().height.as_int()) / 2.f,
         };
         window_controller->modify(window, spec);
+        window_controller->noclip(window);
     }
     else
         other.container->hide();
 }
 
-bool Scratchpad::toggle_show(std::shared_ptr<Container>& container)
+bool Scratchpad::toggle_show(std::shared_ptr<Container> const& container)
 {
     for (auto& other : items)
     {

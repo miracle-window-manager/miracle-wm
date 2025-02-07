@@ -445,7 +445,7 @@ bool LeafContainer::toggle_fullscreen()
     else
     {
         next_state = mir_window_state_fullscreen;
-        next_depth_layer = mir_depth_layer_always_on_top;
+        next_depth_layer = mir_depth_layer_above;
         window_controller->select_active_window(window_);
         window_controller->raise(window_);
     }
@@ -572,6 +572,9 @@ void LeafContainer::set_workspace(miracle::WorkspaceInterface* in)
 
 OutputInterface* LeafContainer::get_output() const
 {
+    if (!workspace)
+        return nullptr;
+
     return workspace->get_output();
 }
 
