@@ -416,6 +416,9 @@ bool CommandController::move_active_to_workspace(int number, bool back_and_forth
         return false;
 
     auto container = state->focused_container();
+    if (container->get_workspace()->num() == number)
+        return false;
+
     container->get_output()->delete_container(container);
     state->unfocus_container(container);
 
@@ -438,6 +441,9 @@ bool CommandController::move_active_to_workspace_named(std::string const& name, 
         return false;
 
     auto container = state->focused_container();
+    if (container->get_workspace()->name() == name)
+        return false;
+
     container->get_output()->delete_container(container);
     state->unfocus_container(container);
 
