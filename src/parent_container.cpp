@@ -104,6 +104,11 @@ ParentContainer::ParentContainer(
 {
 }
 
+geom::Rectangle ParentContainer::get_area() const
+{
+    return logical_area;
+}
+
 geom::Rectangle ParentContainer::get_logical_area() const
 {
     if (parent.lock() == nullptr)

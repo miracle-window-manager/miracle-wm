@@ -18,37 +18,47 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "compositor_state.h"
 #include "config.h"
 #include "leaf_container.h"
+#include "mir/geometry/forward.h"
 #include "mock_output_factory.h"
 #include "mock_parent_container.h"
 #include "mock_window_controller.h"
 #include "mock_workspace.h"
 #include "output_manager.h"
 #include "stub_configuration.h"
+#include "gmock/gmock.h"
 #include <gtest/gtest.h>
 #include <memory>
 
 using namespace miracle;
+
+namespace
+{
+auto parent_area = geom::Rectangle {
+    { 0,   0   },
+    { 800, 600 }
+};
+}
 
 class LeafContainerTest : public ::testing::Test
 {
 public:
     LeafContainerTest() :
         workspace(std::make_unique<test::MockWorkspace>()),
-        parent(std::make_shared<test::MockParentContainer>(
+        parent(std::make_shared<testing::NiceMock<test::MockParentContainer>>(
             state,
             window_controller,
             config,
-            geom::Rectangle {
-                { 0,   0   },
-                { 800, 600 }
-    },
+            parent_area,
             workspace.get(),
             nullptr,
             true)),
         leaf_container(std::make_shared<LeafContainer>(
             workspace.get(),
             window_controller,
-            geom::Rectangle { { 0, 0 }, { 400, 300 } },
+            geom::Rectangle {
+                { 0,   0   },
+                { 400, 300 }
+    },
             config,
             parent,
             state))
@@ -113,4 +123,72 @@ TEST_F(LeafContainerTest, CorrectlyReportsIfNotFocused)
 {
     state->focus_container(nullptr);
     ASSERT_FALSE(leaf_container->is_focused());
+}
+
+TEST_F(LeafContainerTest, IfParentIsUnanchoredThenParentCanBeResizedLeft)
+{
+    ON_CALL(*parent, anchored())
+        .WillByDefault(testing::Return(false));
+    ON_CALL(*parent, num_nodes())
+        .WillByDefault(testing::Return(1));
+    ON_CALL(*parent, get_area())
+        .WillByDefault(testing::Return(parent_area));
+
+    geom::Rectangle result(
+        geom::Point { 0, 0 },
+        geom::Size { parent_area.size.width.as_int() - 20, parent_area.size.height.as_int() });
+    EXPECT_CALL(*parent, set_logical_area(result, true));
+    EXPECT_CALL(*parent, commit_changes());
+    leaf_container->resize(Direction::left, 20);
+}
+
+TEST_F(LeafContainerTest, IfParentIsUnanchoredThenParentCanBeResizedRight)
+{
+    ON_CALL(*parent, anchored())
+        .WillByDefault(testing::Return(false));
+    ON_CALL(*parent, num_nodes())
+        .WillByDefault(testing::Return(1));
+    ON_CALL(*parent, get_area())
+        .WillByDefault(testing::Return(parent_area));
+
+    geom::Rectangle result(
+        geom::Point { 0, 0 },
+        geom::Size { parent_area.size.width.as_int() + 20, parent_area.size.height.as_int() });
+    EXPECT_CALL(*parent, set_logical_area(result, true));
+    EXPECT_CALL(*parent, commit_changes());
+    leaf_container->resize(Direction::right, 20);
+}
+
+TEST_F(LeafContainerTest, IfParentIsUnanchoredThenParentCanBeResizedUp)
+{
+    ON_CALL(*parent, anchored())
+        .WillByDefault(testing::Return(false));
+    ON_CALL(*parent, num_nodes())
+        .WillByDefault(testing::Return(1));
+    ON_CALL(*parent, get_area())
+        .WillByDefault(testing::Return(parent_area));
+
+    geom::Rectangle result(
+        geom::Point { 0, 0 },
+        geom::Size { parent_area.size.width.as_int(), parent_area.size.height.as_int() - 20 });
+    EXPECT_CALL(*parent, set_logical_area(result, true));
+    EXPECT_CALL(*parent, commit_changes());
+    leaf_container->resize(Direction::up, 20);
+}
+
+TEST_F(LeafContainerTest, IfParentIsUnanchoredThenParentCanBeResizedDown)
+{
+    ON_CALL(*parent, anchored())
+        .WillByDefault(testing::Return(false));
+    ON_CALL(*parent, num_nodes())
+        .WillByDefault(testing::Return(1));
+    ON_CALL(*parent, get_area())
+        .WillByDefault(testing::Return(parent_area));
+
+    geom::Rectangle result(
+        geom::Point { 0, 0 },
+        geom::Size { parent_area.size.width.as_int(), parent_area.size.height.as_int() + 20 });
+    EXPECT_CALL(*parent, set_logical_area(result, true));
+    EXPECT_CALL(*parent, commit_changes());
+    leaf_container->resize(Direction::down, 20);
 }
