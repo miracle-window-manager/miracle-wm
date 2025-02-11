@@ -111,9 +111,11 @@ AllocationHint Output::allocate_position(
     miral::WindowSpecification& requested_specification,
     AllocationHint hint)
 {
-    auto has_exclusive_rect = requested_specification.exclusive_rect().is_set();
-    auto is_attached = requested_specification.attached_edges().is_set();
-    if (has_exclusive_rect || is_attached)
+    auto const has_exclusive_rect = requested_specification.exclusive_rect().is_set();
+    auto const is_attached = requested_specification.attached_edges().is_set();
+    auto const wrong_leaf_state = requested_specification.state() == mir_window_state_hidden
+        || requested_specification.state() == mir_window_state_attached;
+    if (has_exclusive_rect || is_attached || wrong_leaf_state)
         hint.container_type = ContainerType::shell;
     else
     {
