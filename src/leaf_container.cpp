@@ -308,7 +308,23 @@ void LeafContainer::handle_resize(Container* container, Direction direction, int
     bool is_main_axis_movement = (is_vertical && sh_parent->get_direction() == LayoutScheme::vertical)
         || (!is_vertical && sh_parent->get_direction() == LayoutScheme::horizontal);
 
-    if (is_main_axis_movement && sh_parent->num_nodes() == 1)
+    bool is_negative = direction == Direction::left || direction == Direction::up;
+    auto resize_amount = is_negative ? -amount : amount;
+    if (!sh_parent->anchored() && sh_parent->num_nodes() == 1)
+    {
+        // In this case, we resize are resizing a floating tree with a single container
+        // inside of it, so we'll just set the size of the parent.
+        auto rectangle = sh_parent->get_area();
+        if (is_vertical)
+            rectangle.size.height = geom::Height { rectangle.size.height.as_int() + resize_amount };
+        else
+            rectangle.size.width = geom::Width { rectangle.size.width.as_int() + resize_amount };
+
+        sh_parent->set_logical_area(rectangle);
+        sh_parent->commit_changes();
+        return;
+    }
+    else if (is_main_axis_movement && sh_parent->num_nodes() == 1)
     {
         // Can't resize if we only have ourselves!
         return;
@@ -320,8 +336,6 @@ void LeafContainer::handle_resize(Container* container, Direction direction, int
         return;
     }
 
-    bool is_negative = direction == Direction::left || direction == Direction::up;
-    auto resize_amount = is_negative ? -amount : amount;
     auto nodes = sh_parent->get_sub_nodes();
     std::vector<geom::Rectangle> pending_node_resizes;
     if (is_vertical)

@@ -46,9 +46,10 @@ public:
         WorkspaceInterface* workspace,
         std::shared_ptr<ParentContainer> const& parent,
         bool is_anchored);
+    virtual geom::Rectangle get_area() const;
     geom::Rectangle get_logical_area() const override;
     geom::Rectangle get_visible_area() const override;
-    size_t num_nodes() const;
+    virtual size_t num_nodes() const;
     miral::WindowSpecification place_new_window(
         miral::WindowSpecification const& requested_specification);
     std::shared_ptr<LeafContainer> create_space_for_window(int index = -1);
