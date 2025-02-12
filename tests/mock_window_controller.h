@@ -12,7 +12,6 @@ namespace test
     class MockWindowController : public WindowController
     {
     public:
-        MOCK_METHOD(bool, is_fullscreen, (miral::Window const&), (override));
         MOCK_METHOD(void, set_rectangle, (miral::Window const&, geom::Rectangle const&, geom::Rectangle const&, bool), (override));
         MOCK_METHOD(MirWindowState, get_state, (miral::Window const&), (override));
         MOCK_METHOD(void, change_state, (miral::Window const&, MirWindowState), (override));

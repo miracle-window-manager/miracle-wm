@@ -19,6 +19,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "leaf_container.h"
 #include "mir/geometry/forward.h"
+#include "mir_toolkit/common.h"
+#include "miral/window_specification.h"
 #include "mock_output_factory.h"
 #include "mock_parent_container.h"
 #include "mock_window_controller.h"
@@ -68,7 +70,7 @@ public:
 
 protected:
     std::shared_ptr<CompositorState> state = std::make_shared<CompositorState>();
-    std::shared_ptr<test::MockWindowController> window_controller = std::make_shared<test::MockWindowController>();
+    std::shared_ptr<test::MockWindowController> window_controller = std::make_shared<testing::NiceMock<test::MockWindowController>>();
     std::shared_ptr<Config> config = std::make_shared<test::StubConfiguration>();
     std::unique_ptr<OutputManager> output_manager = std::make_unique<OutputManager>(std::make_unique<test::MockOutputFactory>());
     std::unique_ptr<WorkspaceInterface> workspace;
@@ -192,3 +194,33 @@ TEST_F(LeafContainerTest, IfParentIsUnanchoredThenParentCanBeResizedDown)
     EXPECT_CALL(*parent, commit_changes());
     leaf_container->resize(Direction::down, 20);
 }
+
+namespace
+{
+bool has_restored_state(miral::WindowSpecification const& spec)
+{
+    return spec.state().is_set() && spec.state().value() == mir_window_state_restored;
+}
+}
+
+class LeafContainerMaximizedTest : public LeafContainerTest, public ::testing::WithParamInterface<MirWindowState>
+{
+};
+
+TEST_P(LeafContainerMaximizedTest, CannotMaximizeWindowInHandleModify)
+{
+    MirWindowState state = GetParam();
+    ON_CALL(*parent, anchored())
+        .WillByDefault(testing::Return(false));
+
+    miral::WindowSpecification spec;
+    spec.state() = state;
+
+    EXPECT_CALL(*window_controller, modify(miral::Window {}, testing::Truly(has_restored_state)));
+    leaf_container->handle_modify(spec);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    LeafContainerMaximizedTest,
+    LeafContainerMaximizedTest,
+    ::testing::Values(mir_window_state_maximized, mir_window_state_vertmaximized, mir_window_state_horizmaximized));
