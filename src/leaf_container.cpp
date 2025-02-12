@@ -243,45 +243,43 @@ size_t LeafContainer::get_min_height() const
 
 void LeafContainer::handle_ready()
 {
-    constrain();
-    if (!state->focused_container() || !state->focused_container()->is_fullscreen())
-    {
-        auto& info = window_controller->info_for(window_);
-        if (info.can_be_active())
-            window_controller->select_active_window(window_);
-    }
-
-    if (window_controller->is_fullscreen(window_))
-        toggle_fullscreen();
+    auto& info = window_controller->info_for(window_);
+    if (info.can_be_active())
+        window_controller->select_active_window(window_);
 }
 
 void LeafContainer::handle_modify(miral::WindowSpecification const& modifications)
 {
-    auto const& info = window_controller->info_for(window_);
-
+    /// Note: This request comes from the client, so we may accept or ignore whatever
+    /// it is that we find here.
     auto mods = modifications;
+
     if (mods.size().is_set())
         window_controller->set_size_hack(animation_handle_, mods.size().value());
 
-    if (mods.state().is_set() && mods.state().value() != info.state())
+    auto visible_area = get_visible_area();
+    auto state = window_controller->get_state(window_);
+    if (mods.state().is_set())
     {
-        set_state(mods.state().value());
-        commit_changes();
-
+        state = mods.state().value();
+        /// If the next state is fullscreen, adjust the depth layer.
         if (window_helpers::is_window_fullscreen(mods.state().value()))
-        {
-            window_controller->select_active_window(window_);
-            window_controller->raise(window_);
-        }
+            mods.depth_layer() = mir_depth_layer_above;
         else if (mods.state().value() == mir_window_state_restored)
         {
-            auto active = state->focused_container();
-            if (active && active->window() == window_)
-            {
-                set_logical_area(get_logical_area());
-                commit_changes();
-            }
+            /// If the next state if restored, set the area and depth layer.
+            mods.top_left() = visible_area.top_left;
+            mods.size() = visible_area.size;
+            mods.depth_layer() = !parent.lock()->anchored() ? mir_depth_layer_above : mir_depth_layer_application;
         }
+    }
+
+    if (state == mir_window_state_restored)
+    {
+        if (mods.size().is_set() && mods.size().value() != visible_area.size)
+            mods.size().consume();
+        if (mods.top_left().is_set() && mods.top_left().value() != visible_area.top_left)
+            mods.top_left().consume();
     }
 
     window_controller->modify(window_, mods);
@@ -455,13 +453,12 @@ bool LeafContainer::toggle_fullscreen()
     {
         next_state = mir_window_state_restored;
         next_depth_layer = !parent.lock()->anchored() ? mir_depth_layer_above : mir_depth_layer_application;
+        next_logical_area = get_visible_area();
     }
     else
     {
         next_state = mir_window_state_fullscreen;
         next_depth_layer = mir_depth_layer_above;
-        window_controller->select_active_window(window_);
-        window_controller->raise(window_);
     }
 
     commit_changes();
@@ -505,7 +502,6 @@ void LeafContainer::commit_changes()
     if (next_state)
     {
         window_controller->change_state(window_, next_state.value());
-        constrain();
         next_state.reset();
     }
 
@@ -532,6 +528,8 @@ void LeafContainer::commit_changes()
             next_with_animations = true;
         }
     }
+
+    constrain();
 }
 
 void LeafContainer::handle_request_move(MirInputEvent const* input_event)
