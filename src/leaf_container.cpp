@@ -173,7 +173,9 @@ void LeafContainer::set_parent(std::shared_ptr<ParentContainer> const& in_parent
     parent = in_parent;
 
     miral::WindowSpecification spec;
-    spec.depth_layer() = !in_parent->anchored() ? mir_depth_layer_above : mir_depth_layer_application;
+    spec.depth_layer() = get_depth_layer(
+        window_controller->is_fullscreen(window_),
+        in_parent->anchored());
     window_controller->modify(window_, spec);
 }
 
@@ -262,15 +264,15 @@ void LeafContainer::handle_modify(miral::WindowSpecification const& modification
     if (mods.state().is_set())
     {
         state = mods.state().value();
-        /// If the next state is fullscreen, adjust the depth layer.
-        if (window_helpers::is_window_fullscreen(mods.state().value()))
-            mods.depth_layer() = mir_depth_layer_above;
-        else if (mods.state().value() == mir_window_state_restored)
+        mods.depth_layer() = get_depth_layer(
+            window_helpers::is_window_fullscreen(mods.state().value()),
+            parent.lock()->anchored());
+
+        if (mods.state().value() == mir_window_state_restored)
         {
             /// If the next state if restored, set the area and depth layer.
             mods.top_left() = visible_area.top_left;
             mods.size() = visible_area.size;
-            mods.depth_layer() = !parent.lock()->anchored() ? mir_depth_layer_above : mir_depth_layer_application;
         }
     }
 
@@ -452,14 +454,16 @@ bool LeafContainer::toggle_fullscreen()
     if (window_controller->is_fullscreen(window_))
     {
         next_state = mir_window_state_restored;
-        next_depth_layer = !parent.lock()->anchored() ? mir_depth_layer_above : mir_depth_layer_application;
-        next_logical_area = get_visible_area();
+        next_logical_area = get_logical_area();
     }
     else
     {
         next_state = mir_window_state_fullscreen;
-        next_depth_layer = mir_depth_layer_above;
     }
+
+    next_depth_layer = get_depth_layer(
+        next_state == mir_window_state_fullscreen,
+        parent.lock()->anchored());
 
     commit_changes();
     return true;
@@ -870,6 +874,15 @@ LayoutScheme LeafContainer::get_layout() const
 
     return LayoutScheme::none;
 }
+
+MirDepthLayer LeafContainer::get_depth_layer(bool is_fullscreen, bool is_anchored)
+{
+    if (is_fullscreen)
+        return mir_depth_layer_above;
+    else
+        return !is_fullscreen ? mir_depth_layer_above : mir_depth_layer_application;
+}
+
 
 nlohmann::json LeafContainer::to_json(bool is_workspace_visible) const
 {
