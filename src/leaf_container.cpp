@@ -263,6 +263,18 @@ void LeafContainer::handle_modify(miral::WindowSpecification const& modification
     auto state = window_controller->get_state(window_);
     if (mods.state().is_set())
     {
+        // We will not respect any request for a maximized window. Only fullscreen is valid.
+        switch (mods.state().value())
+        {
+        case mir_window_state_maximized:
+        case mir_window_state_horizmaximized:
+        case mir_window_state_vertmaximized:
+            mods.state() = mir_window_state_restored;
+            break;
+        default:
+            break;
+        }
+
         state = mods.state().value();
         mods.depth_layer() = get_depth_layer(
             mods.state().value() == mir_window_state_fullscreen,
