@@ -245,9 +245,12 @@ size_t LeafContainer::get_min_height() const
 
 void LeafContainer::handle_ready()
 {
-    auto& info = window_controller->info_for(window_);
-    if (info.can_be_active())
-        window_controller->select_active_window(window_);
+    if (state->focused_container() == nullptr || !state->focused_container()->is_fullscreen())
+    {
+        auto& info = window_controller->info_for(window_);
+        if (info.can_be_active())
+            window_controller->select_active_window(window_);
+    }
 }
 
 void LeafContainer::handle_modify(miral::WindowSpecification const& modifications)
@@ -301,7 +304,6 @@ void LeafContainer::handle_modify(miral::WindowSpecification const& modification
 
 void LeafContainer::handle_raise()
 {
-    window_controller->select_active_window(window_);
 }
 
 bool LeafContainer::resize(miracle::Direction direction, int pixels)
@@ -648,8 +650,11 @@ ContainerType LeafContainer::get_type() const
     return ContainerType::leaf;
 }
 
-bool LeafContainer::select_next(miracle::Direction direction)
+bool LeafContainer::select_next(Direction direction)
 {
+    if (is_fullscreen())
+        return false;
+
     auto next = handle_select(*this, direction);
     if (!next)
     {
@@ -892,7 +897,7 @@ MirDepthLayer LeafContainer::get_depth_layer(bool is_fullscreen, bool is_anchore
     if (is_fullscreen)
         return mir_depth_layer_above;
     else
-        return !is_fullscreen ? mir_depth_layer_above : mir_depth_layer_application;
+        return !is_anchored ? mir_depth_layer_always_on_top : mir_depth_layer_application;
 }
 
 nlohmann::json LeafContainer::to_json(bool is_workspace_visible) const
