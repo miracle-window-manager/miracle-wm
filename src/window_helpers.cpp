@@ -18,18 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MIR_LOG_COMPONENT "window_helpers"
 
 #include "window_helpers.h"
-#include "container.h"
 #include "leaf_container.h"
-
-#include <mir/log.h>
-
-bool miracle::window_helpers::is_window_fullscreen(MirWindowState state)
-{
-    return state == mir_window_state_fullscreen
-        || state == mir_window_state_maximized
-        || state == mir_window_state_horizmaximized
-        || state == mir_window_state_vertmaximized;
-}
 
 miral::WindowSpecification miracle::window_helpers::copy_from(miral::WindowInfo const& info)
 {

@@ -43,7 +43,6 @@ public:
         std::shared_ptr<mir::ServerActionQueue> const& server_action_queue,
         Policy* policy);
     void open(miral::Window const&) override;
-    bool is_fullscreen(miral::Window const&) override;
     void set_rectangle(miral::Window const&, geom::Rectangle const&, geom::Rectangle const&, bool with_animations = true) override;
     MirWindowState get_state(miral::Window const&) override;
     void change_state(miral::Window const&, MirWindowState state) override;

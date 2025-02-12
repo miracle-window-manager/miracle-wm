@@ -174,7 +174,7 @@ void LeafContainer::set_parent(std::shared_ptr<ParentContainer> const& in_parent
 
     miral::WindowSpecification spec;
     spec.depth_layer() = get_depth_layer(
-        window_controller->is_fullscreen(window_),
+        is_fullscreen(),
         in_parent->anchored());
     window_controller->modify(window_, spec);
 }
@@ -227,7 +227,7 @@ geom::Rectangle LeafContainer::get_visible_area() const
 
 void LeafContainer::constrain()
 {
-    if (window_controller->is_fullscreen(window_) || is_dragging_)
+    if (is_fullscreen() || is_dragging_)
         window_controller->noclip(window_);
     else
         window_controller->clip(window_, get_visible_area());
@@ -265,7 +265,7 @@ void LeafContainer::handle_modify(miral::WindowSpecification const& modification
     {
         state = mods.state().value();
         mods.depth_layer() = get_depth_layer(
-            window_helpers::is_window_fullscreen(mods.state().value()),
+            mods.state().value() == mir_window_state_fullscreen,
             parent.lock()->anchored());
 
         if (mods.state().value() == mir_window_state_restored)
@@ -451,7 +451,7 @@ void LeafContainer::hide()
 
 bool LeafContainer::toggle_fullscreen()
 {
-    if (window_controller->is_fullscreen(window_))
+    if (is_fullscreen())
     {
         next_state = mir_window_state_restored;
         next_logical_area = get_logical_area();
@@ -498,7 +498,7 @@ void LeafContainer::on_move_to(geom::Point const&)
 
 bool LeafContainer::is_fullscreen() const
 {
-    return window_controller->is_fullscreen(window_);
+    return window_controller->get_state(window_) == mir_window_state_fullscreen;
 }
 
 void LeafContainer::commit_changes()
@@ -522,7 +522,7 @@ void LeafContainer::commit_changes()
         auto previous = get_visible_area();
         logical_area = next_logical_area.value();
         next_logical_area.reset();
-        if (!window_controller->is_fullscreen(window_))
+        if (!is_fullscreen())
         {
             auto next_visible_area = get_visible_area();
             if (is_dragging_ && next_visible_area.top_left != dragged_position)
@@ -882,7 +882,6 @@ MirDepthLayer LeafContainer::get_depth_layer(bool is_fullscreen, bool is_anchore
     else
         return !is_fullscreen ? mir_depth_layer_above : mir_depth_layer_application;
 }
-
 
 nlohmann::json LeafContainer::to_json(bool is_workspace_visible) const
 {

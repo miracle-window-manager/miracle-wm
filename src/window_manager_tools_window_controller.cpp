@@ -81,12 +81,6 @@ void WindowManagerToolsWindowController::open(miral::Window const& window)
     animator->append(animation);
 }
 
-bool WindowManagerToolsWindowController::is_fullscreen(miral::Window const& window)
-{
-    auto& info = tools.info_for(window);
-    return window_helpers::is_window_fullscreen(info.state());
-}
-
 void WindowManagerToolsWindowController::set_rectangle(
     miral::Window const& window, geom::Rectangle const& from, geom::Rectangle const& to, bool with_animations)
 {
