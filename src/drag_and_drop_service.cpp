@@ -78,7 +78,7 @@ bool DragAndDropService::handle_pointer_event(CompositorState& state, float x, f
 
         if (output_manager->focused()->active()->is_empty())
         {
-            drag_to(state.focused_container(), output_manager->focused()->active());
+            drag_to(state.focused_container(), output_manager->focused()->active().get());
             return true;
         }
 

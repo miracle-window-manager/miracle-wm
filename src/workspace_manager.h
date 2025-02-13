@@ -89,7 +89,7 @@ public:
     WorkspaceInterface* workspace(uint32_t id) const;
 
     /// Builds and returns a sorted array of all active workspaces.
-    std::vector<WorkspaceInterface const*> workspaces() const;
+    std::vector<std::shared_ptr<WorkspaceInterface>> workspaces() const;
 
     /// Moves the workspace associated with [id] to the [hint].
     void move_workspace_to_output(uint32_t id, OutputInterface* hint);
@@ -108,7 +108,7 @@ private:
     std::shared_ptr<WorkspaceObserverRegistrar> registry;
     std::shared_ptr<Config> config;
     std::shared_ptr<OutputManager> output_manager;
-    std::optional<WorkspaceInterface*> last_selected;
+    std::weak_ptr<WorkspaceInterface> last_selected;
 };
 }
 

@@ -542,7 +542,7 @@ void Policy::handle_modify_window(
     auto const* workspace = container->get_workspace();
     if (workspace)
     {
-        if (workspace != output_manager->focused()->active())
+        if (workspace != output_manager->focused()->active().get())
             return;
     }
     else if (scratchpad_->contains(container) && !scratchpad_->is_showing(container))

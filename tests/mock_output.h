@@ -55,7 +55,7 @@ namespace test
         MOCK_METHOD(void, set_transform, (glm::mat4 const& in), (override));
         MOCK_METHOD(void, set_position, (glm::vec2 const&), (override));
         MOCK_METHOD(std::vector<miral::Window>, collect_all_windows, (), (const, override));
-        MOCK_METHOD(WorkspaceInterface*, active, (), (const, override));
+        MOCK_METHOD(std::shared_ptr<WorkspaceInterface>, active, (), (const, override));
         MOCK_METHOD(std::vector<std::shared_ptr<WorkspaceInterface>> const&, get_workspaces, (), (const, override));
         MOCK_METHOD(geom::Rectangle const&, get_area, (), (const, override));
         MOCK_METHOD(std::vector<miral::Zone> const&, get_app_zones, (), (const, override));

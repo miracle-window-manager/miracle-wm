@@ -60,12 +60,12 @@ Output::~Output()
     animator->remove_by_animation_handle(handle);
 }
 
-WorkspaceInterface* Output::active() const
+std::shared_ptr<WorkspaceInterface> Output::active() const
 {
     if (active_workspace.expired())
         return nullptr;
 
-    return active_workspace.lock().get();
+    return active_workspace.lock();
 }
 
 std::shared_ptr<Container> Output::intersect(float x, float y)
@@ -373,7 +373,12 @@ void Output::on_workspace_animation(
         set_transform(asr.transform.value());
 
     for (auto const& workspace : workspaces)
+    {
+        if (!workspace)
+            continue;
+
         workspace->workspace_transform_change_hack();
+    }
 }
 
 void Output::advise_application_zone_create(miral::Zone const& application_zone)

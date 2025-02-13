@@ -195,7 +195,7 @@ TEST_F(DragAndDropServiceTest, can_drag_to_other_container)
 
     std::shared_ptr<test::MockWorkspace> workspace = std::make_shared<test::MockWorkspace>();
     ON_CALL(*mock_output, active())
-        .WillByDefault(::testing::Return(workspace.get()));
+        .WillByDefault(::testing::Return(workspace));
     ON_CALL(*mock_output, intersect_leaf(::testing::_, ::testing::_, ::testing::_))
         .WillByDefault(::testing::Return(other_container));
     ON_CALL(*workspace, is_empty())

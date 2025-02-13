@@ -527,7 +527,7 @@ std::string Workspace::display_name() const
 
 nlohmann::json Workspace::to_json(bool is_output_focused) const
 {
-    bool const is_active_on_output = output->active() == this;
+    bool const is_active_on_output = output->active().get() == this;
 
     // Note: The reported workspace area appears to be the placement
     // area of the root tree.

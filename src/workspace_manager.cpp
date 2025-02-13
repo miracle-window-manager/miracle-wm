@@ -40,15 +40,15 @@ WorkspaceManager::WorkspaceManager(
 bool WorkspaceManager::focus_existing(WorkspaceInterface const* existing, bool back_and_forth)
 {
     auto const& active_workspace = output_manager->focused()->active();
-    if (active_workspace == existing)
+    if (active_workspace.get() == existing)
     {
-        if (last_selected)
+        if (!last_selected.expired())
         {
             /// If back_and_forth isn't true and we have a last_output, don't visit it.
             if (!back_and_forth)
                 return false;
 
-            return request_focus(last_selected.value()->id());
+            return request_focus(last_selected.lock()->id());
         }
         else
             return false;
@@ -127,7 +127,7 @@ bool WorkspaceManager::request_next(OutputInterface* output)
             if (it == l.end())
                 it = l.begin();
 
-            return focus_existing(*it, false);
+            return focus_existing(it->get(), false);
         }
     }
 
@@ -149,7 +149,7 @@ bool WorkspaceManager::request_prev(OutputInterface* output)
             if (it == l.rend())
                 it = l.rbegin();
 
-            return focus_existing(*it, false);
+            return focus_existing(it->get(), false);
         }
     }
 
@@ -158,9 +158,9 @@ bool WorkspaceManager::request_prev(OutputInterface* output)
 
 bool WorkspaceManager::request_back_and_forth()
 {
-    if (last_selected)
+    if (!last_selected.expired())
     {
-        request_focus(last_selected.value()->id());
+        request_focus(last_selected.lock()->id());
         return true;
     }
 
@@ -176,7 +176,7 @@ bool WorkspaceManager::request_next_on_output(OutputInterface const& output)
     auto const& workspaces = output.get_workspaces();
     for (auto it = workspaces.begin(); it != workspaces.end(); it++)
     {
-        if (it->get() == active)
+        if (*it == active)
         {
             it++;
             if (it == workspaces.end())
@@ -198,7 +198,7 @@ bool WorkspaceManager::request_prev_on_output(OutputInterface const& output)
     auto const& workspaces = output.get_workspaces();
     for (auto it = workspaces.rbegin(); it != workspaces.rend(); it++)
     {
-        if (it->get() == active)
+        if (*it == active)
         {
             it++;
             if (it == workspaces.rend())
@@ -235,16 +235,16 @@ bool WorkspaceManager::request_focus(uint32_t id)
         if (auto current = active_screen->active())
             last_selected = current;
         else
-            last_selected = nullptr;
+            last_selected.reset();
     }
     else
-        last_selected = std::nullopt;
+        last_selected.reset();
 
     // Note: it is important that this is sent before the workspace
     // is activated because 'advise_workspace-active' might remove
     // the workspace if it is empty
-    if (active_screen != nullptr && last_selected.value())
-        registry->advise_focused(last_selected.value()->id(), id);
+    if (active_screen != nullptr && !last_selected.expired())
+        registry->advise_focused(last_selected.lock()->id(), id);
     else
         registry->advise_focused(std::nullopt, id);
 
@@ -295,15 +295,16 @@ WorkspaceInterface* WorkspaceManager::workspace(std::string const& name) const
     return nullptr;
 }
 
-std::vector<WorkspaceInterface const*> WorkspaceManager::workspaces() const
+std::vector<std::shared_ptr<WorkspaceInterface>> WorkspaceManager::workspaces() const
 {
-    std::vector<WorkspaceInterface const*> result;
+    std::vector<std::shared_ptr<WorkspaceInterface>> result;
     for (auto const& output : output_manager->outputs())
     {
         for (auto const& w : output->get_workspaces())
         {
-            auto const* ptr = w.get();
-            insert_sorted(result, ptr, [](WorkspaceInterface const* a, WorkspaceInterface const* b)
+            insert_sorted(result, w, [](
+                std::shared_ptr<WorkspaceInterface> const& a,
+                std::shared_ptr<WorkspaceInterface> const& b)
             {
                 if (a->num() && b->num())
                     return a->num().value() < b->num().value();

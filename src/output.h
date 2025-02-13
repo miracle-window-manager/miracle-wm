@@ -61,7 +61,7 @@ public:
     void unset_defunct() override;
 
     [[nodiscard]] std::vector<miral::Window> collect_all_windows() const override;
-    [[nodiscard]] WorkspaceInterface* active() const override;
+    [[nodiscard]] std::shared_ptr<WorkspaceInterface> active() const override;
     [[nodiscard]] std::vector<std::shared_ptr<WorkspaceInterface>> const& get_workspaces() const override { return workspaces; }
     [[nodiscard]] geom::Rectangle const& get_area() const override { return area; }
     [[nodiscard]] std::vector<miral::Zone> const& get_app_zones() const override { return application_zone_list; }
