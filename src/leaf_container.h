@@ -114,6 +114,7 @@ public:
     static std::shared_ptr<LeafContainer> handle_select(
         Container& from,
         Direction direction);
+    static MirDepthLayer get_depth_layer(bool is_fullscreen, bool is_anchored);
 
 private:
     WorkspaceInterface* workspace;

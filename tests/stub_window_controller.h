@@ -47,34 +47,32 @@ public:
     {
     }
 
-    bool is_fullscreen(miral::Window const&) override
-    {
-        return false;
-    }
-
     void set_rectangle(miral::Window const& window, geom::Rectangle const& from, geom::Rectangle const& to, bool with_animations) override
     {
-        get_window_data(window).rectangle = to;
+        get_window_data(window)->rectangle = to;
     }
 
     MirWindowState get_state(miral::Window const& window) override
     {
-        return get_window_data(window).state;
+        if (auto data = get_window_data(window))
+            return data->state;
+        return mir_window_state_restored;
     }
 
     void change_state(miral::Window const& window, MirWindowState state) override
     {
-        get_window_data(window).state = state;
+        get_window_data(window)->state = state;
     }
 
     void clip(miral::Window const& window, geom::Rectangle const& clip) override
     {
-        get_window_data(window).clip = clip;
+        if (auto data = get_window_data(window))
+            data->clip = clip;
     }
 
     void noclip(miral::Window const& window) override
     {
-        get_window_data(window).clip = std::nullopt;
+        get_window_data(window)->clip = std::nullopt;
     }
 
     void select_active_window(miral::Window const&) override { }
@@ -97,9 +95,9 @@ public:
     void modify(miral::Window const& window, miral::WindowSpecification const& spec) override
     {
         if (spec.top_left())
-            get_window_data(window).rectangle.top_left = spec.top_left().value();
+            get_window_data(window)->rectangle.top_left = spec.top_left().value();
         if (spec.size())
-            get_window_data(window).rectangle.size = spec.size().value();
+            get_window_data(window)->rectangle.size = spec.size().value();
     }
 
     miral::WindowInfo& info_for(miral::Window const& window) override
@@ -146,15 +144,15 @@ private:
     miral::WindowInfo stub_win_info;
     miral::ApplicationInfo stub_app_info;
 
-    StubWindowData& get_window_data(miral::Window const& window)
+    StubWindowData* get_window_data(miral::Window const& window)
     {
         for (auto& p : pairs)
         {
             if (p.window == window)
-                return p;
+                return &p;
         }
 
-        throw std::runtime_error("get_window_data should resolve");
+        return nullptr;
     }
 };
 

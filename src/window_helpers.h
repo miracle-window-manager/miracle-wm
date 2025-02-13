@@ -28,7 +28,6 @@ class LeafContainer;
 
 namespace window_helpers
 {
-    bool is_window_fullscreen(MirWindowState state);
     miral::WindowSpecification copy_from(miral::WindowInfo const&);
 }
 }

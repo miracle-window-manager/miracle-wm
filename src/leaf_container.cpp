@@ -173,7 +173,9 @@ void LeafContainer::set_parent(std::shared_ptr<ParentContainer> const& in_parent
     parent = in_parent;
 
     miral::WindowSpecification spec;
-    spec.depth_layer() = !in_parent->anchored() ? mir_depth_layer_above : mir_depth_layer_application;
+    spec.depth_layer() = get_depth_layer(
+        is_fullscreen(),
+        in_parent->anchored());
     window_controller->modify(window_, spec);
 }
 
@@ -225,7 +227,7 @@ geom::Rectangle LeafContainer::get_visible_area() const
 
 void LeafContainer::constrain()
 {
-    if (window_controller->is_fullscreen(window_) || is_dragging_)
+    if (is_fullscreen() || is_dragging_)
         window_controller->noclip(window_);
     else
         window_controller->clip(window_, get_visible_area());
@@ -243,45 +245,58 @@ size_t LeafContainer::get_min_height() const
 
 void LeafContainer::handle_ready()
 {
-    constrain();
-    if (!state->focused_container() || !state->focused_container()->is_fullscreen())
+    if (state->focused_container() == nullptr || !state->focused_container()->is_fullscreen())
     {
         auto& info = window_controller->info_for(window_);
         if (info.can_be_active())
             window_controller->select_active_window(window_);
     }
-
-    if (window_controller->is_fullscreen(window_))
-        toggle_fullscreen();
 }
 
 void LeafContainer::handle_modify(miral::WindowSpecification const& modifications)
 {
-    auto const& info = window_controller->info_for(window_);
-
+    /// Note: This request comes from the client, so we may accept or ignore whatever
+    /// it is that we find here.
     auto mods = modifications;
+
     if (mods.size().is_set())
         window_controller->set_size_hack(animation_handle_, mods.size().value());
 
-    if (mods.state().is_set() && mods.state().value() != info.state())
+    auto visible_area = get_visible_area();
+    auto state = window_controller->get_state(window_);
+    if (mods.state().is_set())
     {
-        set_state(mods.state().value());
-        commit_changes();
+        // We will not respect any request for a maximized window. Only fullscreen is valid.
+        switch (mods.state().value())
+        {
+        case mir_window_state_maximized:
+        case mir_window_state_horizmaximized:
+        case mir_window_state_vertmaximized:
+            mods.state() = mir_window_state_restored;
+            break;
+        default:
+            break;
+        }
 
-        if (window_helpers::is_window_fullscreen(mods.state().value()))
+        state = mods.state().value();
+        mods.depth_layer() = get_depth_layer(
+            mods.state().value() == mir_window_state_fullscreen,
+            parent.lock()->anchored());
+
+        if (mods.state().value() == mir_window_state_restored)
         {
-            window_controller->select_active_window(window_);
-            window_controller->raise(window_);
+            /// If the next state if restored, set the area and depth layer.
+            mods.top_left() = visible_area.top_left;
+            mods.size() = visible_area.size;
         }
-        else if (mods.state().value() == mir_window_state_restored)
-        {
-            auto active = state->focused_container();
-            if (active && active->window() == window_)
-            {
-                set_logical_area(get_logical_area());
-                commit_changes();
-            }
-        }
+    }
+
+    if (state == mir_window_state_restored)
+    {
+        if (mods.size().is_set() && mods.size().value() != visible_area.size)
+            mods.size().consume();
+        if (mods.top_left().is_set() && mods.top_left().value() != visible_area.top_left)
+            mods.top_left().consume();
     }
 
     window_controller->modify(window_, mods);
@@ -289,7 +304,6 @@ void LeafContainer::handle_modify(miral::WindowSpecification const& modification
 
 void LeafContainer::handle_raise()
 {
-    window_controller->select_active_window(window_);
 }
 
 bool LeafContainer::resize(miracle::Direction direction, int pixels)
@@ -451,18 +465,19 @@ void LeafContainer::hide()
 
 bool LeafContainer::toggle_fullscreen()
 {
-    if (window_controller->is_fullscreen(window_))
+    if (is_fullscreen())
     {
         next_state = mir_window_state_restored;
-        next_depth_layer = !parent.lock()->anchored() ? mir_depth_layer_above : mir_depth_layer_application;
+        next_logical_area = get_logical_area();
     }
     else
     {
         next_state = mir_window_state_fullscreen;
-        next_depth_layer = mir_depth_layer_above;
-        window_controller->select_active_window(window_);
-        window_controller->raise(window_);
     }
+
+    next_depth_layer = get_depth_layer(
+        next_state == mir_window_state_fullscreen,
+        parent.lock()->anchored());
 
     commit_changes();
     return true;
@@ -497,7 +512,7 @@ void LeafContainer::on_move_to(geom::Point const&)
 
 bool LeafContainer::is_fullscreen() const
 {
-    return window_controller->is_fullscreen(window_);
+    return window_controller->get_state(window_) == mir_window_state_fullscreen;
 }
 
 void LeafContainer::commit_changes()
@@ -505,7 +520,6 @@ void LeafContainer::commit_changes()
     if (next_state)
     {
         window_controller->change_state(window_, next_state.value());
-        constrain();
         next_state.reset();
     }
 
@@ -522,7 +536,7 @@ void LeafContainer::commit_changes()
         auto previous = get_visible_area();
         logical_area = next_logical_area.value();
         next_logical_area.reset();
-        if (!window_controller->is_fullscreen(window_))
+        if (!is_fullscreen())
         {
             auto next_visible_area = get_visible_area();
             if (is_dragging_ && next_visible_area.top_left != dragged_position)
@@ -532,6 +546,8 @@ void LeafContainer::commit_changes()
             next_with_animations = true;
         }
     }
+
+    constrain();
 }
 
 void LeafContainer::handle_request_move(MirInputEvent const* input_event)
@@ -634,8 +650,11 @@ ContainerType LeafContainer::get_type() const
     return ContainerType::leaf;
 }
 
-bool LeafContainer::select_next(miracle::Direction direction)
+bool LeafContainer::select_next(Direction direction)
 {
+    if (is_fullscreen())
+        return false;
+
     auto next = handle_select(*this, direction);
     if (!next)
     {
@@ -871,6 +890,14 @@ LayoutScheme LeafContainer::get_layout() const
         return sh_parent->get_layout();
 
     return LayoutScheme::none;
+}
+
+MirDepthLayer LeafContainer::get_depth_layer(bool is_fullscreen, bool is_anchored)
+{
+    if (is_fullscreen)
+        return mir_depth_layer_above;
+    else
+        return !is_anchored ? mir_depth_layer_always_on_top : mir_depth_layer_application;
 }
 
 nlohmann::json LeafContainer::to_json(bool is_workspace_visible) const

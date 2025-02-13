@@ -230,7 +230,25 @@ miral::WindowSpecification ParentContainer::place_new_window(
     new_spec.max_height() = geom::Height { std::numeric_limits<int>::max() };
     new_spec.size() = rect.size;
     new_spec.top_left() = rect.top_left;
-    new_spec.depth_layer() = !anchored() ? mir_depth_layer_above : mir_depth_layer_application;
+
+    if (new_spec.state().is_set())
+    {
+        // We will not respect any request for a maximized window. Only fullscreen is valid.
+        switch (new_spec.state().value())
+        {
+        case mir_window_state_maximized:
+        case mir_window_state_horizmaximized:
+        case mir_window_state_vertmaximized:
+            new_spec.state() = mir_window_state_restored;
+            break;
+        default:
+            break;
+        }
+    }
+
+    new_spec.depth_layer() = LeafContainer::get_depth_layer(
+        new_spec.state().is_set() && new_spec.state() == mir_window_state_fullscreen,
+        anchored());
 
     return new_spec;
 }
